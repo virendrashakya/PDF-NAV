@@ -1,0 +1,143 @@
+<!-- PDF Navigator Widget for ServiceNow Service Portal -->
+<div class="pdf-navigator-container" ng-controller="PdfNavigatorController">
+  <!-- Widget Header -->
+  <div class="widget-header">
+    <h2 class="widget-title">PDF Field Navigator</h2>
+  </div>
+
+  <!-- Main Container -->
+  <div class="pdf-main-container">
+    <!-- Sidebar -->
+    <div class="pdf-sidebar">
+      <!-- PDF Upload Section -->
+      <div class="upload-section" ng-class="{'uploading': isUploading}">
+        <input type="file" accept=".pdf" onchange="angular.element(this).scope().uploadPdf(this.files[0])" style="display: none;" id="pdfFileInput">
+        <label for="pdfFileInput" class="upload-label">
+          <span class="upload-icon">📄</span>
+          <p ng-if="!isUploading"><strong>Upload PDF</strong><br>Click to select file</p>
+          <p ng-if="isUploading"><span class="loading"></span> Loading PDF...</p>
+        </label>
+      </div>
+
+      <!-- JSON Upload Section -->
+      <div class="json-upload-section">
+        <h3>📊 Upload Extracted JSON Data</h3>
+        <input type="file" accept=".json" onchange="angular.element(this).scope().uploadJson(this.files[0])" class="file-input">
+      </div>
+
+      <!-- Statistics -->
+      <div class="stats-info" ng-if="jsonData">
+        <h4>Data Overview</h4>
+        <div>Total Fields: {{getTotalFields()}}</div>
+        <div>Fields with Coordinates: {{getFieldsWithCoordinates()}}</div>
+        <div>Confidence Score: {{getAverageConfidence()}}%</div>
+      </div>
+
+      <!-- JSON Fields Section -->
+      <div class="fields-section" ng-if="jsonData">
+        <h3>🔍 Document Fields</h3>
+        <input type="text" placeholder="Search fields..." ng-model="fieldSearch" class="search-box">
+        
+        <div class="field-item" 
+             ng-repeat="(fieldName, fieldData) in getFilteredFields()" 
+             ng-click="navigateToField(fieldName, fieldData)"
+             ng-class="{'highlight-field': activeField === fieldName}">
+          <div class="field-name">{{formatFieldName(fieldName)}}</div>
+          <div class="field-value" ng-if="fieldData.value">{{fieldData.value | limitTo:80}}{{fieldData.value.length > 80 ? '...' : ''}}</div>
+          <div class="field-confidence" ng-if="fieldData.confidence">Confidence: {{Math.round(fieldData.confidence * 100)}}%</div>
+          <div class="field-spans" ng-if="fieldData.spans && fieldData.spans.length > 0">
+            Spans: {{fieldData.spans.length}} locations
+          </div>
+        </div>
+      </div>
+
+      <!-- Manual Coordinates Section -->
+      <div class="coordinates-section" ng-if="pdfLoaded">
+        <h3>📍 Polygon Navigation</h3>
+        <div class="coordinate-input-group">
+          <div class="page-input">
+            <label>Page</label>
+            <input type="number" placeholder="Page" ng-model="newPolygon.page" min="1" class="form-control">
+          </div>
+          <div class="polygon-coordinates">
+            <div class="point-group">
+              <label>Point 1</label>
+              <input type="number" placeholder="X1" ng-model="newPolygon.x1" step="0.0001" class="form-control">
+              <input type="number" placeholder="Y1" ng-model="newPolygon.y1" step="0.0001" class="form-control">
+            </div>
+            <div class="point-group">
+              <label>Point 2</label>
+              <input type="number" placeholder="X2" ng-model="newPolygon.x2" step="0.0001" class="form-control">
+              <input type="number" placeholder="Y2" ng-model="newPolygon.y2" step="0.0001" class="form-control">
+            </div>
+            <div class="point-group">
+              <label>Point 3</label>
+              <input type="number" placeholder="X3" ng-model="newPolygon.x3" step="0.0001" class="form-control">
+              <input type="number" placeholder="Y3" ng-model="newPolygon.y3" step="0.0001" class="form-control">
+            </div>
+            <div class="point-group">
+              <label>Point 4</label>
+              <input type="number" placeholder="X4" ng-model="newPolygon.x4" step="0.0001" class="form-control">
+              <input type="number" placeholder="Y4" ng-model="newPolygon.y4" step="0.0001" class="form-control">
+            </div>
+          </div>
+          <div class="coordinate-actions">
+            <button class="btn btn-primary" ng-click="addPolygonCoordinate()" 
+                    ng-disabled="!isValidPolygon()">Add Polygon</button>
+            <button class="btn btn-secondary" ng-click="parseCoordinateString()" 
+                    style="margin-top: 10px;">Parse D-String</button>
+          </div>
+          <div class="coordinate-string-input">
+            <input type="text" placeholder='D(page,x1,y1,x2,y2,x3,y3,x4,y4)' 
+                   ng-model="coordinateString" class="form-control">
+          </div>
+        </div>
+
+        <div class="coordinate-list" ng-if="polygons.length > 0">
+          <div class="coordinate-item" ng-repeat="poly in polygons track by $index">
+            <span>Page {{poly.page}} - Polygon {{$index + 1}}</span>
+            <div class="coordinate-actions">
+              <button class="btn btn-success btn-sm" ng-click="navigateToPolygon(poly)" 
+                      style="margin-right: 5px;">Go</button>
+              <button class="btn btn-danger btn-sm" ng-click="removePolygon($index)">×</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="pdf-main-content">
+      <div class="pdf-container">
+        <div ng-if="!pdfLoaded" class="no-pdf">
+          <p>Upload a PDF file to get started!</p>
+          <p style="font-size: 0.9em; margin-top: 10px; color: #666;">
+            Upload your extracted JSON data to navigate to specific document fields automatically.
+          </p>
+        </div>
+        
+        <canvas id="pdfCanvas" ng-if="pdfLoaded" ng-click="captureCoordinate($event)"></canvas>
+        
+        <!-- PDF Controls -->
+        <div class="pdf-controls" ng-if="pdfLoaded">
+          <button class="control-btn" ng-click="zoomIn()" title="Zoom In">🔍+</button>
+          <button class="control-btn" ng-click="zoomOut()" title="Zoom Out">🔍-</button>
+          <button class="control-btn" ng-click="resetZoom()" title="Reset Zoom">⚡</button>
+          <button class="control-btn" ng-click="previousPage()" ng-disabled="currentPage <= 1" title="Previous Page">◀</button>
+          <button class="control-btn" ng-click="nextPage()" ng-disabled="currentPage >= totalPages" title="Next Page">▶</button>
+        </div>
+
+        <!-- Zoom Info -->
+        <div class="zoom-info" ng-if="pdfLoaded">
+          Zoom: {{Math.round(scale * 100)}}% | Page: {{currentPage}}/{{totalPages}}
+          <div ng-if="activeField" style="margin-top: 2px; font-size: 10px;">
+            Field: {{formatFieldName(activeField)}}
+          </div>
+        </div>
+
+        <!-- Coordinate Marker -->
+        <div class="coordinate-marker" ng-if="activeMarker" ng-style="activeMarker"></div>
+      </div>
+    </div>
+  </div>
+</div>

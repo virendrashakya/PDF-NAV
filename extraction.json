@@ -1,0 +1,759 @@
+{
+    "status": "Success",
+    "submission_id": "21345",
+    "extracted_data": {
+        "fields": {
+            "_1_1_Overall_PolicyNumber": {
+                "value": "10234000590000",
+                "confidence": 0.875
+            },
+            "_1_1_Overall_PolicyPeriodFrom": {
+                "value": "2024-04-30",
+                "confidence": 1.0,
+                "reasoning": "The document clearly states the period of insurance as 'From 30th April 2024 to 30th April 2025', indicating the start date as 30th April 2024."
+            },
+            "_1_1_Overall_PolicyPeriodTo": {
+                "value": "2025-04-30",
+                "confidence": 1.0,
+                "reasoning": "The document clearly states the period of insurance as 'From 30th April 2024 to 30th April 2025', indicating the end date as 30th April 2025."
+            },
+            "_1_1_Overall_LeaderCompany": {
+                "value": "PT Asuransi Samsung Tugu",
+                "confidence": 0.84
+            },
+            "_1_1_Overall_PolicyTerritory": {
+                "value": "LocalOnly"
+            },
+            "_1_2_Client_InsuredName": {
+                "value": "PT. KOLON INA",
+                "confidence": 0.967
+            },
+            "_1_2_Client_TradeIndustryCode": {
+                "value": "325992"
+            },
+            "_1_1_Overall_PolicyForm": {
+                "value": "Others"
+            },
+            "_1_1_Overall_PleaseSpecify": {
+                "value": "Property All Risks",
+                "confidence": 0.784
+            },
+            "_1_2_Client_Occupancy": {
+                "value": "Manufacture of film, photographic paper, magnetic tape and celluloid batch adhesive tape",
+                "confidence": 0.754
+            },
+            "_2_3_Total_Sum_Insured_OriginalCurrency": {
+                "value": "USD",
+                "confidence": 0.959
+            },
+            "_2_3_Total_Sum_Insured_PDTotal": {
+                "value": "103,209,579.01"
+            },
+            "_2_3_Total_Sum_Insured_BITotal": {
+                "value": "6,144,000.00"
+            },
+            "_2_3_Total_Sum_Insured_Total": {
+                "value": "109,353,579.01"
+            },
+            "_2_3_Total_Sum_Insured_PDBuilding": {
+                "value": "12,177,597.32",
+                "confidence": 0.875
+            },
+            "_2_3_Total_Sum_Insured_PDMachineryAndEquipment": {
+                "value": "87,707,981.69",
+                "confidence": 0.842
+            },
+            "_2_3_Total_Sum_Insured_PDStockotherthanCIO": {
+                "value": "3,324,000.00",
+                "confidence": 0.845
+            },
+            "_2_3_Total_Sum_Insured_BISumInsured": {
+                "value": "6,144,000.00",
+                "confidence": 0.784
+            },
+            "_2_4_Top_Risk_PDTotal": {
+                "value": "103,209,579.01"
+            },
+            "_2_4_Top_Risk_BITotal": {
+                "value": "6,144,000.00"
+            },
+            "_2_4_Top_Risk_PDBuilding": {
+                "value": "12,177,597.32",
+                "confidence": 0.893
+            },
+            "_2_4_Top_Risk_PDMachineryAndEquipment": {
+                "value": "87,707,981.69",
+                "confidence": 0.947
+            },
+            "_2_4_Top_Risk_PDStockotherthanCIO": {
+                "value": "3,324,000.00",
+                "confidence": 0.937
+            },
+            "_2_4_Top_Risk_BISumInsured": {
+                "value": "6,144,000.00",
+                "confidence": 0.927
+            },
+            "_2_4_Top_Risk_Total": {
+                "value": "109,353,579.01"
+            },
+            "_2_5_MFL_PML_OriginalCurrency": {
+                "value": "USD",
+                "confidence": 0.931
+            },
+            "_2_6_Policy_Limit_AmountOfPolicyLimit": {
+                "value": "109,353,579.01"
+            },
+            "_2_6_Policy_Limit_OriginalCurrency": {
+                "value": "USD",
+                "confidence": 0.931
+            },
+            "_2_6_Policy_Limit_SupplementaryInformation": {
+                "value": "N/A"
+            },
+            "_3_2_Deductibles_Currency": {
+                "value": "USD"
+            },
+            "_3_2_Deductibles_Policy_Deductible_New": {
+                "value": "N/A"
+            },
+            "_3_2_Deductibles_Policy_Deductible_Expiring": {
+                "value": "N/A"
+            },
+            "_3_2_Deductibles_Material_Damage_New": {
+                "value": "5% of claim or 0.1% of Total Sum Insured, whichever is the greater, any one accident"
+            },
+            "_3_2_Deductibles_EQ_New": {
+                "value": "2.5% of Total Sum Insured per each plant maximum USD 3,000,000"
+            },
+            "_3_2_Deductibles_Flood_New": {
+                "value": "10% of claim amount any one accident"
+            },
+            "_3_2_Deductibles_Windstorm_New": {
+                "value": "10% of claim amount any one accident"
+            },
+            "_3_2_Deductibles_Business_Interruption_New": {
+                "value": "N/A"
+            },
+            "_3_2_Deductibles_Waiting_Period_Days_New": {
+                "value": "18 days"
+            },
+            "_3_2_Deductibles_CBI_Named_Unnamed_New": {
+                "value": "N/A"
+            },
+            "_3_2_Deductibles_Service_Interruption_New": {
+                "value": "10% of Business Interruption Sum Insured, 18 days' time excess"
+            },
+            "_3_2_Deductibles_Machinery_Breakdown_New": {
+                "value": "N/A"
+            },
+            "_3_2_Deductibles_Data_Program_And_Software_New": {
+                "value": "N/A"
+            },
+            "_3_2_Deductibles_Other_Deductibles_New": {
+                "value": "10% of claim amount, min. USD 100.00 any one accident; USD 100.00 any one accident"
+            },
+            "_3_2_Deductibles_Supplementary_Information": {
+                "value": "30 (thirty) consecutive days for Earthquake, Volcanic Eruption and Tsunami following the commencement of the Indemnity Period"
+            },
+            "_3_2_Deductibles_Flexa": {
+                "value": "5% of claim or 0.1% of Total Sum Insured, whichever is the greater, any one accident"
+            },
+            "_3_3_Major_Exclusions_CommunicableDisease": {
+                "value": "Excluded"
+            },
+            "_3_3_Major_Exclusions_NuclearExclusions": {
+                "value": "Excluded"
+            },
+            "_3_3_Major_Exclusions_WarAndCivilWar": {
+                "value": "Excluded"
+            },
+            "_3_3_Major_Exclusions_RadioactiveContamination": {
+                "value": "Excluded"
+            },
+            "_3_3_Major_Exclusions_AffirmativeCyber": {
+                "value": "Excluded"
+            },
+            "_4_2_Gross_Premium_RenewalPremiumPD": {
+                "value": "256,970.24",
+                "confidence": 0.9,
+                "reasoning": "The total premium amount for 'Material Damage' is calculated and presented as USD 256,970.24 in the premium calculation section."
+            },
+            "_4_2_Gross_Premium_RenewalPremiumBI": {
+                "value": "15,421.44",
+                "confidence": 0.9,
+                "reasoning": "The total premium amount for 'Business Interruption' is calculated and presented as USD 15,421.44 in the premium calculation section."
+            },
+            "_4_2_Gross_Premium_TotalPremium": {
+                "value": "272,391.68"
+            },
+            "_4_2_Gross_Premium_Currency": {
+                "value": "USD",
+                "confidence": 0.952
+            },
+            "Rule_01_WarAndCivilWar": {
+                "value": "P|War and Civil War Exclusion Clause is explicitly mentioned in the document."
+            },
+            "Rule_02_Terrorism": {
+                "value": "P|Terrorism & Sabotage Exclusion Clause and Terrorism Exclusion Endorsement (Reinsurance) NMA 2921 08/10/2001 are explicitly mentioned in the document."
+            },
+            "Rule_03_Cyber": {
+                "value": "P|Cyber Risk Exclusion Clause and Property Cyber and Data Exclusion (LMA 5401) are explicitly mentioned in the document."
+            },
+            "Rule_04_MoldOrFungi": {
+                "value": "F|No mention of Mold/Fungi, Mold Exclusion Clause, or Fungi Exclusion Clause in the document."
+            },
+            "Rule_05_CommunicableDisease": {
+                "value": "P|Communicable Disease Exclusion Clause (LMA 5393) is explicitly mentioned in the document."
+            },
+            "Rule_06_NBCR": {
+                "value": "P|Institute Radioactive Contamination, Chemical, Biological, Bio-Chemical and Electromagnetic Weapons Exclusion Clause CL370 (10/11/03) and Nuclear Energy Risks Exclusion Clause (Reinsurance) (1994) (Worldwide Excluding U.S.A. and Canada) NMA 1975a (10/3/94) are explicitly mentioned in the document."
+            },
+            "Rule_07_FinancialGuarantee": {
+                "value": "P|Political Risk, Financial Guarantee and Credit Risk Exclusion Clause is explicitly mentioned in the document."
+            },
+            "Rule_08_FidelityBusiness": {
+                "value": "P|No mention of Fidelity Business, Surety Business, or Fidelity and Surety Business in the document."
+            },
+            "Rule_09_CasualtyBusiness": {
+                "value": "P|No mention of Casualty business or Casualty in the document."
+            },
+            "Rule_10_Hull": {
+                "value": "P|No mention of Hull or Hull(Coverage type) in the document."
+            },
+            "Rule_11_RigsAndGasPlants": {
+                "value": "P|The document does not mention any terms related to \"Onshore or Offshore oil rigs\", \"coal mining\", \"natural resource extraction\", \"pipelines\", \"refineries\", or \"natural gas plants\". The occupation is listed as \"Manufacture of film, photographic paper, magnetic tape and celluloid batch (Code: 236) adhesive tape (selotip)\"."
+            },
+            "Rule_12_StandingCrops": {
+                "value": "P|The document does not mention \"Growing crops\", \"Standing crops\", or \"Growing or standing crops\". The occupation is listed as \"Manufacture of film, photographic paper, magnetic tape and celluloid batch (Code: 236) adhesive tape (selotip)\"."
+            },
+            "Rule_13_NuclearRisks": {
+                "value": "F|The document includes a \"Nuclear Energy Risks Exclusion Clause (Reinsurance) (1994) (Worldwide Excluding U.S.A. and Canada) NMA 1975a (10/3/94)\", indicating the presence of nuclear risk-related terms."
+            },
+            "Rule_14_MaximumPolicyPeriod": {
+                "value": "P|The policy period is from 30th April 2024 to 30th April 2025, which is 12 months, less than 18 months."
+            },
+            "Rule_15_CourseOfConstruction": {
+                "value": "F|The document does not mention any terms related to Builders Risk, Course of Construction, CAR, EAR, Renovation, Structural Renovation, or Non-Structural Renovation."
+            },
+            "_2_8_Loss_Record_LRPeriodFrom": {
+                "value": "2020",
+                "confidence": 0.871
+            },
+            "_2_8_Loss_Record_LRPeriodTo": {
+                "value": "2024",
+                "confidence": 0.843
+            },
+            "_2_8_Loss_Record_TotalPremium": {
+                "value": "2,251,427,988.49"
+            },
+            "_2_8_Loss_Record_TotalClaimAmount": {
+                "value": "7,343,143,163.33"
+            },
+            "_2_8_Loss_Record_OverallLR": {
+                "value": "326.11%"
+            },
+            "_2_8_Loss_Record_EvaluatedAsOf": {
+                "value": "N/A"
+            },
+            "_2_8_Loss_Record_Currency": {
+                "value": "N/A"
+            },
+            "_1_2_Client_Industry": {
+                "value": "Manufacturer of Polyester and Nylon Film",
+                "confidence": 0.842
+            },
+            "_2_1_Locations_Covered_NumberOfLocationsCovered": {
+                "value": "1"
+            },
+            "_2_2_Survey_Result_DateOfSurvey": {
+                "value": "2021-10-03"
+            },
+            "_2_2_Survey_Result_LocationName": {
+                "value": "Kaserangan, Kec. Ciruas, Serang, Banten 42182",
+                "confidence": 0.507
+            },
+            "_2_2_Survey_Result_SurveyorName": {
+                "value": "Banu Gerry Angga",
+                "confidence": 0.935
+            },
+            "_2_2_Survey_Result_OverallResultComments": {
+                "value": "The premises are located away from the coast and mountains, reducing the risk of windstorm impact. The construction is of good quality, and the plant is a high structure with 7 storeys. The equipment and fixtures on the top are vulnerable to strong winds. The overall exposure to windstorm is very low. The landslide risk is low due to the flat area and lack of nearby large water bodies. The tsunami risk is low, with the site being 15 km from the coastline. The volcano risk is moderate, with the nearest active volcano being 28 km away.",
+                "confidence": 0.85,
+                "reasoning": "The summary captures the key points from the document, including location, construction quality, and various natural hazard risks, which are explicitly mentioned."
+            },
+            "_2_2_Survey_Result_ProtectionComments": {
+                "value": "The diesel hydrant pump is set to manual, which could delay response time in case of a fire. It is recommended to set it to automatic to ensure quick response. The diesel fuel tank lacks upper and lower level indicators, which could lead to the pump running out of fuel during an emergency. It is recommended to install these indicators.",
+                "confidence": 0.95,
+                "reasoning": "The summary accurately reflects the specific fire protection issues and recommendations provided in the document, focusing on the hydrant pump and diesel fuel tank."
+            },
+            "_2_2_Survey_Result_ManagementGrade": {
+                "value": "N/A"
+            },
+            "_2_2_Survey_Result_ConstructionGrade": {
+                "value": "N/A"
+            },
+            "_2_2_Survey_Result_ConstructionComments": {
+                "value": "The construction of the premises is generally in good condition, with the plant being a high structure of 7 storeys. The equipment and building's fittings and fixtures located on the top of the building are susceptible to strong winds. The construction quality is considered good, contributing to a very low exposure to windstorm risks.",
+                "confidence": 0.9,
+                "reasoning": "The summary is based on the specific details provided in the document regarding the construction quality and susceptibility to windstorm, which are clearly outlined."
+            },
+            "_2_2_Survey_Result_ExposureComments": {
+                "value": "The premises are located in a flat area with no large water bodies within 1 km, resulting in low landslide risk. The site is 15 km from the coastline, leading to a low tsunami risk. The nearest active volcano is 28 km away, with a moderate risk. The windstorm exposure is very low due to the location away from the coast and mountains.",
+                "confidence": 0.9,
+                "reasoning": "The summary includes all relevant exposure details mentioned in the document, such as proximity to water bodies, coastline, and volcanoes, and the associated risks."
+            },
+            "_2_2_Survey_Result_OccupancyComments": {
+                "value": "The plant employs approximately 295 people, including 3 expatriates, with production operating in three shifts per day, seven days a week. The main purpose of the location is the production of polyester and nylon films, used in various industries. Fire load reduction practices include the use of smoke detectors in warehouses and organized storage of raw materials. The document provides specific details on the operational patterns and fire safety measures, contributing to the occupancy grading.",
+                "confidence": 0.9,
+                "reasoning": "The summary captures detailed information about the workforce, operational purpose, and fire safety practices, aligning with the document's occupancy section."
+            },
+            "_2_5_MFL_PML_MFLorPML": {
+                "value": "MFL"
+            },
+            "_2_5_MFL_PML_MFLPMLScenario": {
+                "value": "The highest monetary loss will be a fire at Nylon film plant 1 & 2 due to short circuit. Nylon warehouse stock in the form of plastic which is a flammable material can add to the impact of fire damage, due to the high flammability load and insufficient distance (There is no separation distance for Nylon Production 1 and 2) and the building walls inside production area are using sandwich panels, fire and smoke will spread to other buildings, so it is estimated that losses cover all production areas Nylon 1 and 2.",
+                "confidence": 0.878
+            },
+            "_2_5_MFL_PML_AmountOfMFL": {
+                "value": "62,115,898.6",
+                "confidence": 0.889
+            },
+            "_2_2_Survey_Result_ImportantorUrgentRecommendation": {
+                "value": "It is recommended to set the diesel hydrant pump to activate automatically when the hydrant outlet is open. This will ensure minimum response time when utilizing hydrant in emergency situation.",
+                "confidence": 0.055
+            },
+            "_2_2_Survey_Result_OverallResultGrade": {
+                "value": "N/A"
+            },
+            "_2_2_Survey_Result_ExposureGrade": {
+                "value": "N/A"
+            },
+            "_2_2_Survey_Result_OccupancyGrade": {
+                "value": "N/A"
+            },
+            "_2_2_Survey_Result_ProtectionGrade": {
+                "value": "N/A"
+            },
+            "_1_2_Client_GeocodeLattitude": {
+                "value": "6Â°7 46.98 S"
+            },
+            "_1_2_Client_GeocodeLongitude": {
+                "value": "106Â°15 52.68 E"
+            },
+            "_2_2_Survey_Result_LocationAddress": {
+                "value": "address_line_1:Jl. Raya Serang Km.80| address_line_2:Kaserangan|City: Kec. Ciruas| State: Serang| Pin code:42182| Country: Indonesia"
+            },
+            "_1_2_Client_Broker": {
+                "value": "Anurag Gupta"
+            },
+            "_1_1_Overall_SubmissionDate": {
+                "value": "2025-08-12 10:41:12"
+            }
+        },
+        "tables": {
+            "_3_2_Deductibles_Other_Deductibles_Coverage_New": [
+                {
+                    "Other_Deductibles_Coverage1": {
+                        "value": "Civil Commotion",
+                        "confidence": 0.783
+                    },
+                    "Deductibles_Description_New1": {
+                        "value": "10% of claim amount, min. USD 100.00 any one accident",
+                        "confidence": 0.545
+                    },
+                    "Other_Deductibles_Coverage2": {
+                        "value": "Vehicle Impact:",
+                        "confidence": 0.838
+                    },
+                    "Deductibles_Description_New2": {
+                        "value": "USD 100.00 any one accident",
+                        "confidence": 0.872
+                    }
+                }
+            ],
+            "_2_8_Loss_Record_Table": [
+                {
+                    "Year": {
+                        "value": "2020",
+                        "confidence": 0.784
+                    },
+                    "TotalSumInsured": {
+                        "value": null,
+                        "confidence": 0.087
+                    },
+                    "Premium": {
+                        "value": "466,089,859.57",
+                        "confidence": 0.838
+                    },
+                    "Rate": {
+                        "value": null,
+                        "confidence": 0.087
+                    },
+                    "ClaimAmount": {
+                        "value": null,
+                        "confidence": 0.087
+                    },
+                    "LossRatio": {
+                        "value": null,
+                        "confidence": 0.726
+                    }
+                },
+                {
+                    "Year": {
+                        "value": "2021",
+                        "confidence": 0.841
+                    },
+                    "TotalSumInsured": {
+                        "value": null,
+                        "confidence": 0.087
+                    },
+                    "Premium": {
+                        "value": "362,116,610.26",
+                        "confidence": 0.839
+                    },
+                    "Rate": {
+                        "value": null,
+                        "confidence": 0.087
+                    },
+                    "ClaimAmount": {
+                        "value": "3,046,987.93",
+                        "confidence": 0.84
+                    },
+                    "LossRatio": {
+                        "value": 0.01,
+                        "confidence": 0.84
+                    }
+                },
+                {
+                    "Year": {
+                        "value": "2022",
+                        "confidence": 0.845
+                    },
+                    "TotalSumInsured": {
+                        "value": null,
+                        "confidence": 0.087
+                    },
+                    "Premium": {
+                        "value": "376,207,804.10",
+                        "confidence": 0.84
+                    },
+                    "Rate": {
+                        "value": null,
+                        "confidence": 0.087
+                    },
+                    "ClaimAmount": {
+                        "value": null,
+                        "confidence": 0.087
+                    },
+                    "LossRatio": {
+                        "value": null,
+                        "confidence": 0.726
+                    }
+                },
+                {
+                    "Year": {
+                        "value": "2023",
+                        "confidence": 0.84
+                    },
+                    "TotalSumInsured": {
+                        "value": null,
+                        "confidence": 0.087
+                    },
+                    "Premium": {
+                        "value": "519,554,917.98",
+                        "confidence": 0.838
+                    },
+                    "Rate": {
+                        "value": null,
+                        "confidence": 0.087
+                    },
+                    "ClaimAmount": {
+                        "value": null,
+                        "confidence": 0.087
+                    },
+                    "LossRatio": {
+                        "value": null,
+                        "confidence": 0.726
+                    }
+                },
+                {
+                    "Year": {
+                        "value": "2024",
+                        "confidence": 0.84
+                    },
+                    "TotalSumInsured": {
+                        "value": null,
+                        "confidence": 0.087
+                    },
+                    "Premium": {
+                        "value": "527,458,796.58",
+                        "confidence": 0.784
+                    },
+                    "Rate": {
+                        "value": null,
+                        "confidence": 0.087
+                    },
+                    "ClaimAmount": {
+                        "value": "7,340,096,175.40",
+                        "confidence": 0.84
+                    },
+                    "LossRatio": {
+                        "value": 13.92,
+                        "confidence": 0.877
+                    }
+                }
+            ],
+            "_2_3_Total_Sum_Insured_Fields": [
+                {
+                    "Address": {
+                        "value": "PT Mitsubishi Chemical Indonesia, Jl. Raya Serang KM.68, Desa Kaserangan, Kec. Ciruas, Kab. Serang, Banten 42182 | -6.145,106.154"
+                    },
+                    "Building": {
+                        "value": "$203,999"
+                    },
+                    "Machinery_Equipment": {
+                        "value": "$605,322"
+                    },
+                    "Contents": {
+                        "value": "0"
+                    },
+                    "Stock_other_than_CIO": {
+                        "value": "$54,339"
+                    },
+                    "Stock_CIO": {
+                        "value": "0"
+                    },
+                    "Other_PD_Values": {
+                        "value": "0"
+                    },
+                    "Business_Interruption_Total": {
+                        "value": "$46,320"
+                    },
+                    "Others_BI_Values": {
+                        "value": "0"
+                    },
+                    "Indemnity_Period_Months": {
+                        "value": "0"
+                    },
+                    "Supplementary_Information": {
+                        "value": null
+                    }
+                },
+                {
+                    "Address": {
+                        "value": "PT Chandra Asri Petrochemical Tbk, Jl. Raya Bojonegara, Kampung Gunung Sugih, Desa Margasari, Kec. Puloampel, Kab. Serang, Banten 42455 | -6.005,106.152"
+                    },
+                    "Building": {
+                        "value": "$53,444"
+                    },
+                    "Machinery_Equipment": {
+                        "value": "$20,550"
+                    },
+                    "Contents": {
+                        "value": "0"
+                    },
+                    "Stock_other_than_CIO": {
+                        "value": "$778,433"
+                    },
+                    "Stock_CIO": {
+                        "value": "0"
+                    },
+                    "Other_PD_Values": {
+                        "value": "0"
+                    },
+                    "Business_Interruption_Total": {
+                        "value": "$42,000"
+                    },
+                    "Others_BI_Values": {
+                        "value": "0"
+                    },
+                    "Indemnity_Period_Months": {
+                        "value": "0"
+                    },
+                    "Supplementary_Information": {
+                        "value": null
+                    }
+                },
+                {
+                    "Address": {
+                        "value": "PT Indah Kiat Pulp & Paper Tbk (Serang Mill), Jl. Raya Serang KM.77, Desa Kragilan, Kec. Kragilan, Kab. Serang, Banten 42184 | -6.123,106.157"
+                    },
+                    "Building": {
+                        "value": "$45,030"
+                    },
+                    "Machinery_Equipment": {
+                        "value": "$110,000"
+                    },
+                    "Contents": {
+                        "value": "0"
+                    },
+                    "Stock_other_than_CIO": {
+                        "value": "$21,223"
+                    },
+                    "Stock_CIO": {
+                        "value": "0"
+                    },
+                    "Other_PD_Values": {
+                        "value": "0"
+                    },
+                    "Business_Interruption_Total": {
+                        "value": "$39,960"
+                    },
+                    "Others_BI_Values": {
+                        "value": "0"
+                    },
+                    "Indemnity_Period_Months": {
+                        "value": "0"
+                    },
+                    "Supplementary_Information": {
+                        "value": null
+                    }
+                },
+                {
+                    "Address": {
+                        "value": "PT Nikomas Gemilang, Jl. Raya Serang KM.71, Desa Tambak, Kec. Kibin, Kab. Serang, Banten 42185 | -6.134,106.155"
+                    },
+                    "Building": {
+                        "value": "$33,200"
+                    },
+                    "Machinery_Equipment": {
+                        "value": "$205,000"
+                    },
+                    "Contents": {
+                        "value": "0"
+                    },
+                    "Stock_other_than_CIO": {
+                        "value": "$55,310"
+                    },
+                    "Stock_CIO": {
+                        "value": "0"
+                    },
+                    "Other_PD_Values": {
+                        "value": "0"
+                    },
+                    "Business_Interruption_Total": {
+                        "value": "$38,400"
+                    },
+                    "Others_BI_Values": {
+                        "value": "0"
+                    },
+                    "Indemnity_Period_Months": {
+                        "value": "0"
+                    },
+                    "Supplementary_Information": {
+                        "value": null
+                    }
+                },
+                {
+                    "Address": {
+                        "value": "PT Dover Chemical, Jl. Raya Cikande - Rangkasbitung KM.8, Desa Nambo Udik, Kec. Cikande, Kab. Serang, Banten 42186 | -6.145,106.156"
+                    },
+                    "Building": {
+                        "value": "$400,000"
+                    },
+                    "Machinery_Equipment": {
+                        "value": "$321,113"
+                    },
+                    "Contents": {
+                        "value": "0"
+                    },
+                    "Stock_other_than_CIO": {
+                        "value": "$423,000"
+                    },
+                    "Stock_CIO": {
+                        "value": "0"
+                    },
+                    "Other_PD_Values": {
+                        "value": "0"
+                    },
+                    "Business_Interruption_Total": {
+                        "value": "$37,200"
+                    },
+                    "Others_BI_Values": {
+                        "value": "0"
+                    },
+                    "Indemnity_Period_Months": {
+                        "value": "0"
+                    },
+                    "Supplementary_Information": {
+                        "value": null
+                    }
+                }
+            ],
+            "Table": [
+                {
+                    "Address": {
+                        "value": "PT Mitsubishi Chemical Indonesia, Jl. Raya Serang KM.68, Desa Kaserangan, Kec. Ciruas, Kab. Serang, Banten 42182 | -6.145,106.154"
+                    },
+                    "BDG_sum_insured": {
+                        "value": "$203,999"
+                    },
+                    "CON_sum_insured": {
+                        "value": null
+                    },
+                    "Rent_receivable": {
+                        "value": null
+                    }
+                },
+                {
+                    "Address": {
+                        "value": "PT Chandra Asri Petrochemical Tbk, Jl. Raya Bojonegara, Kampung Gunung Sugih, Desa Margasari, Kec. Puloampel, Kab. Serang, Banten 42455 | -6.017,106.152"
+                    },
+                    "BDG_sum_insured": {
+                        "value": "$53,444"
+                    },
+                    "CON_sum_insured": {
+                        "value": null
+                    },
+                    "Rent_receivable": {
+                        "value": null
+                    }
+                },
+                {
+                    "Address": {
+                        "value": "PT Indah Kiat Pulp & Paper Tbk (Serang Mill), Jl. Raya Serang KM.77, Desa Kragilan, Kec. Kragilan, Kab. Serang, Banten 42184 | -6.172,106.157"
+                    },
+                    "BDG_sum_insured": {
+                        "value": "$45,030"
+                    },
+                    "CON_sum_insured": {
+                        "value": null
+                    },
+                    "Rent_receivable": {
+                        "value": null
+                    }
+                },
+                {
+                    "Address": {
+                        "value": "PT Nikomas Gemilang, Jl. Raya Serang KM.71, Desa Tambak, Kec. Kibin, Kab. Serang, Banten 42185 | -6.158,106.155"
+                    },
+                    "BDG_sum_insured": {
+                        "value": "$33,200"
+                    },
+                    "CON_sum_insured": {
+                        "value": null
+                    },
+                    "Rent_receivable": {
+                        "value": null
+                    }
+                },
+                {
+                    "Address": {
+                        "value": "PT Dover Chemical, Jl. Raya Cikande - Rangkasbitung KM.8, Desa Nambo Udik, Kec. Cikande, Kab. Serang, Banten 42186 | -6.222,106.160"
+                    },
+                    "BDG_sum_insured": {
+                        "value": "$400,000"
+                    },
+                    "CON_sum_insured": {
+                        "value": null
+                    },
+                    "Rent_receivable": {
+                        "value": null
+                    }
+                }
+            ]
+        }
+    },
+    "processed_documents": 6,
+    "translation": []
+}

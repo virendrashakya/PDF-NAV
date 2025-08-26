@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en" ng-app="pdfNavigatorApp">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Coordinate Navigator</title>
+    
+    <!-- AngularJS CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.8.3/angular.min.js"></script>
+    
+    <!-- PDF.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 20px;
+            height: 100vh;
+        }
+
+        .sidebar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+
+        .main-content {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 2.2em;
+            font-weight: 300;
+            text-align: center;
+            margin-bottom: 30px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .upload-section {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-section:hover {
+            border-color: #764ba2;
+            background: rgba(102, 126, 234, 0.05);
+            transform: translateY(-2px);
+        }
+
+        .upload-section input[type="file"] {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .upload-icon {
+            font-size: 3em;
+            color: #667eea;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .coordinates-section {
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+        }
+
+        .coordinates-section h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-weight: 500;
+        }
+
+        .coordinate-input {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .coordinate-input input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .coordinate-input input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-small {
+            padding: 8px 15px;
+            font-size: 12px;
+            width: auto;
+        }
+
+        .coordinate-list {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+
+        .coordinate-item {
+            background: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .coordinate-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+        }
+
+        .pdf-container {
+            height: 100%;
+            border-radius: 15px;
+            overflow: hidden;
+            background: #f5f5f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        #pdfCanvas {
+            max-width: 100%;
+            max-height: 100%;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            cursor: crosshair;
+        }
+
+        .pdf-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 10;
+        }
+
+        .control-btn {
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            padding: 10px;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .control-btn:hover {
+            background: white;
+            transform: scale(1.1);
+        }
+
+        .zoom-info {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+        }
+
+        .coordinate-marker {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: rgba(255, 0, 0, 0.7);
+            border: 2px solid white;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            animation: pulse 2s infinite;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        @keyframes pulse {
+            0% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.2); }
+            100% { transform: translate(-50%, -50%) scale(1); }
+        }
+
+        .no-pdf {
+            color: #888;
+            font-size: 1.2em;
+            text-align: center;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+            
+            .sidebar {
+                order: 2;
+            }
+        }
+    </style>
+</head>
+<body ng-controller="PdfNavigatorController">
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <h1>🎯 PDF Navigator</h1>
+            
+            <!-- Upload Section -->
+            <div class="upload-section" ng-class="{'uploading': isUploading}">
+                <input type="file" accept=".pdf" onchange="angular.element(this).scope().uploadPdf(this.files[0])">
+                <span class="upload-icon">📄</span>
+                <p ng-if="!isUploading"><strong>Click to upload PDF</strong><br>or drag & drop here</p>
+                <p ng-if="isUploading"><span class="loading"></span> Loading PDF...</p>
+            </div>
+
+            <!-- Coordinates Section -->
+            <div class="coordinates-section" ng-if="pdfLoaded">
+                <h3>🎯 Navigate to Coordinates</h3>
+                <div class="coordinate-input">
+                    <input type="number" placeholder="X" ng-model="newCoordinate.x" step="0.1">
+                    <input type="number" placeholder="Y" ng-model="newCoordinate.y" step="0.1">
+                </div>
+                <button class="btn btn-small" ng-click="addCoordinate()" ng-disabled="!newCoordinate.x || !newCoordinate.y">
+                    Add Coordinate
+                </button>
+
+                <div class="coordinate-list" ng-if="coordinates.length > 0">
+                    <div class="coordinate-item" ng-repeat="coord in coordinates track by $index">
+                        <span>({{coord.x}}, {{coord.y}})</span>
+                        <div>
+                            <button class="btn btn-small" ng-click="navigateToCoordinate(coord)" style="margin-right: 5px; background: #28a745;">Go</button>
+                            <button class="btn btn-small" ng-click="removeCoordinate($index)" style="background: #dc3545;">×</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="pdf-container">
+                <div ng-if="!pdfLoaded" class="no-pdf">
+                    <p>Upload a PDF file to get started! 🚀</p>
+                    <p style="font-size: 0.9em; margin-top: 10px; color: #666;">
+                        Click on the PDF to capture coordinates, then navigate between them using the sidebar.
+                    </p>
+                </div>
+                
+                <canvas id="pdfCanvas" ng-if="pdfLoaded" ng-click="captureCoordinate($event)"></canvas>
+                
+                <!-- PDF Controls -->
+                <div class="pdf-controls" ng-if="pdfLoaded">
+                    <button class="control-btn" ng-click="zoomIn()" title="Zoom In">🔍+</button>
+                    <button class="control-btn" ng-click="zoomOut()" title="Zoom Out">🔍-</button>
+                    <button class="control-btn" ng-click="resetZoom()" title="Reset Zoom">⚡</button>
+                </div>
+
+                <!-- Zoom Info -->
+                <div class="zoom-info" ng-if="pdfLoaded">
+                    Zoom: {{Math.round(scale * 100)}}% | Page: {{currentPage}}/{{totalPages}}
+                </div>
+
+                <!-- Coordinate Marker -->
+                <div class="coordinate-marker" ng-if="activeMarker" ng-style="activeMarker"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configure PDF.js worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
+
+        angular.module('pdfNavigatorApp', [])
+        .controller('PdfNavigatorController', ['$scope', '$timeout', function($scope, $timeout) {
+            $scope.pdfLoaded = false;
+            $scope.isUploading = false;
+            $scope.coordinates = [];
+            $scope.newCoordinate = {};
+            $scope.scale = 1.0;
+            $scope.currentPage = 1;
+            $scope.totalPages = 0;
+            $scope.activeMarker = null;
+            $scope.Math = Math;
+
+            let pdfDoc = null;
+            let canvas = null;
+            let ctx = null;
+
+            $scope.uploadPdf = function(file) {
+                if (!file) return;
+                
+                $scope.isUploading = true;
+                $scope.$apply();
+
+                const fileReader = new FileReader();
+                fileReader.onload = function(e) {
+                    const typedarray = new Uint8Array(e.target.result);
+                    
+                    pdfjsLib.getDocument(typedarray).promise.then(function(pdf) {
+                        pdfDoc = pdf;
+                        $scope.totalPages = pdf.numPages;
+                        $scope.currentPage = 1;
+                        $scope.pdfLoaded = true;
+                        $scope.isUploading = false;
+                        
+                        $timeout(function() {
+                            canvas = document.getElementById('pdfCanvas');
+                            ctx = canvas.getContext('2d');
+                            $scope.renderPage(1);
+                        }, 100);
+
+                        $scope.$apply();
+                    }).catch(function(error) {
+                        console.error('Error loading PDF:', error);
+                        $scope.isUploading = false;
+                        $scope.$apply();
+                        alert('Error loading PDF file. Please try again.');
+                    });
+                };
+                fileReader.readAsArrayBuffer(file);
+            };
+
+            $scope.renderPage = function(pageNumber) {
+                if (!pdfDoc) return;
+
+                pdfDoc.getPage(pageNumber).then(function(page) {
+                    const viewport = page.getViewport({ scale: $scope.scale });
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+
+                    const renderContext = {
+                        canvasContext: ctx,
+                        viewport: viewport
+                    };
+
+                    page.render(renderContext).promise.then(function() {
+                        $scope.$apply();
+                    });
+                });
+            };
+
+            $scope.captureCoordinate = function(event) {
+                if (!canvas) return;
+
+                const rect = canvas.getBoundingClientRect();
+                const x = Math.round((event.clientX - rect.left) * (canvas.width / rect.width));
+                const y = Math.round((event.clientY - rect.top) * (canvas.height / rect.height));
+
+                // Show marker at clicked position
+                $scope.showMarker(event.clientX - rect.left, event.clientY - rect.top);
+
+                // Auto-fill coordinate inputs
+                $scope.newCoordinate.x = x;
+                $scope.newCoordinate.y = y;
+                $scope.$apply();
+            };
+
+            $scope.addCoordinate = function() {
+                if ($scope.newCoordinate.x && $scope.newCoordinate.y) {
+                    $scope.coordinates.push({
+                        x: parseFloat($scope.newCoordinate.x),
+                        y: parseFloat($scope.newCoordinate.y)
+                    });
+                    $scope.newCoordinate = {};
+                }
+            };
+
+            $scope.removeCoordinate = function(index) {
+                $scope.coordinates.splice(index, 1);
+            };
+
+            $scope.navigateToCoordinate = function(coord) {
+                if (!canvas) return;
+
+                const rect = canvas.getBoundingClientRect();
+                const canvasX = (coord.x / canvas.width) * rect.width;
+                const canvasY = (coord.y / canvas.height) * rect.height;
+
+                $scope.showMarker(canvasX, canvasY);
+
+                // Smooth scroll to coordinate
+                const container = canvas.parentElement;
+                const scrollX = canvasX - container.clientWidth / 2;
+                const scrollY = canvasY - container.clientHeight / 2;
+
+                container.scrollTo({
+                    left: scrollX,
+                    top: scrollY,
+                    behavior: 'smooth'
+                });
+            };
+
+            $scope.showMarker = function(x, y) {
+                const container = document.querySelector('.pdf-container');
+                const containerRect = container.getBoundingClientRect();
+                
+                $scope.activeMarker = {
+                    left: x + 'px',
+                    top: y + 'px'
+                };
+
+                // Hide marker after 3 seconds
+                $timeout(function() {
+                    $scope.activeMarker = null;
+                }, 3000);
+            };
+
+            $scope.zoomIn = function() {
+                $scope.scale += 0.2;
+                $scope.renderPage($scope.currentPage);
+            };
+
+            $scope.zoomOut = function() {
+                if ($scope.scale > 0.4) {
+                    $scope.scale -= 0.2;
+                    $scope.renderPage($scope.currentPage);
+                }
+            };
+
+            $scope.resetZoom = function() {
+                $scope.scale = 1.0;
+                $scope.renderPage($scope.currentPage);
+            };
+        }]);
+    </script>
+</body>
+</html>

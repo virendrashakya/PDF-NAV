@@ -1,0 +1,1007 @@
+{
+    "status": "Success",
+    "processed_documents": 6,
+    "submission_id": "12345",
+    "extracted_data": {
+        "fields": {
+            "_1_1_Overall_PolicyNumber": {
+                "value": "10234000590000",
+                "confidence": 0.876,
+                "spans": [
+                    {
+                        "offset": 324,
+                        "length": 14
+                    }
+                ],
+                "source": "D(1,2.9758,3.0617,4.0402,3.0584,4.0398,3.2208,2.9755,3.2203)"
+            },
+            "_1_1_Overall_PolicyPeriodFrom": {
+                "value": "2024-04-30",
+                "confidence": 0.95,
+                "reasoning": "The document clearly states the insurance period as 'From 30 April 2024 to 30 April 2025', which is a direct indication of the policy period start date."
+            },
+            "_1_1_Overall_PolicyPeriodTo": {
+                "value": "2025-04-30",
+                "confidence": 0.95,
+                "reasoning": "The document clearly states the insurance period as 'From 30 April 2024 to 30 April 2025', which is a direct indication of the policy period end date."
+            },
+            "_1_1_Overall_LeaderCompany": {
+                "value": "PT Maritansb8ados Imsufarge",
+                "confidence": 0.785,
+                "spans": [
+                    {
+                        "offset": 21128,
+                        "length": 27
+                    }
+                ],
+                "source": "D(9,3.8709,4.8799,5.6159,4.8822,5.6157,5.0369,3.8707,5.0346)"
+            },
+            "_1_1_Overall_PolicyTerritory": {
+                "value": "LocalOnly"
+            },
+            "_1_2_Client_InsuredName": {
+                "value": ":PT. KOLON INA",
+                "confidence": 0.958,
+                "spans": [
+                    {
+                        "offset": 2097,
+                        "length": 14
+                    }
+                ],
+                "source": "D(1,2.8803,8.9508,3.9598,8.9513,3.9597,9.1100,2.8802,9.1095)"
+            },
+            "_1_2_Client_TradeIndustryCode": {
+                "value": "512110"
+            },
+            "_1_1_Overall_PolicyForm": {
+                "value": "Others"
+            },
+            "_1_1_Overall_PolicyFormOtherDetails": {
+                "value": "Property All Risks",
+                "confidence": 0.609,
+                "spans": [
+                    {
+                        "offset": 1324,
+                        "length": 18
+                    }
+                ],
+                "source": "D(1,3.0951,6.4049,4.3036,6.4078,4.3032,6.5662,3.0947,6.5632)"
+            },
+            "_1_2_Client_Occupancy": {
+                "value": "Manufacture of film, photographic paper, magnetic tape and celluloid batch adhesive tape",
+                "confidence": 0.608,
+                "spans": [
+                    {
+                        "offset": 3137,
+                        "length": 68
+                    },
+                    {
+                        "offset": 3218,
+                        "length": 19
+                    }
+                ],
+                "source": "D(2,3.0942,2.8088,7.3108,2.8076,7.3108,2.9769,3.0942,2.9781);D(2,3.0923,2.9631,4.3370,2.9667,4.3365,3.1346,3.0918,3.1310)"
+            },
+            "_2_3_Total_Sum_Insured_OriginalCurrency": {
+                "value": "USD",
+                "confidence": 0.939,
+                "spans": [
+                    {
+                        "offset": 7262,
+                        "length": 3
+                    }
+                ],
+                "source": "D(3,5.0750,8.1960,5.3808,8.1972,5.3807,8.3373,5.0753,8.3369)"
+            },
+            "_2_3_Total_Sum_Insured_PDTotal": {
+                "value": "103,209,579.01"
+            },
+            "_2_3_Total_Sum_Insured_BITotal": {
+                "value": "6,144,000.00"
+            },
+            "_2_3_Total_Sum_Insured_Total": {
+                "value": "109,353,579.01"
+            },
+            "_2_3_Total_Sum_Insured_PDBuilding": {
+                "value": "12,177,597.32",
+                "confidence": 0.84,
+                "spans": [
+                    {
+                        "offset": 7266,
+                        "length": 13
+                    }
+                ],
+                "source": "D(3,5.5973,8.1872,6.3805,8.1856,6.3805,8.3259,5.5975,8.3270)"
+            },
+            "_2_3_Total_Sum_Insured_PDMachineryAndEquipment": {
+                "value": "87,707,981.69",
+                "confidence": 0.873,
+                "spans": [
+                    {
+                        "offset": 7311,
+                        "length": 13
+                    }
+                ],
+                "source": "D(3,5.5898,8.3474,6.3748,8.3500,6.3748,8.4826,5.5900,8.4811)"
+            },
+            "_2_3_Total_Sum_Insured_PDStockotherthanCIO": {
+                "value": "3,324,000.00",
+                "confidence": 0.836,
+                "spans": [
+                    {
+                        "offset": 7333,
+                        "length": 12
+                    }
+                ],
+                "source": "D(3,5.5923,8.5139,6.3121,8.5120,6.3121,8.6424,5.5926,8.6430)"
+            },
+            "_2_3_Total_Sum_Insured_BISumInsured": {
+                "value": "5,644,000.00",
+                "confidence": 0.625,
+                "spans": [
+                    {
+                        "offset": 11724,
+                        "length": 12
+                    }
+                ],
+                "source": "D(5,5.1527,5.8703,5.7870,5.8700,5.7870,5.9982,5.1528,5.9962)"
+            },
+            "_2_3_Total_Sum_Insured_OtherBIValues": {
+                "value": "500,000.00",
+                "confidence": 0.789,
+                "spans": [
+                    {
+                        "offset": 11743,
+                        "length": 10
+                    }
+                ],
+                "source": "D(5,5.1507,6.0558,5.7014,6.0548,5.7014,6.1768,5.1512,6.1768)"
+            },
+            "_2_4_Top_Risk_PDTotal": {
+                "value": "103,209,579.01"
+            },
+            "_2_4_Top_Risk_BITotal": {
+                "value": "6,144,000.00"
+            },
+            "_2_4_Top_Risk_PDBuilding": {
+                "value": "12,177,597.32",
+                "confidence": 0.871,
+                "spans": [
+                    {
+                        "offset": 7266,
+                        "length": 13
+                    }
+                ],
+                "source": "D(3,5.5973,8.1872,6.3805,8.1856,6.3805,8.3259,5.5975,8.3270)"
+            },
+            "_2_4_Top_Risk_PDMachineryAndEquipment": {
+                "value": "87,707,981.69",
+                "confidence": 0.937,
+                "spans": [
+                    {
+                        "offset": 7311,
+                        "length": 13
+                    }
+                ],
+                "source": "D(3,5.5898,8.3474,6.3748,8.3500,6.3748,8.4826,5.5900,8.4811)"
+            },
+            "_2_4_Top_Risk_PDStockotherthanCIO": {
+                "value": "3,324,000.00",
+                "confidence": 0.885,
+                "spans": [
+                    {
+                        "offset": 7333,
+                        "length": 12
+                    }
+                ],
+                "source": "D(3,5.5923,8.5139,6.3121,8.5120,6.3121,8.6424,5.5926,8.6430)"
+            },
+            "_2_4_Top_Risk_BISumInsured": {
+                "value": "5,644,000.00",
+                "confidence": 0.774,
+                "spans": [
+                    {
+                        "offset": 11724,
+                        "length": 12
+                    }
+                ],
+                "source": "D(5,5.1527,5.8703,5.7870,5.8700,5.7870,5.9982,5.1528,5.9962)"
+            },
+            "_2_4_Top_Risk_OtherBIValues": {
+                "value": "500,000.00",
+                "confidence": 0.844,
+                "spans": [
+                    {
+                        "offset": 11743,
+                        "length": 10
+                    }
+                ],
+                "source": "D(5,5.1507,6.0558,5.7014,6.0548,5.7014,6.1768,5.1512,6.1768)"
+            },
+            "_2_4_Top_Risk_Total": {
+                "value": "109,353,579.01"
+            },
+            "_2_5_MFL_PML_OriginalCurrency": {
+                "value": "USD",
+                "confidence": 0.937,
+                "spans": [
+                    {
+                        "offset": 11717,
+                        "length": 3
+                    }
+                ],
+                "source": "D(5,4.5578,5.8652,4.7654,5.8644,4.7654,5.9641,4.5579,5.9680)"
+            },
+            "_2_6_Policy_Limit_AmountOfPolicyLimit": {
+                "value": "109,353,579.01"
+            },
+            "_2_6_Policy_Limit_OriginalCurrency": {
+                "value": "USD",
+                "confidence": 0.939,
+                "spans": [
+                    {
+                        "offset": 11717,
+                        "length": 3
+                    }
+                ],
+                "source": "D(5,4.5578,5.8652,4.7654,5.8644,4.7654,5.9641,4.5579,5.9680)"
+            },
+            "_2_6_Policy_Limit_SupplementaryInformation": {
+                "value": "N/A"
+            },
+            "_3_2_Deductibles_Currency": {
+                "value": "USD"
+            },
+            "_3_2_Deductibles_PolicyDeductibleNew": {
+                "value": "N/A"
+            },
+            "_3_2_Deductibles_PolicyDeductibleExpiring": {
+                "value": "N/A"
+            },
+            "_3_2_Deductibles_FlexaNew": {
+                "value": "5% of claim or 0.1% of Total Sum Insured, whichever is the greater",
+                "confidence": 0.85,
+                "reasoning": "The document lists deductibles for Fire, Lightning, Explosion, Impact of Falling Aircraft or Any Articles Dropped There from of & Smoke, which are related to FLEXA."
+            },
+            "_3_2_Deductibles_EQNew": {
+                "value": "2.5% of Total Sum Insured per each plant maximum USD 3,000,000",
+                "confidence": 0.85,
+                "reasoning": "The document specifies the deductible for Earthquake, Volcanic Eruption & Tsunami as 2.5% of Total Sum Insured per each plant, with a maximum of USD 3,000,000."
+            },
+            "_3_2_Deductibles_FloodNew": {
+                "value": "10% of claim amount any one accident"
+            },
+            "_3_2_Deductibles_WindstormNew": {
+                "value": "10% of claim amount any one accident"
+            },
+            "_3_2_Deductibles_BusinessInterruptionNew": {
+                "value": "N/A"
+            },
+            "_3_2_Deductibles_WaitingPeriodDaysNew": {
+                "value": "18 days"
+            },
+            "_3_2_Deductibles_CBINamedUnnamedNew": {
+                "value": "N/A"
+            },
+            "_3_2_Deductibles_ServiceInterruptionNew": {
+                "value": "N/A"
+            },
+            "_3_2_Deductibles_MachineryBreakdownNew": {
+                "value": "N/A"
+            },
+            "_3_2_Deductibles_DataProgramAndSoftwareNew": {
+                "value": "N/A"
+            },
+            "_3_2_Deductibles_SupplementaryInformation": {
+                "value": "30 (thirty) consecutive days for Earthquake, Volcanic Eruption and Tsunami following the commencement of the Indemnity Period"
+            },
+            "_3_3_Major_Exclusions_CommunicableDisease": {
+                "value": "Excluded"
+            },
+            "_3_3_Major_Exclusions_NuclearExclusions": {
+                "value": "Excluded"
+            },
+            "_3_3_Major_Exclusions_WarAndCivilWar": {
+                "value": "Excluded"
+            },
+            "_3_3_Major_Exclusions_RadioactiveContamination": {
+                "value": "Excluded"
+            },
+            "_3_3_Major_Exclusions_AffirmativeCyber": {
+                "value": "Excluded"
+            },
+            "_4_2_Gross_Premium_RenewalPremiumPD": {
+                "value": "256,970.24",
+                "confidence": 0.9,
+                "reasoning": "The document provides a detailed premium calculation for Section I - Material Damage, with a subtotal premium amount of USD 256,970.24."
+            },
+            "_4_2_Gross_Premium_RenewalPremiumBI": {
+                "value": "15,421.44",
+                "confidence": 0.9,
+                "reasoning": "The document provides a detailed premium calculation for Section II - Business Interruption, with a subtotal premium amount of USD 15,421.44."
+            },
+            "_4_2_Gross_Premium_TotalPremium": {
+                "value": "272,391.68"
+            },
+            "_4_2_Gross_Premium_Currency": {
+                "value": "USD",
+                "confidence": 0.938,
+                "spans": [
+                    {
+                        "offset": 11717,
+                        "length": 3
+                    }
+                ],
+                "source": "D(5,4.5578,5.8652,4.7654,5.8644,4.7654,5.9641,4.5579,5.9680)"
+            },
+            "Rule_01_WarAndCivilWar": {
+                "value": "P|The document explicitly mentions \"War and Civil War Exclusion Clause\" indicating exclusion applies."
+            },
+            "Rule_02_Terrorism": {
+                "value": "P|The document explicitly mentions \"Terrorism & Sabotage Exclusion Clause\" and \"Terrorism Exclusion Endorsement (Reinsurance) NMA 2921 08/10/2001\" indicating exclusion applies."
+            },
+            "Rule_03_Cyber": {
+                "value": "P|The document explicitly mentions \"Cyber Risk Exclusion Clause\" indicating exclusion applies."
+            },
+            "Rule_04_MoldOrFungi": {
+                "value": "F|The document does not mention \"Mold/Fungi\", \"Mold Exclusion Clause\", or \"Fungi Exclusion Clause\"."
+            },
+            "Rule_05_CommunicableDisease": {
+                "value": "P|The document explicitly mentions \"Communicable Disease Exclusion Clause (LMA 5393)\" indicating exclusion applies."
+            },
+            "Rule_06_NBCR": {
+                "value": "P|The document explicitly mentions \"Institute Radioactive Contamination, Chemical, Biological, Bio-Chemical and Electromagnetic Weapons Exclusion Clause CL370 (10/11/03)\" indicating exclusion applies."
+            },
+            "Rule_07_FinancialGuarantee": {
+                "value": "P|The document explicitly mentions \"Political Risk, Financial Guarantee and Credit Risk Exclusion Clause\" indicating exclusion applies."
+            },
+            "Rule_08_FidelityBusiness": {
+                "value": "P|The document does not mention \"Fidelity Business\", \"Surety Business\", or \"Fidelity and Surety Business\"."
+            },
+            "Rule_09_CasualtyBusiness": {
+                "value": "P|The document does not mention \"Casualty business\" or \"Casualty\"."
+            },
+            "Rule_10_Hull": {
+                "value": "P|The document does not mention \"Hull\" or \"Hull(Coverage type)\"."
+            },
+            "Rule_11_RigsAndGasPlants": {
+                "value": "P|The document does not mention terms related to \"Onshore or Offshore oil rigs\", \"including platforms and associated equipment there on\", \"coal mining\", \"natural resource extraction\", \"pipelines\", \"refineries\", and \"natural gas plants\"."
+            },
+            "Rule_12_StandingCrops": {
+                "value": "P|The document does not mention \"Growing crops\", \"Standing crops\", or \"Growing or standing crops\"."
+            },
+            "Rule_13_NuclearRisks": {
+                "value": "P|No relevant nuclear-related terms found in the inclusion sections or elsewhere."
+            },
+            "Rule_14_MaximumPolicyPeriod": {
+                "value": "P|The policy period is from 30th April 2024 to 30th April 2025, which is 12 months, less than 18 months."
+            },
+            "Rule_15_CourseOfConstruction": {
+                "value": "F|No terms related to Builders Risk/Course of Construction/CAR/EAR/Renovation were found."
+            },
+            "_2_8_Loss_Record_LRPeriodFrom": {
+                "value": "2020",
+                "confidence": 0.871,
+                "spans": [
+                    {
+                        "offset": 951,
+                        "length": 4
+                    }
+                ],
+                "source": "D(1,2.5733,3.6075,2.8096,3.6079,2.8085,3.7100,2.5721,3.7101)"
+            },
+            "_2_8_Loss_Record_LRPeriodTo": {
+                "value": "2024",
+                "confidence": 0.84,
+                "spans": [
+                    {
+                        "offset": 1243,
+                        "length": 4
+                    }
+                ],
+                "source": "D(1,2.5748,4.4151,2.8112,4.4154,2.8112,4.5181,2.5735,4.5198)"
+            },
+            "_2_8_Loss_Record_TotalPremium": {
+                "value": "2,251,427,988.49"
+            },
+            "_2_8_Loss_Record_TotalClaimAmount": {
+                "value": "7,343,143,163.33"
+            },
+            "_2_8_Loss_Record_OverallLR": {
+                "value": "326.11%"
+            },
+            "_2_8_Loss_Record_EvaluatedAsOf": {
+                "value": "N/A"
+            },
+            "_2_8_Loss_Record_Currency": {
+                "value": "N/A"
+            },
+            "_1_2_Client_Industry": {
+                "value": "Manufacturer of Polyester and Nylon Film",
+                "confidence": 0.844,
+                "spans": [
+                    {
+                        "offset": 1905,
+                        "length": 40
+                    }
+                ],
+                "source": "D(3,2.7753,2.5539,5.3734,2.5543,5.3734,2.7155,2.7753,2.7152)"
+            },
+            "_2_1_Locations_Covered_NumberOfLocationsCovered": {
+                "value": "1"
+            },
+            "_2_2_Survey_Result_DateOfSurvey": {
+                "value": "2021-10-03"
+            },
+            "_2_2_Survey_Result_SurveyorName": {
+                "value": "Banu Gerry Angga",
+                "confidence": 0.938,
+                "spans": [
+                    {
+                        "offset": 2683,
+                        "length": 16
+                    }
+                ],
+                "source": "D(3,2.7759,5.9777,3.8853,5.9811,3.8848,6.1348,2.7754,6.1314)"
+            },
+            "_2_2_Survey_Result_OverallResultComments": {
+                "value": "The executive summary of the survey report highlights key aspects of the site, including the production processes for polyester and nylon films. The facility is equipped with advanced machinery and safety systems, such as temperature control and safety interlocks. The production capacity is affected by the COVID-19 pandemic, with decreased demand for finished goods. The site exports products to various regions, including Asia, Europe, America, and Australia. The grading for the overall result is likely based on the facility's ability to maintain production standards and safety measures despite external challenges.",
+                "confidence": 0.85,
+                "reasoning": "The summary effectively combines the key details of the site, including production processes, safety features, and operational challenges, which are essential for determining the overall result grade."
+            },
+            "_2_2_Survey_Result_ProtectionComments": {
+                "value": "The survey report describes several safety measures in place at the risk location. The facility is equipped with indoor hydrants and smoke detectors in the warehouse. The production processes include safety interlocks and temperature control systems to prevent overheating and ensure safe operation. The presence of clean rooms with controlled air quality further enhances the safety of the site. These features contribute to the protection grade by demonstrating the facility's commitment to maintaining a safe environment.",
+                "confidence": 0.9,
+                "reasoning": "The summary accurately reflects the safety measures described in the report, focusing on fire protection features and operational safety systems, which are crucial for assessing the protection grade."
+            },
+            "_2_2_Survey_Result_ManagementGrade": {
+                "value": "N/A"
+            },
+            "_2_2_Survey_Result_ManagementComments": {
+                "value": "The management at PT. Kolon Ina has established a safety organization within the plant, which is responsible for conducting regular fire safety training. This training is held once a year and covers the use of portable fire extinguishers and hydrants. The management's commitment to safety is evident in the structured training programs and the establishment of a dedicated safety organization. However, further details on the management's approach to loss prevention, disaster protocols, and regulatory compliance are not explicitly mentioned."
+            },
+            "_2_2_Survey_Result_ConstructionGrade": {
+                "value": "N/A"
+            },
+            "_2_2_Survey_Result_ConstructionComments": {
+                "value": "The survey report details the construction processes and materials used at the risk location, focusing on the production of polyester and nylon films. The polyester film production involves the use of polyester chips, which are processed through a series of steps including crystallization, drying, and extrusion. The process utilizes advanced equipment such as single screw extruders and a tenter frame made of stainless steel. The nylon film production follows a similar process, with chips being dried and extruded through a flat die. The facility is equipped with safety interlocks and temperature control systems to ensure safe operation. The construction features include the use of stainless steel for various components and the presence of clean rooms with controlled air quality. The grading for construction is likely influenced by the use of high-quality materials and advanced safety features.",
+                "confidence": 0.9,
+                "reasoning": "The summary captures the detailed description of the construction processes and materials used, as well as the safety features in place, which are critical for assessing the construction grade."
+            },
+            "_2_2_Survey_Result_ExposureComments": {
+                "value": "The site is exposed to natural hazards, including a high earthquake risk, situated 280 km north of the Indo-Australia fault line, with a peak ground acceleration of 3.8 m/s2. The area is in earthquake zone 4, with high risk according to Swiss Re. Lightning exposure is very high, with 26-35 strokes per km2 per year, and the site is covered by conventional lightning arresters. Flood exposure is low, with the site elevation at 12-15 meters above sea level and no flood experience in 5 years. The nearest small river is 20 meters away, and the Ciujung river is 4 km away.",
+                "confidence": 0.9,
+                "reasoning": "The summary captures the surveyor's comments on natural hazard exposure, including proximity to water bodies and earthquake risk, with a high level of confidence due to the detailed observations provided."
+            },
+            "_2_2_Survey_Result_OccupancyComments": {
+                "value": "The survey report does not include a section specifically titled 'Occupancy Comments,' and therefore, no relevant information about the number of persons living or working at the insured location or the main purpose of the risk location is available.",
+                "confidence": 0.6,
+                "reasoning": "The lack of a dedicated section for occupancy comments in the document results in an inability to provide a detailed summary, leading to a lower confidence score."
+            },
+            "_2_5_MFL_PML_MFLorPML": {
+                "value": "MFL"
+            },
+            "_2_5_MFL_PML_MFLPMLScenario": {
+                "value": "The highest monetary loss will be a fire at Nylon film plant 1 & 2 due to short circuit. Nylon warehouse stock in the form of plastic which is a flammable material can add to the impact of fire damage, due to the high flammability load and insufficient distance (There is no separation distance for Nylon Production 1 and 2) and the building walls inside production area are using sandwich panels, fire and smoke will spread to other buildings, so it is estimated that losses cover all production areas Nylon 1 and 2.",
+                "confidence": 0.878,
+                "spans": [
+                    {
+                        "offset": 75308,
+                        "length": 104
+                    },
+                    {
+                        "offset": 75413,
+                        "length": 103
+                    },
+                    {
+                        "offset": 75517,
+                        "length": 95
+                    },
+                    {
+                        "offset": 75613,
+                        "length": 101
+                    },
+                    {
+                        "offset": 75715,
+                        "length": 103
+                    },
+                    {
+                        "offset": 75819,
+                        "length": 6
+                    }
+                ],
+                "source": "D(44,1.2355,1.2914,7.9279,1.2884,7.9280,1.4803,1.2356,1.4833);D(44,1.2348,1.4758,7.9285,1.4769,7.9285,1.6610,1.2348,1.6600);D(44,1.2330,1.6558,7.9246,1.6583,7.9245,1.8494,1.2329,1.8469);D(44,1.2341,1.8379,7.9247,1.8452,7.9245,2.0401,1.2339,2.0329);D(44,1.2364,2.0240,7.9081,2.0297,7.9079,2.2241,1.2362,2.2184);D(44,1.2372,2.2255,1.6443,2.2275,1.6436,2.3798,1.2365,2.3778)"
+            },
+            "_2_5_MFL_PML_AmountOfMFL": {
+                "value": "62,115,898.6",
+                "confidence": 0.889,
+                "spans": [
+                    {
+                        "offset": 76525,
+                        "length": 12
+                    }
+                ],
+                "source": "D(44,3.1143,8.8174,4.0010,8.8180,4.0010,8.9993,3.1143,8.9983)"
+            },
+            "_2_2_Survey_Result_ImportantorUrgentRecommendation": {
+                "value": "It is recommended to set the diesel hydrant pump to activate automatically when the hydrant outlet is open. This will ensure minimum response time when utilizing hydrant in emergency situation.",
+                "confidence": 0.783,
+                "spans": [
+                    {
+                        "offset": 77895,
+                        "length": 98
+                    },
+                    {
+                        "offset": 77994,
+                        "length": 94
+                    }
+                ],
+                "source": "D(45,1.4874,7.4261,7.7974,7.4326,7.7972,7.6153,1.4872,7.6088);D(45,1.4869,7.6216,7.4487,7.6252,7.4486,7.8038,1.4868,7.8002)"
+            },
+            "_2_2_Survey_Result_OverallResultGrade": {
+                "value": "N/A"
+            },
+            "_2_2_Survey_Result_ExposureGrade": {
+                "value": "N/A"
+            },
+            "_2_2_Survey_Result_OccupancyGrade": {
+                "value": "N/A"
+            },
+            "_2_2_Survey_Result_ProtectionGrade": {
+                "value": "N/A"
+            },
+            "_1_2_Client_GeocodeLatitude": {
+                "value": "6°7 46.98 S"
+            },
+            "_1_2_Client_GeocodeLongitude": {
+                "value": "106°15 52.68 E"
+            },
+            "_2_2_Survey_Result_LocationAddress": {
+                "value": "address_line_1:Jl. Raya Serang Km.80| address_line_2:Kaserangan, Kec. Ciruas|City: Serang| State: Banten| Pin code:42182| Country: Indonesia. Provide the confidence score also with it."
+            },
+            "_1_2_Client_Broker": {
+                "value": "Anurag Gupta"
+            },
+            "_1_1_Overall_SubmissionDate": {
+                "value": "2025-08-12 10:41:12"
+            }
+        },
+        "tables": {
+            "_3_2_Deductibles_OtherDeductibles": [
+                {
+                    "Coverage": {
+                        "value": "Civil Concussion",
+                        "confidence": 0.753,
+                        "spans": [
+                            {
+                                "offset": 1622,
+                                "length": 16
+                            }
+                        ],
+                        "source": "D(1,3.3975,7.3650,4.4351,7.3704,4.4344,7.5182,3.3967,7.5129)"
+                    },
+                    "New": {
+                        "confidence": 0.087
+                    }
+                },
+                {
+                    "Coverage": {
+                        "value": "Vehicle Impact:",
+                        "confidence": 0.87,
+                        "spans": [
+                            {
+                                "offset": 9666,
+                                "length": 15
+                            }
+                        ],
+                        "source": "D(4,3.3972,7.7630,4.4216,7.7643,4.4214,7.9080,3.3970,7.9067)"
+                    },
+                    "New": {
+                        "confidence": 0.087
+                    }
+                }
+            ],
+            "_2_8_Loss_Record_Table": [
+                {
+                    "Year": {
+                        "value": "2020",
+                        "confidence": 0.784,
+                        "spans": [
+                            {
+                                "offset": 951,
+                                "length": 4
+                            }
+                        ],
+                        "source": "D(1,2.5733,3.6075,2.8096,3.6079,2.8085,3.7100,2.5721,3.7101)"
+                    },
+                    "TotalSumInsured": {
+                        "confidence": 0.087
+                    },
+                    "Premium": {
+                        "value": "466,089,859.57",
+                        "confidence": 0.838,
+                        "spans": [
+                            {
+                                "offset": 965,
+                                "length": 14
+                            }
+                        ],
+                        "source": "D(1,3.5461,3.6027,4.2555,3.6015,4.2555,3.7182,3.5452,3.7202)"
+                    },
+                    "Rate": {
+                        "confidence": 0.087
+                    },
+                    "ClaimAmount": {
+                        "confidence": 0.087
+                    },
+                    "LossRatio": {
+                        "confidence": 0.726
+                    }
+                },
+                {
+                    "Year": {
+                        "value": "2021",
+                        "confidence": 0.841,
+                        "spans": [
+                            {
+                                "offset": 1020,
+                                "length": 4
+                            }
+                        ],
+                        "source": "D(1,2.5748,3.8112,2.8057,3.8117,2.8057,3.9127,2.5735,3.9137)"
+                    },
+                    "TotalSumInsured": {
+                        "confidence": 0.087
+                    },
+                    "Premium": {
+                        "value": "362,116,610.26",
+                        "confidence": 0.837,
+                        "spans": [
+                            {
+                                "offset": 1034,
+                                "length": 14
+                            }
+                        ],
+                        "source": "D(1,3.5475,3.8086,4.2611,3.8062,4.2611,3.9233,3.5466,3.9270)"
+                    },
+                    "Rate": {
+                        "confidence": 0.087
+                    },
+                    "ClaimAmount": {
+                        "value": "3,046,987.93",
+                        "confidence": 0.84,
+                        "spans": [
+                            {
+                                "offset": 1058,
+                                "length": 12
+                            }
+                        ],
+                        "source": "D(1,5.2987,3.8076,5.8991,3.8054,5.8991,3.9239,5.2982,3.9275)"
+                    },
+                    "LossRatio": {
+                        "value": 0.01,
+                        "confidence": 0.84,
+                        "spans": [
+                            {
+                                "offset": 1080,
+                                "length": 4
+                            }
+                        ],
+                        "source": "D(1,7.2295,3.8119,7.4320,3.8111,7.4320,3.9152,7.2287,3.9159)"
+                    }
+                },
+                {
+                    "Year": {
+                        "value": "2022",
+                        "confidence": 0.84,
+                        "spans": [
+                            {
+                                "offset": 1105,
+                                "length": 4
+                            }
+                        ],
+                        "source": "D(1,2.5777,4.0100,2.8112,4.0104,2.8112,4.1129,2.5763,4.1132)"
+                    },
+                    "TotalSumInsured": {
+                        "confidence": 0.087
+                    },
+                    "Premium": {
+                        "value": "376,207,804.10",
+                        "confidence": 0.84,
+                        "spans": [
+                            {
+                                "offset": 1119,
+                                "length": 14
+                            }
+                        ],
+                        "source": "D(1,3.5473,4.0054,4.2611,4.0052,4.2611,4.1235,3.5464,4.1264)"
+                    },
+                    "Rate": {
+                        "confidence": 0.087
+                    },
+                    "ClaimAmount": {
+                        "confidence": 0.087
+                    },
+                    "LossRatio": {
+                        "confidence": 0.726
+                    }
+                },
+                {
+                    "Year": {
+                        "value": "2023",
+                        "confidence": 0.84,
+                        "spans": [
+                            {
+                                "offset": 1174,
+                                "length": 4
+                            }
+                        ],
+                        "source": "D(1,2.5735,4.2170,2.8057,4.2173,2.8057,4.3172,2.5723,4.3178)"
+                    },
+                    "TotalSumInsured": {
+                        "confidence": 0.087
+                    },
+                    "Premium": {
+                        "value": "519,554,917.98",
+                        "confidence": 0.837,
+                        "spans": [
+                            {
+                                "offset": 1188,
+                                "length": 14
+                            }
+                        ],
+                        "source": "D(1,3.5473,4.2129,4.2611,4.2106,4.2611,4.3263,3.5464,4.3291)"
+                    },
+                    "Rate": {
+                        "confidence": 0.087
+                    },
+                    "ClaimAmount": {
+                        "confidence": 0.087
+                    },
+                    "LossRatio": {
+                        "confidence": 0.726
+                    }
+                },
+                {
+                    "Year": {
+                        "value": "2024",
+                        "confidence": 0.84,
+                        "spans": [
+                            {
+                                "offset": 1243,
+                                "length": 4
+                            }
+                        ],
+                        "source": "D(1,2.5748,4.4151,2.8112,4.4154,2.8112,4.5181,2.5735,4.5198)"
+                    },
+                    "TotalSumInsured": {
+                        "confidence": 0.087
+                    },
+                    "Premium": {
+                        "value": "527,458,796.58",
+                        "confidence": 0.809,
+                        "spans": [
+                            {
+                                "offset": 1257,
+                                "length": 14
+                            }
+                        ],
+                        "source": "D(1,3.5458,4.4112,4.2611,4.4105,4.2611,4.5251,3.5449,4.5262)"
+                    },
+                    "Rate": {
+                        "confidence": 0.087
+                    },
+                    "ClaimAmount": {
+                        "value": "7,340,096,175.40",
+                        "confidence": 0.84,
+                        "spans": [
+                            {
+                                "offset": 1281,
+                                "length": 16
+                            }
+                        ],
+                        "source": "D(1,5.1028,4.4098,5.9046,4.4080,5.9044,4.5295,5.1026,4.5308)"
+                    },
+                    "LossRatio": {
+                        "value": 13.92,
+                        "confidence": 0.877,
+                        "spans": [
+                            {
+                                "offset": 1307,
+                                "length": 5
+                            }
+                        ],
+                        "source": "D(1,7.1738,4.4142,7.4375,4.4157,7.4366,4.5208,7.1729,4.5212)"
+                    }
+                }
+            ]          
+        }
+    },
+    "scoring_output": {
+        "status": "success",
+        "rule_groups": [
+            {
+                "group_name": "war_terrorism_cyber_mold_ruleset",
+                "group_display_name": "Following clauses must be included otherwise decline/outside of appetite",
+                "rules": [
+                    {
+                        "rule_name": "Rule_01_WarAndCivilWar",
+                        "criteria": "War and civil war exclusion clause evaluation",
+                        "pass_fail": "P",
+                        "score": 0,
+                        "reason": "The document explicitly mentions \"War and Civil War Exclusion Clause\" indicating exclusion applies."
+                    },
+                    {
+                        "rule_name": "Rule_02_Terrorism",
+                        "criteria": "Terrorism coverage assessment",
+                        "pass_fail": "P",
+                        "score": 0,
+                        "reason": "The document explicitly mentions \"Terrorism & Sabotage Exclusion Clause\" and \"Terrorism Exclusion Endorsement (Reinsurance) NMA 2921 08/10/2001\" indicating exclusion applies."
+                    },
+                    {
+                        "rule_name": "Rule_03_Cyber",
+                        "criteria": "Cyber risk exclusion compliance",
+                        "pass_fail": "P",
+                        "score": 0,
+                        "reason": "The document explicitly mentions \"Cyber Risk Exclusion Clause\" indicating exclusion applies."
+                    },
+                    {
+                        "rule_name": "Rule_04_MoldOrFungi",
+                        "criteria": "Mold or fungi exclusion evaluation",
+                        "pass_fail": "F",
+                        "score": 1,
+                        "reason": "The document does not mention \"Mold/Fungi\", \"Mold Exclusion Clause\", or \"Fungi Exclusion Clause\"."
+                    }
+                ],
+                "total_rules": 4,
+                "passed_rules": 3,
+                "failed_rules": 1,
+                "group_score_percentage": 25.0
+            },
+            {
+                "group_name": "communicableDisease_NCBR_rule_set",
+                "group_display_name": "Following must be excluded otherwise decline/outside of appetite",
+                "rules": [
+                    {
+                        "rule_name": "Rule_05_CommunicableDisease",
+                        "criteria": "Communicable disease exclusion assessment",
+                        "pass_fail": "P",
+                        "score": 0,
+                        "reason": "The document explicitly mentions \"Communicable Disease Exclusion Clause (LMA 5393)\" indicating exclusion applies."
+                    },
+                    {
+                        "rule_name": "Rule_06_NBCR",
+                        "criteria": "Nuclear, biological, chemical, radiological (NBCR) exclusion",
+                        "pass_fail": "P",
+                        "score": 0,
+                        "reason": "The document explicitly mentions \"Institute Radioactive Contamination, Chemical, Biological, Bio-Chemical and Electromagnetic Weapons Exclusion Clause CL370 (10/11/03)\" indicating exclusion applies."
+                    }
+                ],
+                "total_rules": 2,
+                "passed_rules": 2,
+                "failed_rules": 0,
+                "group_score_percentage": 0.0
+            },
+            {
+                "group_name": "insurance_coverage_not_supported_rule_set",
+                "group_display_name": "Following insurance/cover/coverage type is outside of appetite",
+                "rules": [
+                    {
+                        "rule_name": "Rule_07_FinancialGuarantee",
+                        "criteria": "Financial guarantee exclusion evaluation",
+                        "pass_fail": "P",
+                        "score": 0,
+                        "reason": "The document explicitly mentions \"Political Risk, Financial Guarantee and Credit Risk Exclusion Clause\" indicating exclusion applies."
+                    },
+                    {
+                        "rule_name": "Rule_08_FidelityBusiness",
+                        "criteria": "Fidelity business exclusion assessment",
+                        "pass_fail": "P",
+                        "score": 0,
+                        "reason": "The document does not mention \"Fidelity Business\", \"Surety Business\", or \"Fidelity and Surety Business\"."
+                    },
+                    {
+                        "rule_name": "Rule_09_CasualtyBusiness",
+                        "criteria": "Casualty business exclusion evaluation",
+                        "pass_fail": "P",
+                        "score": 0,
+                        "reason": "The document does not mention \"Casualty business\" or \"Casualty\"."
+                    },
+                    {
+                        "rule_name": "Rule_10_Hull",
+                        "criteria": "Hull coverage exclusion assessment",
+                        "pass_fail": "P",
+                        "score": 0,
+                        "reason": "The document does not mention \"Hull\" or \"Hull(Coverage type)\"."
+                    }
+                ],
+                "total_rules": 4,
+                "passed_rules": 4,
+                "failed_rules": 0,
+                "group_score_percentage": 0.0
+            },
+            {
+                "group_name": "operations_outside_appetite_rule_set",
+                "group_display_name": "Following operations are outside of appetite",
+                "rules": [
+                    {
+                        "rule_name": "Rule_11_RigsAndGasPlants",
+                        "criteria": "Rigs and gas plants exclusion evaluation",
+                        "pass_fail": "P",
+                        "score": 0,
+                        "reason": "The document does not mention terms related to \"Onshore or Offshore oil rigs\", \"including platforms and associated equipment there on\", \"coal mining\", \"natural resource extraction\", \"pipelines\", \"refineries\", and \"natural gas plants\"."
+                    },
+                    {
+                        "rule_name": "Rule_12_StandingCrops",
+                        "criteria": "Standing crops exclusion assessment",
+                        "pass_fail": "P",
+                        "score": 0,
+                        "reason": "The document does not mention \"Growing crops\", \"Standing crops\", or \"Growing or standing crops\"."
+                    },
+                    {
+                        "rule_name": "Rule_13_NuclearRisks",
+                        "criteria": "Nuclear risks exclusion evaluation",
+                        "pass_fail": "P",
+                        "score": 0,
+                        "reason": "No relevant nuclear-related terms found in the inclusion sections or elsewhere."
+                    }
+                ],
+                "total_rules": 3,
+                "passed_rules": 3,
+                "failed_rules": 0,
+                "group_score_percentage": 0.0
+            },
+            {
+                "group_name": "policy_terms",
+                "group_display_name": "Maximum Policy periods",
+                "rules": [
+                    {
+                        "rule_name": "Rule_14_MaximumPolicyPeriod",
+                        "criteria": "Maximum policy period compliance check",
+                        "pass_fail": "P",
+                        "score": 0,
+                        "reason": "The policy period is from 30th April 2024 to 30th April 2025, which is 12 months, less than 18 months."
+                    },
+                    {
+                        "rule_name": "Rule_15_CourseOfConstruction",
+                        "criteria": "Course of construction coverage evaluation",
+                        "pass_fail": "F",
+                        "score": 1,
+                        "reason": "No terms related to Builders Risk/Course of Construction/CAR/EAR/Renovation were found."
+                    }
+                ],
+                "total_rules": 2,
+                "passed_rules": 1,
+                "failed_rules": 1,
+                "group_score_percentage": 50.0
+            }
+        ],
+        "scoring_summary": {
+            "final_score": 13.33,
+            "decision": "Refer",
+            "recommendation": "Manual Review",
+            "overall_summary": "**Insurance Document Evaluation Summary**\n\n**Final Score and Decision**  \nThe evaluation resulted in a final score of 13.33%, leading to the decision to refer the document for further review.\n\n**Key Areas of Concern**  \nThe assessment identified failures in two crucial rule groups:  \n- **Rule_04_MoldOrFungi**: This indicates potential exposure to mold or fungi risks, which could lead to significant health liabilities and property damage claims.  \n- **Rule_15_CourseOfConstruction**: This highlights concerns related to the risk management practices during construction phases, which could result in unforeseen liabilities and increased insurance claims.\n\n**Business Impact of Findings**  \nThe identification of these failed rules suggests heightened risks that could adversely affect underwriting decisions, premium calculations, and overall portfolio management. Failure to address these issues may lead to increased claims and financial exposure for the organization. It is essential to further investigate these areas to mitigate risks effectively and ensure compliance with regulatory standards, thereby protecting the company’s financial interests and reputation in the market.",
+            "calculation_method": "rule_based_simple",
+            "total_rules": 15,
+            "rules_evaluated": 15,
+            "rules_passed": 13,
+            "rules_failed": 2,
+            "exceptions_count": 0,
+            "scorecard_info": {
+                "name": "Property Guidelines Scorecard",
+                "version": "1.0"
+            }
+        },
+        "exceptions": [],
+        "metadata": {
+            "scoring_timestamp": "2025-08-26T20:22:48.754247",
+            "user_input": "Post-process merged extraction results: Generate comprehensive score based on document analysis and scorecard template for property business line"
+        },
+        "_completion_status": {
+            "completed": true,
+            "timestamp": "2025-08-26T20:22:48.756255",
+            "agent": "ScoringAgent",
+            "status": "SUCCESS"
+        }
+    }
+}
