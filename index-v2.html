@@ -246,24 +246,8 @@
                                     ng-click="removePolygon($index)">
                                 ×
                             </button>
-                            <button class="px-2 py-1 bg-gray-700 text-white rounded hover:bg-gray-900 transition-colors" ng-click="drawTestPolygon()">Draw Test Poly</button>
                         </div>
                     </div>
-            // Draw a test polygon in hardcoded PDF pixel coordinates for debugging
-            $scope.drawTestPolygon = function() {
-                if (!canvas || !ctx) return;
-                // Example: a rectangle near the top left of a standard US Letter page (8.5x11 inches = 612x792 points)
-                var testPoly = {
-                    page: $scope.currentPage,
-                    x1: 100, y1: 100,
-                    x2: 200, y2: 100,
-                    x3: 200, y3: 200,
-                    x4: 100, y4: 200
-                };
-                console.log('Canvas size:', canvas.width, canvas.height);
-                console.log('Drawing test polygon:', testPoly);
-                $scope.highlightPolygon(testPoly);
-            };
                 </div>
             </div>
         </div>
@@ -862,16 +846,18 @@
                 }
 
                 const rect = canvas.getBoundingClientRect();
+                
                 // Calculate center point of polygon in PDF coordinates
                 const centerX = (poly.x1 + poly.x2 + poly.x3 + poly.x4) / 4;
                 const centerY = (poly.y1 + poly.y2 + poly.y3 + poly.y4) / 4;
+                
                 // Convert PDF coordinates to canvas coordinates
                 const canvasX = centerX * (rect.width / canvas.width);
                 const canvasY = centerY * (rect.height / canvas.height);
-                // Debug log
-                console.log('highlightPolygon: poly:', poly, 'canvas size:', canvas.width, canvas.height, 'center:', centerX, centerY, 'canvas center:', canvasX, canvasY);
+                
                 // Show marker at center
                 $scope.showMarker(canvasX, canvasY);
+                
                 // Draw polygon with background color
                 ctx.fillStyle = 'rgba(255, 255, 0, 0.3)'; // Semi-transparent yellow background
                 ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)'; // Red border
@@ -884,12 +870,14 @@
                 ctx.closePath();
                 ctx.fill(); // Fill the polygon
                 ctx.stroke(); // Draw the border
+                
                 console.log('Polygon drawn with coordinates:', {
                     x1: poly.x1, y1: poly.y1,
                     x2: poly.x2, y2: poly.y2,
                     x3: poly.x3, y3: poly.y3,
                     x4: poly.x4, y4: poly.y4
                 });
+                
                 // Scroll to center of polygon
                 const container = canvas.parentElement;
                 container.scrollTo({
