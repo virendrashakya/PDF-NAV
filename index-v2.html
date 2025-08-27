@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>PDF Coordinate Navigator with JSON Data</title>
+        <title>PDF Eyeballing</title>
     
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -96,7 +96,7 @@
     <div class="max-w-7xl mx-auto p-5 grid grid-cols-1 lg:grid-cols-4 gap-5 h-screen">
         <!-- Sidebar -->
         <div class="lg:col-span-1 bg-white/95 backdrop-blur-lg rounded-2xl p-6 shadow-2xl flex flex-col gap-5 overflow-y-auto">
-            <h1 class="text-2xl font-light text-center mb-5 gradient-text">PDF Field Navigator</h1>
+            <h1 class="text-2xl font-light text-center mb-5 gradient-text">PDF Eyeballing</h1>
             
             <!-- PDF Upload Section -->
             <div class="border-3 border-dashed border-blue-500 rounded-xl p-5 text-center transition-all duration-300 cursor-pointer relative overflow-hidden hover:border-purple-600 hover:bg-blue-50 hover:-translate-y-0.5" 
@@ -246,8 +246,24 @@
                                     ng-click="removePolygon($index)">
                                 ×
                             </button>
+                            <button class="px-2 py-1 bg-gray-700 text-white rounded hover:bg-gray-900 transition-colors" ng-click="drawTestPolygon()">Draw Test Poly</button>
                         </div>
                     </div>
+            // Draw a test polygon in hardcoded PDF pixel coordinates for debugging
+            $scope.drawTestPolygon = function() {
+                if (!canvas || !ctx) return;
+                // Example: a rectangle near the top left of a standard US Letter page (8.5x11 inches = 612x792 points)
+                var testPoly = {
+                    page: $scope.currentPage,
+                    x1: 100, y1: 100,
+                    x2: 200, y2: 100,
+                    x3: 200, y3: 200,
+                    x4: 100, y4: 200
+                };
+                console.log('Canvas size:', canvas.width, canvas.height);
+                console.log('Drawing test polygon:', testPoly);
+                $scope.highlightPolygon(testPoly);
+            };
                 </div>
             </div>
         </div>
@@ -508,17 +524,32 @@
 
             $scope.navigateToField = function(fieldName, fieldData) {
                 $scope.activeField = fieldName;
-                
                 if (!fieldData.source || !canvas) {
                     console.log('No source coordinate data available for field:', fieldName);
                     return;
                 }
-
                 const coord = $scope.parseSourceCoordinate(fieldData.source);
                 if (coord) {
                     // Clear existing highlights first
                     $scope.clearHighlights();
-                    
+                    // Convert inches to pixels for polygon creation
+                    const toPx = v => v * 72;
+                    const pxPolygon = {
+                        page: coord.page,
+                        x1: toPx(coord.x1), y1: toPx(coord.y1),
+                        x2: toPx(coord.x2), y2: toPx(coord.y2),
+                        x3: toPx(coord.x3), y3: toPx(coord.y3),
+                        x4: toPx(coord.x4), y4: toPx(coord.y4)
+                    };
+                    // Add polygon to list if not already present (avoid duplicates)
+                    var exists = $scope.polygons.some(function(p) {
+                        return p.page === pxPolygon.page &&
+                            p.x1 === pxPolygon.x1 && p.y1 === pxPolygon.y1 &&
+                            p.x2 === pxPolygon.x2 && p.y2 === pxPolygon.y2 &&
+                            p.x3 === pxPolygon.x3 && p.y3 === pxPolygon.y3 &&
+                            p.x4 === pxPolygon.x4 && p.y4 === pxPolygon.y4;
+                    });
+                    if (!exists) $scope.polygons.push(pxPolygon);
                     // Switch to the correct page if needed
                     if (coord.page !== $scope.currentPage) {
                         $scope.currentPage = coord.page;
@@ -539,14 +570,22 @@
                         return;
                     }
 
-                    console.log('Navigating to coordinate:', coord);
+                    console.log('Navigating to coordinate (raw, inches):', coord);
+
+                    // Convert inches to pixels (PDF points)
+                    const toPx = v => v * 72;
+                    const pxCoord = {
+                        x1: toPx(coord.x1), y1: toPx(coord.y1),
+                        x2: toPx(coord.x2), y2: toPx(coord.y2),
+                        x3: toPx(coord.x3), y3: toPx(coord.y3),
+                        x4: toPx(coord.x4), y4: toPx(coord.y4)
+                    };
 
                     const rect = canvas.getBoundingClientRect();
-                    
-                    // Calculate center point in PDF coordinates
-                    const centerX = (coord.x1 + coord.x2 + coord.x3 + coord.x4) / 4;
-                    const centerY = (coord.y1 + coord.y2 + coord.y3 + coord.y4) / 4;
-                    
+                    // Calculate center point in PDF coordinates (pixels)
+                    const centerX = (pxCoord.x1 + pxCoord.x2 + pxCoord.x3 + pxCoord.x4) / 4;
+                    const centerY = (pxCoord.y1 + pxCoord.y2 + pxCoord.y3 + pxCoord.y4) / 4;
+
                     // Convert PDF coordinates to canvas coordinates
                     const canvasX = centerX * (rect.width / canvas.width);
                     const canvasY = centerY * (rect.height / canvas.height);
@@ -558,20 +597,15 @@
                     ctx.strokeStyle = 'rgba(0, 255, 0, 0.8)'; // Green border
                     ctx.lineWidth = 3;
                     ctx.beginPath();
-                    ctx.moveTo(coord.x1, coord.y1);
-                    ctx.lineTo(coord.x2, coord.y2);
-                    ctx.lineTo(coord.x3, coord.y3);
-                    ctx.lineTo(coord.x4, coord.y4);
+                    ctx.moveTo(pxCoord.x1, pxCoord.y1);
+                    ctx.lineTo(pxCoord.x2, pxCoord.y2);
+                    ctx.lineTo(pxCoord.x3, pxCoord.y3);
+                    ctx.lineTo(pxCoord.x4, pxCoord.y4);
                     ctx.closePath();
                     ctx.fill(); // Fill the polygon
                     ctx.stroke(); // Draw the border
 
-                    console.log('Field area highlighted with coordinates:', {
-                        x1: coord.x1, y1: coord.y1,
-                        x2: coord.x2, y2: coord.y2,
-                        x3: coord.x3, y3: coord.y3,
-                        x4: coord.x4, y4: coord.y4
-                    });
+                    console.log('Field area highlighted with coordinates (pixels):', pxCoord);
 
                     // Scroll to the coordinate
                     const container = canvas.parentElement;
@@ -768,14 +802,16 @@
 
                 const coord = $scope.parseSourceCoordinate(fieldData.source);
                 if (coord) {
+                    // Convert inches to pixels (PDF points)
+                    const toPx = v => v * 72;
                     $scope.newPolygon = {
                         page: coord.page,
-                        x1: coord.x1, y1: coord.y1,
-                        x2: coord.x2, y2: coord.y2,
-                        x3: coord.x3, y3: coord.y3,
-                        x4: coord.x4, y4: coord.y4
+                        x1: toPx(coord.x1), y1: toPx(coord.y1),
+                        x2: toPx(coord.x2), y2: toPx(coord.y2),
+                        x3: toPx(coord.x3), y3: toPx(coord.y3),
+                        x4: toPx(coord.x4), y4: toPx(coord.y4)
                     };
-                    $scope.coordinateString = 'D(' + coord.page + ',' + coord.x1 + ',' + coord.y1 + ',' + coord.x2 + ',' + coord.y2 + ',' + coord.x3 + ',' + coord.y3 + ',' + coord.x4 + ',' + coord.y4 + ')';
+                    $scope.coordinateString = 'D(' + coord.page + ',' + $scope.newPolygon.x1 + ',' + $scope.newPolygon.y1 + ',' + $scope.newPolygon.x2 + ',' + $scope.newPolygon.y2 + ',' + $scope.newPolygon.x3 + ',' + $scope.newPolygon.y3 + ',' + $scope.newPolygon.x4 + ',' + $scope.newPolygon.y4 + ')';
                     alert('Coordinates copied to manual polygon section!');
                 } else {
                     alert('Could not parse coordinates from field data');
@@ -826,18 +862,16 @@
                 }
 
                 const rect = canvas.getBoundingClientRect();
-                
                 // Calculate center point of polygon in PDF coordinates
                 const centerX = (poly.x1 + poly.x2 + poly.x3 + poly.x4) / 4;
                 const centerY = (poly.y1 + poly.y2 + poly.y3 + poly.y4) / 4;
-                
                 // Convert PDF coordinates to canvas coordinates
                 const canvasX = centerX * (rect.width / canvas.width);
                 const canvasY = centerY * (rect.height / canvas.height);
-                
+                // Debug log
+                console.log('highlightPolygon: poly:', poly, 'canvas size:', canvas.width, canvas.height, 'center:', centerX, centerY, 'canvas center:', canvasX, canvasY);
                 // Show marker at center
                 $scope.showMarker(canvasX, canvasY);
-                
                 // Draw polygon with background color
                 ctx.fillStyle = 'rgba(255, 255, 0, 0.3)'; // Semi-transparent yellow background
                 ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)'; // Red border
@@ -850,14 +884,12 @@
                 ctx.closePath();
                 ctx.fill(); // Fill the polygon
                 ctx.stroke(); // Draw the border
-                
                 console.log('Polygon drawn with coordinates:', {
                     x1: poly.x1, y1: poly.y1,
                     x2: poly.x2, y2: poly.y2,
                     x3: poly.x3, y3: poly.y3,
                     x4: poly.x4, y4: poly.y4
                 });
-                
                 // Scroll to center of polygon
                 const container = canvas.parentElement;
                 container.scrollTo({
