@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>PDF Eyeballing</title>
+    <title>PDF Eyeballing</title>
     
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -70,13 +70,13 @@
             pointer-events: none;
             z-index: 5;
         }
-
+        
         @keyframes pulse {
             0% { transform: translate(-50%, -50%) scale(1); }
             50% { transform: translate(-50%, -50%) scale(1.3); }
             100% { transform: translate(-50%, -50%) scale(1); }
         }
-
+        
         .loading {
             display: inline-block;
             width: 16px;
@@ -86,7 +86,7 @@
             border-top-color: #fff;
             animation: spin 1s ease-in-out infinite;
         }
-
+        
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
@@ -100,874 +100,874 @@
             
             <!-- PDF Upload Section -->
             <div class="border-3 border-dashed border-blue-500 rounded-xl p-5 text-center transition-all duration-300 cursor-pointer relative overflow-hidden hover:border-purple-600 hover:bg-blue-50 hover:-translate-y-0.5" 
-                 ng-class="{'border-green-500 bg-green-50': isUploading}">
-                <input type="file" accept=".pdf" onchange="angular.element(this).scope().uploadPdf(this.files[0])" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
-                <span class="text-4xl text-blue-500 mb-2 block">📄</span>
-                <p ng-if="!isUploading" class="font-semibold">Upload PDF<br><span class="text-sm text-gray-600">Click or drag & drop</span></p>
-                <p ng-if="isUploading" class="flex items-center justify-center gap-2"><span class="loading"></span> Loading PDF...</p>
-            </div>
-
-            <!-- JSON Upload Section -->
-            <div class="bg-purple-50 border-2 border-purple-500 rounded-xl p-4">
-                <h3 class="text-lg font-medium text-gray-800 mb-3">📊 Upload Extracted JSON Data</h3>
-                <input type="file" accept=".json" onchange="angular.element(this).scope().uploadJson(this.files[0])" 
-                       class="w-full p-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-            </div>
-
-            <!-- Statistics -->
-            <div class="bg-green-50 rounded-xl p-4 text-sm" ng-if="jsonData">
-                <h4 class="text-green-700 font-medium mb-2">Data Overview</h4>
-                <div class="text-gray-700">Total Fields: {{getTotalFields()}}</div>
-                <div class="text-gray-700">Fields with Coordinates: {{getFieldsWithCoordinates()}}</div>
-                <div class="text-gray-700">Confidence Score: {{getAverageConfidence()}}%</div>
-            </div>
-
-            <!-- JSON Fields Section -->
-            <div class="bg-blue-50 rounded-xl p-4 flex-1" ng-if="jsonData">
-                <h3 class="text-lg font-medium text-gray-800 mb-4">🔍 Document Fields</h3>
-                <input type="text" placeholder="Search fields..." ng-model="fieldSearch" 
-                       class="w-full p-3 border border-gray-300 rounded-lg mb-4 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-                
-                <div class="space-y-3 max-h-80 overflow-y-auto">
-                    <div class="bg-white p-3 rounded-lg cursor-pointer transition-all duration-300 border-l-4 border-blue-500 hover:translate-x-1 hover:shadow-lg hover:bg-blue-50 text-xs" 
-                         ng-repeat="(fieldName, fieldData) in getFilteredFields()" 
-                         ng-click="navigateToField(fieldName, fieldData)"
-                         ng-class="{'bg-yellow-100 border-l-yellow-500': activeField === fieldName}">
-                        <div class="font-semibold text-gray-800 mb-1">{{formatFieldName(fieldName)}}</div>
-                        <div class="text-gray-600 mb-1" ng-if="fieldData.value">{{fieldData.value | limitTo:80}}{{fieldData.value.length > 80 ? '...' : ''}}</div>
-                        <div class="text-green-600 font-medium" ng-if="fieldData.confidence">Confidence: {{Math.round(fieldData.confidence * 100)}}%</div>
-                        <div class="text-gray-500 text-xs mt-1" ng-if="fieldData.spans && fieldData.spans.length > 0">
-                            Spans: {{fieldData.spans.length}} locations
-                        </div>
-                        <div class="mt-2 flex gap-2">
-                            <button class="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors" 
-                                    ng-click="copyToManualPolygon(fieldData); $event.stopPropagation()">
-                                Copy to Manual
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Manual Coordinates Section -->
-            <div class="bg-blue-50 rounded-xl p-4" ng-if="pdfLoaded">
-                <h3 class="text-lg font-medium text-gray-800 mb-4">📍 Polygon Navigation</h3>
-                
-                <!-- Record Coordinates Button -->
-                <div class="mb-4 p-3 bg-yellow-50 border-2 border-yellow-400 rounded-lg">
-                    <button class="w-full px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm font-medium" 
-                            ng-click="startCoordinateRecording()" 
-                            ng-disabled="isRecordingCoordinates">
-                        <span ng-if="!isRecordingCoordinates">🎯 Record Coordinates from PDF</span>
-                        <span ng-if="isRecordingCoordinates" class="flex items-center justify-center gap-2">
-                            <span class="loading"></span> Recording... Click 4 points on PDF
-                        </span>
-                    </button>
-                    <div ng-if="isRecordingCoordinates" class="mt-2 text-xs text-yellow-700">
-                        Click 4 points on the PDF to create a polygon. Points recorded: {{recordedPoints.length}}/4
-                    </div>
-                    <button ng-if="isRecordingCoordinates" 
-                            class="w-full mt-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium" 
-                            ng-click="stopCoordinateRecording()">
-                        ❌ Cancel Recording
-                    </button>
-                </div>
-                <div class="space-y-4">
-                    <div class="flex gap-3 items-center">
-                        <label class="font-medium text-gray-700 w-16">Page</label>
-                        <input type="number" placeholder="Page" ng-model="newPolygon.page" min="1" 
-                               class="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-                    </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div class="space-y-2">
-                            <label class="font-medium text-gray-700 text-xs">Point 1</label>
-                            <input type="number" placeholder="X1" ng-model="newPolygon.x1" step="0.0001" 
-                                   class="w-full p-2 border border-gray-300 rounded text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-                            <input type="number" placeholder="Y1" ng-model="newPolygon.y1" step="0.0001" 
-                                   class="w-full p-2 border border-gray-300 rounded text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-                        </div>
-                        <div class="space-y-2">
-                            <label class="font-medium text-gray-700 text-xs">Point 2</label>
-                            <input type="number" placeholder="X2" ng-model="newPolygon.x2" step="0.0001" 
-                                   class="w-full p-2 border border-gray-300 rounded text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-                            <input type="number" placeholder="Y2" ng-model="newPolygon.y2" step="0.0001" 
-                                   class="w-full p-2 border border-gray-300 rounded text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-                        </div>
-                        <div class="space-y-2">
-                            <label class="font-medium text-gray-700 text-xs">Point 3</label>
-                            <input type="number" placeholder="X3" ng-model="newPolygon.x3" step="0.0001" 
-                                   class="w-full p-2 border border-gray-300 rounded text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-                            <input type="number" placeholder="Y3" ng-model="newPolygon.y3" step="0.0001" 
-                                   class="w-full p-2 border border-gray-300 rounded text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-                        </div>
-                        <div class="space-y-2">
-                            <label class="font-medium text-gray-700 text-xs">Point 4</label>
-                            <input type="number" placeholder="X4" ng-model="newPolygon.x4" step="0.0001" 
-                                   class="w-full p-2 border border-gray-300 rounded text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-                            <input type="number" placeholder="Y4" ng-model="newPolygon.y4" step="0.0001" 
-                                   class="w-full p-2 border border-gray-300 rounded text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-                        </div>
-                    </div>
-                    <div class="flex gap-2 flex-wrap">
-                        <button class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium" 
-                                ng-click="addPolygonCoordinate()" ng-disabled="!isValidPolygon()">
-                            Add Polygon
-                        </button>
-                        <button class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm font-medium" 
-                                ng-click="parseCoordinateString()">
-                            Parse D-String
-                        </button>
-                    </div>
-                    <div>
-                        <input type="text" placeholder='D(page,x1,y1,x2,y2,x3,y3,x4,y4)' 
-                               ng-model="coordinateString" 
-                               class="w-full p-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-                    </div>
-                </div>
-
-                <div class="mt-4 space-y-2 max-h-40 overflow-y-auto" ng-if="polygons.length > 0">
-                    <div class="bg-white p-3 rounded-lg flex justify-between items-center shadow-sm hover:shadow-md transition-shadow text-xs" 
-                         ng-repeat="poly in polygons track by $index">
-                        <span class="text-gray-700">Page {{poly.page}} - Polygon {{$index + 1}}</span>
-                        <div class="flex gap-2">
-                            <button class="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors" 
-                                    ng-click="navigateToPolygon(poly)">
-                                Go
-                            </button>
-                            <button class="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors" 
-                                    ng-click="editPolygon($index)">
-                                Edit
-                            </button>
-                            <button class="px-2 py-1 bg-purple-500 text-white rounded hover:bg-purple-600 transition-colors" 
-                                    ng-click="testHighlight(poly)">
-                                Test
-                            </button>
-                            <button class="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors" 
-                                    ng-click="removePolygon($index)">
-                                ×
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            ng-class="{'border-green-500 bg-green-50': isUploading}">
+            <input type="file" accept=".pdf" onchange="angular.element(this).scope().uploadPdf(this.files[0])" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+            <span class="text-4xl text-blue-500 mb-2 block">📄</span>
+            <p ng-if="!isUploading" class="font-semibold">Upload PDF<br><span class="text-sm text-gray-600">Click or drag & drop</span></p>
+            <p ng-if="isUploading" class="flex items-center justify-center gap-2"><span class="loading"></span> Loading PDF...</p>
         </div>
-
-        <!-- Main Content -->
-        <div class="lg:col-span-3 bg-white/95 backdrop-blur-lg rounded-2xl p-6 shadow-2xl overflow-hidden">
-            <div class="h-full rounded-xl overflow-auto bg-gray-100 flex items-center justify-center relative">
-                <div ng-if="!pdfLoaded" class="text-center text-gray-500">
-                    <p class="text-xl mb-2">Upload a PDF file to get started!</p>
-                    <p class="text-sm text-gray-400">
-                        Upload your extracted JSON data to navigate to specific document fields automatically.
-                    </p>
+        
+        <!-- JSON Upload Section -->
+        <div class="bg-purple-50 border-2 border-purple-500 rounded-xl p-4">
+            <h3 class="text-lg font-medium text-gray-800 mb-3">📊 Upload Extracted JSON Data</h3>
+            <input type="file" accept=".json" onchange="angular.element(this).scope().uploadJson(this.files[0])" 
+            class="w-full p-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+        </div>
+        
+        <!-- Statistics -->
+        <div class="bg-green-50 rounded-xl p-4 text-sm" ng-if="jsonData">
+            <h4 class="text-green-700 font-medium mb-2">Data Overview</h4>
+            <div class="text-gray-700">Total Fields: {{getTotalFields()}}</div>
+            <div class="text-gray-700">Fields with Coordinates: {{getFieldsWithCoordinates()}}</div>
+            <div class="text-gray-700">Confidence Score: {{getAverageConfidence()}}%</div>
+        </div>
+        
+        <!-- JSON Fields Section -->
+        <div class="bg-blue-50 rounded-xl p-4 flex-1" ng-if="jsonData">
+            <h3 class="text-lg font-medium text-gray-800 mb-4">🔍 Document Fields</h3>
+            <input type="text" placeholder="Search fields..." ng-model="fieldSearch" 
+            class="w-full p-3 border border-gray-300 rounded-lg mb-4 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+            
+            <div class="space-y-3 max-h-80 overflow-y-auto">
+                <div class="bg-white p-3 rounded-lg cursor-pointer transition-all duration-300 border-l-4 border-blue-500 hover:translate-x-1 hover:shadow-lg hover:bg-blue-50 text-xs" 
+                ng-repeat="(fieldName, fieldData) in getFilteredFields()" 
+                ng-click="navigateToField(fieldName, fieldData)"
+                ng-class="{'bg-yellow-100 border-l-yellow-500': activeField === fieldName}">
+                <div class="font-semibold text-gray-800 mb-1">{{formatFieldName(fieldName)}}</div>
+                <div class="text-gray-600 mb-1" ng-if="fieldData.value">{{fieldData.value | limitTo:80}}{{fieldData.value.length > 80 ? '...' : ''}}</div>
+                <div class="text-green-600 font-medium" ng-if="fieldData.confidence">Confidence: {{Math.round(fieldData.confidence * 100)}}%</div>
+                <div class="text-gray-500 text-xs mt-1" ng-if="fieldData.spans && fieldData.spans.length > 0">
+                    Spans: {{fieldData.spans.length}} locations
                 </div>
-                
-                <canvas id="pdfCanvas" ng-if="pdfLoaded" ng-click="captureCoordinate($event)" 
-                        class="max-w-full max-h-full shadow-lg rounded-lg cursor-crosshair"></canvas>
-                
-                <!-- PDF Controls -->
-                <div class="absolute top-4 right-4 flex gap-2" ng-if="pdfLoaded">
-                    <button class="w-8 h-8 bg-white/90 border border-gray-300 rounded-full cursor-pointer shadow-lg transition-all hover:bg-white hover:scale-110 text-xs flex items-center justify-center" 
-                            ng-click="zoomIn()" title="Zoom In">🔍+</button>
-                    <button class="w-8 h-8 bg-white/90 border border-gray-300 rounded-full cursor-pointer shadow-lg transition-all hover:bg-white hover:scale-110 text-xs flex items-center justify-center" 
-                            ng-click="zoomOut()" title="Zoom Out">🔍-</button>
-                    <button class="w-8 h-8 bg-white/90 border border-gray-300 rounded-full cursor-pointer shadow-lg transition-all hover:bg-white hover:scale-110 text-xs flex items-center justify-center" 
-                            ng-click="resetZoom()" title="Reset Zoom">⚡</button>
-                    <button class="w-8 h-8 bg-white/90 border border-gray-300 rounded-full cursor-pointer shadow-lg transition-all hover:bg-white hover:scale-110 text-xs flex items-center justify-center" 
-                            ng-click="previousPage()" ng-disabled="currentPage <= 1" title="Previous Page">◀</button>
-                    <button class="w-8 h-8 bg-white/90 border border-gray-300 rounded-full cursor-pointer shadow-lg transition-all hover:bg-white hover:scale-110 text-xs flex items-center justify-center" 
-                            ng-click="nextPage()" ng-disabled="currentPage >= totalPages" title="Next Page">▶</button>
-                </div>
-
-                <!-- Zoom Info -->
-                <div class="absolute bottom-4 left-4 bg-black/70 text-white px-3 py-2 rounded-full text-xs" ng-if="pdfLoaded">
-                    Zoom: {{Math.round(scale * 100)}}% | Page: {{currentPage}}/{{totalPages}}
-                    <div ng-if="activeField" class="mt-1 text-xs">
-                        Field: {{formatFieldName(activeField)}}
-                    </div>
-                </div>
-
-                <!-- Coordinate Marker -->
-                <div class="coordinate-marker" ng-if="activeMarker" ng-style="activeMarker"></div>
-                
-                <!-- Recording Indicator -->
-                <div ng-if="isRecordingCoordinates" 
-                     class="absolute top-4 left-4 bg-yellow-500 text-white px-3 py-2 rounded-full text-xs font-medium animate-pulse">
-                    🎯 Recording Mode - Click 4 points
-                </div>
+                <div class="mt-2 flex gap-2">
+                    <button class="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors" 
+                    ng-click="copyToManualPolygon(fieldData); $event.stopPropagation()">
+                    Copy to Manual
+                </button>
             </div>
         </div>
     </div>
+</div>
 
-    <script>
-        // Configure PDF.js worker
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
+<!-- Manual Coordinates Section -->
+<div class="bg-blue-50 rounded-xl p-4" ng-if="pdfLoaded">
+    <h3 class="text-lg font-medium text-gray-800 mb-4">📍 Polygon Navigation</h3>
+    
+    <!-- Record Coordinates Button -->
+    <div class="mb-4 p-3 bg-yellow-50 border-2 border-yellow-400 rounded-lg">
+        <button class="w-full px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm font-medium" 
+        ng-click="startCoordinateRecording()" 
+        ng-disabled="isRecordingCoordinates">
+        <span ng-if="!isRecordingCoordinates">🎯 Record Coordinates from PDF</span>
+        <span ng-if="isRecordingCoordinates" class="flex items-center justify-center gap-2">
+            <span class="loading"></span> Recording... Click 4 points on PDF
+        </span>
+    </button>
+    <div ng-if="isRecordingCoordinates" class="mt-2 text-xs text-yellow-700">
+        Click 4 points on the PDF to create a polygon. Points recorded: {{recordedPoints.length}}/4
+    </div>
+    <button ng-if="isRecordingCoordinates" 
+    class="w-full mt-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium" 
+    ng-click="stopCoordinateRecording()">
+    ❌ Cancel Recording
+</button>
+</div>
+<div class="space-y-4">
+    <div class="flex gap-3 items-center">
+        <label class="font-medium text-gray-700 w-16">Page</label>
+        <input type="number" placeholder="Page" ng-model="newPolygon.page" min="1" 
+        class="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+        <div class="space-y-2">
+            <label class="font-medium text-gray-700 text-xs">Point 1</label>
+            <input type="number" placeholder="X1" ng-model="newPolygon.x1" step="0.0001" 
+            class="w-full p-2 border border-gray-300 rounded text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+            <input type="number" placeholder="Y1" ng-model="newPolygon.y1" step="0.0001" 
+            class="w-full p-2 border border-gray-300 rounded text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+        </div>
+        <div class="space-y-2">
+            <label class="font-medium text-gray-700 text-xs">Point 2</label>
+            <input type="number" placeholder="X2" ng-model="newPolygon.x2" step="0.0001" 
+            class="w-full p-2 border border-gray-300 rounded text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+            <input type="number" placeholder="Y2" ng-model="newPolygon.y2" step="0.0001" 
+            class="w-full p-2 border border-gray-300 rounded text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+        </div>
+        <div class="space-y-2">
+            <label class="font-medium text-gray-700 text-xs">Point 3</label>
+            <input type="number" placeholder="X3" ng-model="newPolygon.x3" step="0.0001" 
+            class="w-full p-2 border border-gray-300 rounded text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+            <input type="number" placeholder="Y3" ng-model="newPolygon.y3" step="0.0001" 
+            class="w-full p-2 border border-gray-300 rounded text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+        </div>
+        <div class="space-y-2">
+            <label class="font-medium text-gray-700 text-xs">Point 4</label>
+            <input type="number" placeholder="X4" ng-model="newPolygon.x4" step="0.0001" 
+            class="w-full p-2 border border-gray-300 rounded text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+            <input type="number" placeholder="Y4" ng-model="newPolygon.y4" step="0.0001" 
+            class="w-full p-2 border border-gray-300 rounded text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+        </div>
+    </div>
+    <div class="flex gap-2 flex-wrap">
+        <button class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium" 
+        ng-click="addPolygonCoordinate()" ng-disabled="!isValidPolygon()">
+        Add Polygon
+    </button>
+    <button class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm font-medium" 
+    ng-click="parseCoordinateString()">
+    Parse D-String
+</button>
+</div>
+<div>
+    <input type="text" placeholder='D(page,x1,y1,x2,y2,x3,y3,x4,y4)' 
+    ng-model="coordinateString" 
+    class="w-full p-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+</div>
+</div>
 
-        angular.module('pdfNavigatorApp', [])
-        .controller('PdfNavigatorController', ['$scope', '$timeout', function($scope, $timeout) {
-            $scope.pdfLoaded = false;
-            $scope.isUploading = false;
-            $scope.coordinates = [];
-            $scope.newCoordinate = {};
-            $scope.scale = 1.0;
-            $scope.currentPage = 1;
-            $scope.totalPages = 0;
-            $scope.activeMarker = null;
-            $scope.jsonData = null;
-            $scope.activeField = null;
-            $scope.fieldSearch = '';
-            $scope.Math = Math;
+<div class="mt-4 space-y-2 max-h-40 overflow-y-auto" ng-if="polygons.length > 0">
+    <div class="bg-white p-3 rounded-lg flex justify-between items-center shadow-sm hover:shadow-md transition-shadow text-xs" 
+    ng-repeat="poly in polygons track by $index">
+    <span class="text-gray-700">Page {{poly.page}} - Polygon {{$index + 1}}</span>
+    <div class="flex gap-2">
+        <button class="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors" 
+            ng-click="navigateToPolygon(poly)">
+            Go
+        </button>
+        <button class="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors" 
+            ng-click="editPolygon($index)">
+            Edit
+        </button>
+        <button class="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors" 
+            ng-click="removePolygon($index)">
+            ×
+        </button>
+    </div>
+</div>
+</div>
+</div>
+</div>
 
-            $scope.newPolygon = {
-                page: 1,
-                x1: null, y1: null,
-                x2: null, y2: null,
-                x3: null, y3: null,
-                x4: null, y4: null
+<!-- Main Content -->
+<div class="lg:col-span-3 bg-white/95 backdrop-blur-lg rounded-2xl p-6 shadow-2xl overflow-hidden">
+    <div class="h-full rounded-xl overflow-auto bg-gray-100 flex items-center justify-center relative">
+        <div ng-if="!pdfLoaded" class="text-center text-gray-500">
+            <p class="text-xl mb-2">Upload a PDF file to get started!</p>
+            <p class="text-sm text-gray-400">
+                Upload your extracted JSON data to navigate to specific document fields automatically.
+            </p>
+        </div>
+        
+        <canvas id="pdfCanvas" ng-if="pdfLoaded" ng-click="captureCoordinate($event)" 
+        class="max-w-full max-h-full shadow-lg rounded-lg cursor-crosshair"></canvas>
+        
+        <!-- PDF Controls -->
+        <div class="absolute top-4 right-4 flex gap-2" ng-if="pdfLoaded">
+            <button class="w-8 h-8 bg-white/90 border border-gray-300 rounded-full cursor-pointer shadow-lg transition-all hover:bg-white hover:scale-110 text-xs flex items-center justify-center" 
+            ng-click="zoomIn()" title="Zoom In">🔍+</button>
+            <button class="w-8 h-8 bg-white/90 border border-gray-300 rounded-full cursor-pointer shadow-lg transition-all hover:bg-white hover:scale-110 text-xs flex items-center justify-center" 
+            ng-click="zoomOut()" title="Zoom Out">🔍-</button>
+            <button class="w-8 h-8 bg-white/90 border border-gray-300 rounded-full cursor-pointer shadow-lg transition-all hover:bg-white hover:scale-110 text-xs flex items-center justify-center" 
+            ng-click="resetZoom()" title="Reset Zoom">⚡</button>
+            <button class="w-8 h-8 bg-white/90 border border-gray-300 rounded-full cursor-pointer shadow-lg transition-all hover:bg-white hover:scale-110 text-xs flex items-center justify-center" 
+            ng-click="previousPage()" ng-disabled="currentPage <= 1" title="Previous Page">◀</button>
+            <button class="w-8 h-8 bg-white/90 border border-gray-300 rounded-full cursor-pointer shadow-lg transition-all hover:bg-white hover:scale-110 text-xs flex items-center justify-center" 
+            ng-click="nextPage()" ng-disabled="currentPage >= totalPages" title="Next Page">▶</button>
+        </div>
+        
+        <!-- Zoom Info -->
+        <div class="absolute bottom-4 left-4 bg-black/70 text-white px-3 py-2 rounded-full text-xs" ng-if="pdfLoaded">
+            Zoom: {{Math.round(scale * 100)}}% | Page: {{currentPage}}/{{totalPages}}
+            <div ng-if="activeField" class="mt-1 text-xs">
+                Field: {{formatFieldName(activeField)}}
+            </div>
+        </div>
+        
+        <!-- Coordinate Marker -->
+        <div class="coordinate-marker" ng-if="activeMarker" ng-style="activeMarker"></div>
+        
+        <!-- Recording Indicator -->
+        <div ng-if="isRecordingCoordinates" 
+        class="absolute top-4 left-4 bg-yellow-500 text-white px-3 py-2 rounded-full text-xs font-medium animate-pulse">
+        🎯 Recording Mode - Click 4 points
+    </div>
+</div>
+</div>
+</div>
+
+<script>
+    // Configure PDF.js worker
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
+    
+    angular.module('pdfNavigatorApp', [])
+    .controller('PdfNavigatorController', ['$scope', '$timeout', function($scope, $timeout) {
+        $scope.pdfLoaded = false;
+        $scope.isUploading = false;
+        $scope.coordinates = [];
+        $scope.newCoordinate = {};
+        $scope.scale = 1.0;
+        $scope.currentPage = 1;
+        $scope.totalPages = 0;
+        $scope.activeMarker = null;
+        $scope.jsonData = null;
+        $scope.activeField = null;
+        $scope.fieldSearch = '';
+        $scope.Math = Math;
+        
+        $scope.newPolygon = {
+            page: 1,
+            x1: null, y1: null,
+            x2: null, y2: null,
+            x3: null, y3: null,
+            x4: null, y4: null
+        };
+        
+        $scope.polygons = [];
+        $scope.coordinateString = '';
+        
+        // Coordinate recording functionality
+        $scope.isRecordingCoordinates = false;
+        $scope.recordedPoints = [];
+        $scope.recordingPage = 1;
+        
+        let pdfDoc = null;
+        let canvas = null;
+        let ctx = null;
+        
+        $scope.uploadPdf = function(file) {
+            if (!file) return;
+            
+            $scope.isUploading = true;
+            $scope.$apply();
+            
+            const fileReader = new FileReader();
+            fileReader.onload = function(e) {
+                const typedarray = new Uint8Array(e.target.result);
+                
+                pdfjsLib.getDocument(typedarray).promise.then(function(pdf) {
+                    pdfDoc = pdf;
+                    $scope.totalPages = pdf.numPages;
+                    $scope.currentPage = 1;
+                    $scope.pdfLoaded = true;
+                    $scope.isUploading = false;
+                    
+                    $timeout(function() {
+                        canvas = document.getElementById('pdfCanvas');
+                        ctx = canvas.getContext('2d');
+                        $scope.renderPage(1);
+                    }, 100);
+                    
+                    $timeout(function() {
+                        $scope.$apply();
+                    });
+                }).catch(function(error) {
+                    console.error('Error loading PDF:', error);
+                    $scope.isUploading = false;
+                    $timeout(function() {
+                        $scope.$apply();
+                    });
+                    alert('Error loading PDF file. Please try again.');
+                });
             };
+            fileReader.readAsArrayBuffer(file);
+        };
+        
+        $scope.uploadJson = function(file) {
+            if (!file) return;
+            
+            const fileReader = new FileReader();
+            fileReader.onload = function(e) {
+                try {
+                    // Clean the JSON text to handle potential formatting issues
+                    let jsonText = e.target.result;
+                    
+                    // Remove any BOM (Byte Order Mark) if present
+                    if (jsonText.charCodeAt(0) === 0xFEFF) {
+                        jsonText = jsonText.slice(1);
+                    }
+                    
+                    // Try to parse the JSON
+                    $scope.jsonData = JSON.parse(jsonText);
+                    
+                    // Validate the structure
+                    if (!$scope.jsonData.extracted_data || !$scope.jsonData.extracted_data.fields) {
+                        throw new Error('Invalid JSON structure: missing extracted_data.fields');
+                    }
+                    
+                    $timeout(function() {
+                        // $scope.$apply();
+                    });
+                    console.log('JSON data loaded successfully');
+                    console.log('Total fields:', Object.keys($scope.jsonData.extracted_data.fields).length);
+                    
+                    alert('JSON data loaded successfully! Found ' + Object.keys($scope.jsonData.extracted_data.fields).length + ' fields.');
+                    
+                } catch (error) {
+                    console.error('JSON parsing error:', error);
+                    console.error('File content preview:', e.target.result.substring(0, 500));
+                    
+                    let errorMessage = 'Error parsing JSON file:\n';
+                    if (error.message.includes('Unexpected token')) {
+                        errorMessage += '- File may contain invalid JSON syntax\n';
+                        errorMessage += '- Check for missing commas, brackets, or quotes\n';
+                    } else if (error.message.includes('Invalid JSON structure')) {
+                        errorMessage += '- File structure doesn\'t match expected format\n';
+                        errorMessage += '- Expected: {extracted_data: {fields: {...}}}\n';
+                    } else {
+                        errorMessage += '- ' + error.message + '\n';
+                    }
+                    errorMessage += '\nPlease check the console for more details.';
+                    
+                    alert(errorMessage);
+                }
+            };
+            fileReader.readAsText(file, 'UTF-8');
+        };
+        
+        $scope.getTotalFields = function() {
+            if (!$scope.jsonData || !$scope.jsonData.extracted_data || !$scope.jsonData.extracted_data.fields) return 0;
+            return Object.keys($scope.jsonData.extracted_data.fields).length;
+        };
+        
+        $scope.getFieldsWithCoordinates = function() {
+            if (!$scope.jsonData || !$scope.jsonData.extracted_data || !$scope.jsonData.extracted_data.fields) return 0;
+            let count = 0;
+            Object.values($scope.jsonData.extracted_data.fields).forEach(field => {
+                if (field.spans && field.spans.length > 0) count++;
+            });
+            return count;
+        };
+        
+        $scope.getAverageConfidence = function() {
+            if (!$scope.jsonData || !$scope.jsonData.extracted_data || !$scope.jsonData.extracted_data.fields) return 0;
+            let total = 0;
+            let count = 0;
+            Object.values($scope.jsonData.extracted_data.fields).forEach(field => {
+                if (field.confidence) {
+                    total += field.confidence;
+                    count++;
+                }
+            });
+            return count > 0 ? Math.round((total / count) * 100) : 0;
+        };
+        
+        $scope.getFilteredFields = function() {
+            if (!$scope.jsonData || !$scope.jsonData.extracted_data || !$scope.jsonData.extracted_data.fields) {
+                return {};
+            }
+            
+            const fields = $scope.jsonData.extracted_data.fields;
+            if (!$scope.fieldSearch || $scope.fieldSearch.trim() === '') {
+                return fields;
+            }
+            
+            const filtered = {};
+            const searchTerm = $scope.fieldSearch.toLowerCase();
+            
+            Object.keys(fields).forEach(fieldName => {
+                const fieldData = fields[fieldName];
+                const formattedName = $scope.formatFieldName(fieldName).toLowerCase();
+                const fieldValue = (fieldData.value || '').toString().toLowerCase();
+                
+                if (formattedName.includes(searchTerm) || 
+                fieldName.toLowerCase().includes(searchTerm) || 
+                fieldValue.includes(searchTerm)) {
+                    filtered[fieldName] = fieldData;
+                }
+            });
+            
+            return filtered;
+        };
+        
+        $scope.formatFieldName = function(fieldName) {
+            return fieldName.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim();
+        };
+        
+        $scope.parseSourceCoordinate = function(source) {
+            if (!source || typeof source !== 'string') return null;
+            
+            // Parse source format: D(page,x1,y1,x2,y2,x3,y3,x4,y4)
+            const match = source.match(/D\((\d+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+)\)/);
+            if (match) {
+                return {
+                    page: parseInt(match[1]),
+                    x1: parseFloat(match[2]),
+                    y1: parseFloat(match[3]),
+                    x2: parseFloat(match[4]),
+                    y2: parseFloat(match[5]),
+                    x3: parseFloat(match[6]),
+                    y3: parseFloat(match[7]),
+                    x4: parseFloat(match[8]),
+                    y4: parseFloat(match[9])
+                };
+            }
+            return null;
+        };
+        
+        $scope.navigateToField = function(fieldName, fieldData) {
+            // debugger
+            $scope.activeField = fieldName;
+            if (!fieldData.source || !canvas) {
+                console.log('No source coordinate data available for field:', fieldName);
+                return;
+            }
+            const coord = $scope.parseSourceCoordinate(fieldData.source);
+            if (coord) {
+                
+                
+                // Clear existing highlights first
+                // $scope.clearHighlights();
+                // Convert inches to pixels for polygon creation
+                const toPx = v => v * 72;
+                const pxPolygon = {
+                    page: coord.page,
+                    x1: toPx(coord.x1), y1: toPx(coord.y1),
+                    x2: toPx(coord.x2), y2: toPx(coord.y2),
+                    x3: toPx(coord.x3), y3: toPx(coord.y3),
+                    x4: toPx(coord.x4), y4: toPx(coord.y4)
+                };
 
-            $scope.polygons = [];
-            $scope.coordinateString = '';
+                
+                // Add polygon to list if not already present (avoid duplicates)
+                var exists = $scope.polygons.some(function(p) {
+                    return p.page === pxPolygon.page &&
+                    p.x1 === pxPolygon.x1 && p.y1 === pxPolygon.y1 &&
+                    p.x2 === pxPolygon.x2 && p.y2 === pxPolygon.y2 &&
+                    p.x3 === pxPolygon.x3 && p.y3 === pxPolygon.y3 &&
+                    p.x4 === pxPolygon.x4 && p.y4 === pxPolygon.y4;
+                });
+                if (!exists) $scope.polygons.push(pxPolygon);
+                // Switch to the correct page if needed
+                
+                console.log("pxPolygonpxPolygonpxPolygonpxPolygon");
+                console.log(pxPolygon);
+                
+                if (coord.page !== $scope.currentPage) {
+                    $scope.currentPage = coord.page;
+                    $scope.renderPage(coord.page).then(() => {
+                        $scope.navigateToCoordinateOnPage(coord);
+                    });
+                } else {
+                    $scope.navigateToCoordinateOnPage(coord);
+                }
+            } else {
+                console.log('Could not parse coordinate from source:', fieldData.source);
+            }
+        };
+        
+        $scope.navigateToCoordinateOnPage = function(coord) {
+            if (!canvas || !ctx) {
+                console.error('Canvas or context not available');
+                return;
+            }
+            
+            console.log('Navigating to coordinate (raw, inches):', coord);
+            
+            // Convert inches to pixels (PDF points)
+            const toPx = v => v * 72;
+            const pxCoord = {
+                x1: toPx(coord.x1), y1: toPx(coord.y1),
+                x2: toPx(coord.x2), y2: toPx(coord.y2),
+                x3: toPx(coord.x3), y3: toPx(coord.y3),
+                x4: toPx(coord.x4), y4: toPx(coord.y4)
+            };
+            
+            const rect = canvas.getBoundingClientRect();
+            // Calculate center point in PDF coordinates (pixels)
+            const centerX = (pxCoord.x1 + pxCoord.x2 + pxCoord.x3 + pxCoord.x4) / 4;
+            const centerY = (pxCoord.y1 + pxCoord.y2 + pxCoord.y3 + pxCoord.y4) / 4;
+            
+            // Convert PDF coordinates to canvas coordinates
+            const canvasX = centerX * (rect.width / canvas.width);
+            const canvasY = centerY * (rect.height / canvas.height);
+            
+            $scope.showMarker(canvasX, canvasY);
+            
+            // Highlight the field area on canvas
+            ctx.fillStyle = 'rgba(0, 255, 0, 0.3)'; // Semi-transparent green background
+            ctx.strokeStyle = 'rgba(0, 255, 0, 0.8)'; // Green border
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(pxCoord.x1, pxCoord.y1);
+            ctx.lineTo(pxCoord.x2, pxCoord.y2);
+            ctx.lineTo(pxCoord.x3, pxCoord.y3);
+            ctx.lineTo(pxCoord.x4, pxCoord.y4);
+            ctx.closePath();
+            ctx.fill(); // Fill the polygon
+            ctx.stroke(); // Draw the border
+            
+            console.log('Field area highlighted with coordinates (pixels):', pxCoord);
+            
+            // Scroll to the coordinate
+            const container = canvas.parentElement;
+            container.scrollTo({
+                left: canvasX - container.clientWidth / 2,
+                top: canvasY - container.clientHeight / 2,
+                behavior: 'smooth'
+            });
+        };
+        
+        $scope.renderPage = function(pageNumber) {
+            if (!pdfDoc) return Promise.reject('No PDF document');
+            
+            return pdfDoc.getPage(pageNumber).then(function(page) {
+                const viewport = page.getViewport({ scale: $scope.scale });
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                
+                const renderContext = {
+                    canvasContext: ctx,
+                    viewport: viewport
+                };
+                
+                return page.render(renderContext).promise.then(function() {
+                    $timeout(function() {
+                        // $scope.$apply();
+                    });
+                });
+            });
+        };
+        
+        $scope.captureCoordinate = function(event) {
+            if (!canvas) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.round((event.clientX - rect.left) * (canvas.width / rect.width));
+            const y = Math.round((event.clientY - rect.top) * (canvas.height / rect.height));
+            
+            // If recording coordinates, record the point
+            if ($scope.isRecordingCoordinates) {
+                $scope.recordPoint(x, y);
+                return;
+            }
+            
+            // Show marker at clicked position
+            $scope.showMarker(event.clientX - rect.left, event.clientY - rect.top);
+            
+            // Auto-fill coordinate inputs using $timeout to ensure safe digest cycle
+            $timeout(function() {
+                $scope.newCoordinate.x = x;
+                $scope.newCoordinate.y = y;
+                console.log('Captured coordinates:', { x: x, y: y });
+                
+                // Show a brief notification of captured coordinates
+                if (typeof g_form !== 'undefined' && g_form.addInfoMessage) {
+                    g_form.addInfoMessage('Coordinates captured: X=' + x + ', Y=' + y, 'info');
+                } else {
+                    // For standalone version, show a brief alert
+                    console.log('Coordinates captured: X=' + x + ', Y=' + y);
+                }
+            });
+        };
+        
+        $scope.addCoordinate = function() {
+            if ($scope.newCoordinate.x && $scope.newCoordinate.y) {
+                $scope.coordinates.push({
+                    x: parseFloat($scope.newCoordinate.x),
+                    y: parseFloat($scope.newCoordinate.y)
+                });
+                $scope.newCoordinate = {};
+            }
+        };
+        
+        $scope.removeCoordinate = function(index) {
+            $scope.coordinates.splice(index, 1);
+        };
+        
+        $scope.navigateToCoordinate = function(coord) {
+            if (!canvas) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const canvasX = (coord.x / canvas.width) * rect.width;
+            const canvasY = (coord.y / canvas.height) * rect.height;
+            
+            $scope.showMarker(canvasX, canvasY);
+            
+            // Smooth scroll to coordinate
+            const container = canvas.parentElement;
+            const scrollX = canvasX - container.clientWidth / 2;
+            const scrollY = canvasY - container.clientHeight / 2;
+            
+            container.scrollTo({
+                left: scrollX,
+                top: scrollY,
+                behavior: 'smooth'
+            });
+        };
+        
+        $scope.showMarker = function(x, y) {
+            $scope.activeMarker = {
+                left: x + 'px',
+                top: y + 'px'
+            };
+            
+            // Hide marker after 4 seconds
+            $timeout(function() {
+                $scope.activeMarker = null;
+            }, 4000);
+        };
+        
+        $scope.clearHighlights = function() {
+            // Clear any existing polygon highlights on canvas
+            if (canvas && ctx) {
+                // Redraw the current page to clear highlights
+                $scope.renderPage($scope.currentPage).then(function() {
+                    // After redrawing, we can add highlights back if needed
+                    console.log('Highlights cleared');
+                });
+            }
+        };
+        
+        $scope.zoomIn = function() {
+            $scope.scale += 0.2;
+            $scope.renderPage($scope.currentPage);
+        };
+        
+        $scope.zoomOut = function() {
+            if ($scope.scale > 0.4) {
+                $scope.scale -= 0.2;
+                $scope.renderPage($scope.currentPage);
+            }
+        };
+        
+        $scope.resetZoom = function() {
+            $scope.scale = 1.0;
+            $scope.renderPage($scope.currentPage);
+        };
+        
+        $scope.nextPage = function() {
+            if ($scope.currentPage < $scope.totalPages) {
+                $scope.currentPage++;
+                $scope.renderPage($scope.currentPage);
+            }
+        };
+        
+        $scope.previousPage = function() {
+            if ($scope.currentPage > 1) {
+                $scope.currentPage--;
+                $scope.renderPage($scope.currentPage);
+            }
+        };
+        
+        $scope.isValidPolygon = function() {
+            return $scope.newPolygon.page && 
+            $scope.newPolygon.x1 !== null && $scope.newPolygon.y1 !== null &&
+            $scope.newPolygon.x2 !== null && $scope.newPolygon.y2 !== null &&
+            $scope.newPolygon.x3 !== null && $scope.newPolygon.y3 !== null &&
+            $scope.newPolygon.x4 !== null && $scope.newPolygon.y4 !== null;
+        };
+        
+        $scope.addPolygonCoordinate = function() {
+            if ($scope.isValidPolygon()) {
+                $scope.polygons.push({...$scope.newPolygon});
+                // Reset form
+                $scope.newPolygon = {page: $scope.currentPage};
+            }
+        };
+        
+        $scope.parseCoordinateString = function() {
+            const str = $scope.coordinateString;
+            const regex = /D\((\d+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+)\)/;
+            const match = str.match(regex);
+            
+            if (match) {
+                $scope.newPolygon = {
+                    page: parseInt(match[1]),
+                    x1: parseFloat(match[2]), y1: parseFloat(match[3]),
+                    x2: parseFloat(match[4]), y2: parseFloat(match[5]),
+                    x3: parseFloat(match[6]), y3: parseFloat(match[7]),
+                    x4: parseFloat(match[8]), y4: parseFloat(match[9])
+                };
+                console.log('Parsed coordinates:', $scope.newPolygon);
+                alert('Coordinates parsed successfully!');
+            } else {
+                alert('Invalid coordinate string format. Expected: D(page,x1,y1,x2,y2,x3,y3,x4,y4)');
+            }
+        };
+        
+        $scope.copyToManualPolygon = function(fieldData) {
+            if (!fieldData.source) {
+                alert('No coordinate data available for this field');
+                return;
+            }
+            
+            const coord = $scope.parseSourceCoordinate(fieldData.source);
+            if (coord) {
+                // Convert inches to pixels (PDF points)
+                const toPx = v => v * 72;
+                $scope.newPolygon = {
+                    page: coord.page,
+                    x1: toPx(coord.x1), y1: toPx(coord.y1),
+                    x2: toPx(coord.x2), y2: toPx(coord.y2),
+                    x3: toPx(coord.x3), y3: toPx(coord.y3),
+                    x4: toPx(coord.x4), y4: toPx(coord.y4)
+                };
+                $scope.coordinateString = 'D(' + coord.page + ',' + $scope.newPolygon.x1 + ',' + $scope.newPolygon.y1 + ',' + $scope.newPolygon.x2 + ',' + $scope.newPolygon.y2 + ',' + $scope.newPolygon.x3 + ',' + $scope.newPolygon.y3 + ',' + $scope.newPolygon.x4 + ',' + $scope.newPolygon.y4 + ')';
+                alert('Coordinates copied to manual polygon section!');
+            } else {
+                alert('Could not parse coordinates from field data');
+            }
+        };
+        
+        $scope.editPolygon = function(index) {
+            const poly = $scope.polygons[index];
+            $scope.newPolygon = { ...poly };
+            $scope.polygons.splice(index, 1);
+            $scope.coordinateString = 'D(' + poly.page + ',' + poly.x1 + ',' + poly.y1 + ',' + poly.x2 + ',' + poly.y2 + ',' + poly.x3 + ',' + poly.y3 + ',' + poly.x4 + ',' + poly.y4 + ')';
+        };
+        
+        $scope.removePolygon = function(index) {
+            $scope.polygons.splice(index, 1);
+        };
+        
+        $scope.navigateToPolygon = function(poly) {
+            // Clear existing highlights first
+            // $scope.clearHighlights();
+            
+            if (poly.page !== $scope.currentPage) {
+                $scope.currentPage = poly.page;
+                $scope.renderPage(poly.page).then(() => {
+                    $scope.highlightPolygon(poly);
+                });
+            } else {
+                $scope.highlightPolygon(poly);
+            }
+        };
+        
+        $scope.highlightPolygon = function(poly) {
+            
+            console.log("poly.poly.poly.poly.poly.poly.poly.poly.poly.poly");
+            console.log(poly);
 
-            // Coordinate recording functionality
+            if (!canvas || !ctx) {
+                console.error('Canvas or context not available');
+                return;
+            }
+            
+            console.log('Highlighting polygon:', poly);
+            
+            // First, ensure we're on the correct page
+            if (poly.page !== $scope.currentPage) {
+                console.log('Switching to page', poly.page);
+                $scope.currentPage = poly.page;
+                $scope.renderPage(poly.page).then(function() {
+                    $scope.highlightPolygon(poly);
+                });
+                return;
+            }
+            
+            const rect = canvas.getBoundingClientRect();
+            
+            // Calculate center point of polygon in PDF coordinates
+            const centerX = (poly.x1 + poly.x2 + poly.x3 + poly.x4) / 4;
+            const centerY = (poly.y1 + poly.y2 + poly.y3 + poly.y4) / 4;
+            
+            // Convert PDF coordinates to canvas coordinates
+            const canvasX = centerX * (rect.width / canvas.width);
+            const canvasY = centerY * (rect.height / canvas.height);
+            
+            // Show marker at center
+            $scope.showMarker(canvasX, canvasY);
+            
+            // Draw polygon with background color
+            ctx.fillStyle = 'rgba(255, 255, 0, 0.3)'; // Semi-transparent yellow background
+            ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)'; // Red border
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(poly.x1, poly.y1);
+            ctx.lineTo(poly.x2, poly.y2);
+            ctx.lineTo(poly.x3, poly.y3);
+            ctx.lineTo(poly.x4, poly.y4);
+            ctx.closePath();
+            ctx.fill(); // Fill the polygon
+            ctx.stroke(); // Draw the border
+            
+            console.log('Polygon drawn with coordinates:', {
+                x1: poly.x1, y1: poly.y1,
+                x2: poly.x2, y2: poly.y2,
+                x3: poly.x3, y3: poly.y3,
+                x4: poly.x4, y4: poly.y4
+            });
+            
+            // Scroll to center of polygon
+            const container = canvas.parentElement;
+            container.scrollTo({
+                left: canvasX - container.clientWidth / 2,
+                top: canvasY - container.clientHeight / 2,
+                behavior: 'smooth'
+            });
+        };
+        
+        // Coordinate recording functions
+        $scope.startCoordinateRecording = function() {
+            $scope.isRecordingCoordinates = true;
+            $scope.recordedPoints = [];
+            $scope.recordingPage = $scope.currentPage;
+            console.log('Started coordinate recording. Click 4 points on the PDF.');
+        };
+        
+        $scope.stopCoordinateRecording = function() {
             $scope.isRecordingCoordinates = false;
             $scope.recordedPoints = [];
-            $scope.recordingPage = 1;
-
-            let pdfDoc = null;
-            let canvas = null;
-            let ctx = null;
-
-            $scope.uploadPdf = function(file) {
-                if (!file) return;
-                
-                $scope.isUploading = true;
-                $scope.$apply();
-
-                const fileReader = new FileReader();
-                fileReader.onload = function(e) {
-                    const typedarray = new Uint8Array(e.target.result);
-                    
-                    pdfjsLib.getDocument(typedarray).promise.then(function(pdf) {
-                        pdfDoc = pdf;
-                        $scope.totalPages = pdf.numPages;
-                        $scope.currentPage = 1;
-                        $scope.pdfLoaded = true;
-                        $scope.isUploading = false;
-                        
-                        $timeout(function() {
-                            canvas = document.getElementById('pdfCanvas');
-                            ctx = canvas.getContext('2d');
-                            $scope.renderPage(1);
-                        }, 100);
-
-                        $scope.$apply();
-                    }).catch(function(error) {
-                        console.error('Error loading PDF:', error);
-                        $scope.isUploading = false;
-                        $timeout(function() {
-                            $scope.$apply();
-                        });
-                        alert('Error loading PDF file. Please try again.');
-                    });
-                };
-                fileReader.readAsArrayBuffer(file);
-            };
-
-            $scope.uploadJson = function(file) {
-                if (!file) return;
-
-                const fileReader = new FileReader();
-                fileReader.onload = function(e) {
-                    try {
-                        // Clean the JSON text to handle potential formatting issues
-                        let jsonText = e.target.result;
-                        
-                        // Remove any BOM (Byte Order Mark) if present
-                        if (jsonText.charCodeAt(0) === 0xFEFF) {
-                            jsonText = jsonText.slice(1);
-                        }
-                        
-                        // Try to parse the JSON
-                        $scope.jsonData = JSON.parse(jsonText);
-                        
-                        // Validate the structure
-                        if (!$scope.jsonData.extracted_data || !$scope.jsonData.extracted_data.fields) {
-                            throw new Error('Invalid JSON structure: missing extracted_data.fields');
-                        }
-                        
-                        $timeout(function() {
-                            $scope.$apply();
-                        });
-                        console.log('JSON data loaded successfully');
-                        console.log('Total fields:', Object.keys($scope.jsonData.extracted_data.fields).length);
-                        
-                        alert('JSON data loaded successfully! Found ' + Object.keys($scope.jsonData.extracted_data.fields).length + ' fields.');
-                        
-                    } catch (error) {
-                        console.error('JSON parsing error:', error);
-                        console.error('File content preview:', e.target.result.substring(0, 500));
-                        
-                        let errorMessage = 'Error parsing JSON file:\n';
-                        if (error.message.includes('Unexpected token')) {
-                            errorMessage += '- File may contain invalid JSON syntax\n';
-                            errorMessage += '- Check for missing commas, brackets, or quotes\n';
-                        } else if (error.message.includes('Invalid JSON structure')) {
-                            errorMessage += '- File structure doesn\'t match expected format\n';
-                            errorMessage += '- Expected: {extracted_data: {fields: {...}}}\n';
-                        } else {
-                            errorMessage += '- ' + error.message + '\n';
-                        }
-                        errorMessage += '\nPlease check the console for more details.';
-                        
-                        alert(errorMessage);
-                    }
-                };
-                fileReader.readAsText(file, 'UTF-8');
-            };
-
-            $scope.getTotalFields = function() {
-                if (!$scope.jsonData || !$scope.jsonData.extracted_data || !$scope.jsonData.extracted_data.fields) return 0;
-                return Object.keys($scope.jsonData.extracted_data.fields).length;
-            };
-
-            $scope.getFieldsWithCoordinates = function() {
-                if (!$scope.jsonData || !$scope.jsonData.extracted_data || !$scope.jsonData.extracted_data.fields) return 0;
-                let count = 0;
-                Object.values($scope.jsonData.extracted_data.fields).forEach(field => {
-                    if (field.spans && field.spans.length > 0) count++;
-                });
-                return count;
-            };
-
-            $scope.getAverageConfidence = function() {
-                if (!$scope.jsonData || !$scope.jsonData.extracted_data || !$scope.jsonData.extracted_data.fields) return 0;
-                let total = 0;
-                let count = 0;
-                Object.values($scope.jsonData.extracted_data.fields).forEach(field => {
-                    if (field.confidence) {
-                        total += field.confidence;
-                        count++;
-                    }
-                });
-                return count > 0 ? Math.round((total / count) * 100) : 0;
-            };
-
-            $scope.getFilteredFields = function() {
-                if (!$scope.jsonData || !$scope.jsonData.extracted_data || !$scope.jsonData.extracted_data.fields) {
-                    return {};
-                }
-                
-                const fields = $scope.jsonData.extracted_data.fields;
-                if (!$scope.fieldSearch || $scope.fieldSearch.trim() === '') {
-                    return fields;
-                }
-                
-                const filtered = {};
-                const searchTerm = $scope.fieldSearch.toLowerCase();
-                
-                Object.keys(fields).forEach(fieldName => {
-                    const fieldData = fields[fieldName];
-                    const formattedName = $scope.formatFieldName(fieldName).toLowerCase();
-                    const fieldValue = (fieldData.value || '').toString().toLowerCase();
-                    
-                    if (formattedName.includes(searchTerm) || 
-                        fieldName.toLowerCase().includes(searchTerm) || 
-                        fieldValue.includes(searchTerm)) {
-                        filtered[fieldName] = fieldData;
-                    }
-                });
-                
-                return filtered;
-            };
-
-            $scope.formatFieldName = function(fieldName) {
-                return fieldName.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim();
-            };
-
-            $scope.parseSourceCoordinate = function(source) {
-                if (!source || typeof source !== 'string') return null;
-                
-                // Parse source format: D(page,x1,y1,x2,y2,x3,y3,x4,y4)
-                const match = source.match(/D\((\d+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+)\)/);
-                if (match) {
-                    return {
-                        page: parseInt(match[1]),
-                        x1: parseFloat(match[2]),
-                        y1: parseFloat(match[3]),
-                        x2: parseFloat(match[4]),
-                        y2: parseFloat(match[5]),
-                        x3: parseFloat(match[6]),
-                        y3: parseFloat(match[7]),
-                        x4: parseFloat(match[8]),
-                        y4: parseFloat(match[9])
-                    };
-                }
-                return null;
-            };
-
-            $scope.navigateToField = function(fieldName, fieldData) {
-                $scope.activeField = fieldName;
-                if (!fieldData.source || !canvas) {
-                    console.log('No source coordinate data available for field:', fieldName);
-                    return;
-                }
-                const coord = $scope.parseSourceCoordinate(fieldData.source);
-                if (coord) {
-                    // Clear existing highlights first
-                    $scope.clearHighlights();
-                    // Convert inches to pixels for polygon creation
-                    const toPx = v => v * 72;
-                    const pxPolygon = {
-                        page: coord.page,
-                        x1: toPx(coord.x1), y1: toPx(coord.y1),
-                        x2: toPx(coord.x2), y2: toPx(coord.y2),
-                        x3: toPx(coord.x3), y3: toPx(coord.y3),
-                        x4: toPx(coord.x4), y4: toPx(coord.y4)
-                    };
-                    // Add polygon to list if not already present (avoid duplicates)
-                    var exists = $scope.polygons.some(function(p) {
-                        return p.page === pxPolygon.page &&
-                            p.x1 === pxPolygon.x1 && p.y1 === pxPolygon.y1 &&
-                            p.x2 === pxPolygon.x2 && p.y2 === pxPolygon.y2 &&
-                            p.x3 === pxPolygon.x3 && p.y3 === pxPolygon.y3 &&
-                            p.x4 === pxPolygon.x4 && p.y4 === pxPolygon.y4;
-                    });
-                    if (!exists) $scope.polygons.push(pxPolygon);
-                    // Switch to the correct page if needed
-                    if (coord.page !== $scope.currentPage) {
-                        $scope.currentPage = coord.page;
-                        $scope.renderPage(coord.page).then(() => {
-                            $scope.navigateToCoordinateOnPage(coord);
-                        });
-                    } else {
-                        $scope.navigateToCoordinateOnPage(coord);
-                    }
-                } else {
-                    console.log('Could not parse coordinate from source:', fieldData.source);
-                }
-            };
-
-                $scope.navigateToCoordinateOnPage = function(coord) {
-                    if (!canvas || !ctx) {
-                        console.error('Canvas or context not available');
-                        return;
-                    }
-
-                    console.log('Navigating to coordinate (raw, inches):', coord);
-
-                    // Convert inches to pixels (PDF points)
-                    const toPx = v => v * 72;
-                    const pxCoord = {
-                        x1: toPx(coord.x1), y1: toPx(coord.y1),
-                        x2: toPx(coord.x2), y2: toPx(coord.y2),
-                        x3: toPx(coord.x3), y3: toPx(coord.y3),
-                        x4: toPx(coord.x4), y4: toPx(coord.y4)
-                    };
-
-                    const rect = canvas.getBoundingClientRect();
-                    // Calculate center point in PDF coordinates (pixels)
-                    const centerX = (pxCoord.x1 + pxCoord.x2 + pxCoord.x3 + pxCoord.x4) / 4;
-                    const centerY = (pxCoord.y1 + pxCoord.y2 + pxCoord.y3 + pxCoord.y4) / 4;
-
-                    // Convert PDF coordinates to canvas coordinates
-                    const canvasX = centerX * (rect.width / canvas.width);
-                    const canvasY = centerY * (rect.height / canvas.height);
-
-                    $scope.showMarker(canvasX, canvasY);
-
-                    // Highlight the field area on canvas
-                    ctx.fillStyle = 'rgba(0, 255, 0, 0.3)'; // Semi-transparent green background
-                    ctx.strokeStyle = 'rgba(0, 255, 0, 0.8)'; // Green border
-                    ctx.lineWidth = 3;
-                    ctx.beginPath();
-                    ctx.moveTo(pxCoord.x1, pxCoord.y1);
-                    ctx.lineTo(pxCoord.x2, pxCoord.y2);
-                    ctx.lineTo(pxCoord.x3, pxCoord.y3);
-                    ctx.lineTo(pxCoord.x4, pxCoord.y4);
-                    ctx.closePath();
-                    ctx.fill(); // Fill the polygon
-                    ctx.stroke(); // Draw the border
-
-                    console.log('Field area highlighted with coordinates (pixels):', pxCoord);
-
-                    // Scroll to the coordinate
-                    const container = canvas.parentElement;
-                    container.scrollTo({
-                        left: canvasX - container.clientWidth / 2,
-                        top: canvasY - container.clientHeight / 2,
-                        behavior: 'smooth'
-                    });
-                };
-
-            $scope.renderPage = function(pageNumber) {
-                if (!pdfDoc) return Promise.reject('No PDF document');
-
-                return pdfDoc.getPage(pageNumber).then(function(page) {
-                    const viewport = page.getViewport({ scale: $scope.scale });
-                    canvas.height = viewport.height;
-                    canvas.width = viewport.width;
-
-                    const renderContext = {
-                        canvasContext: ctx,
-                        viewport: viewport
-                    };
-
-                    return page.render(renderContext).promise.then(function() {
-                        $timeout(function() {
-                            $scope.$apply();
-                        });
-                    });
-                });
-            };
-
-            $scope.captureCoordinate = function(event) {
-                if (!canvas) return;
-
-                const rect = canvas.getBoundingClientRect();
-                const x = Math.round((event.clientX - rect.left) * (canvas.width / rect.width));
-                const y = Math.round((event.clientY - rect.top) * (canvas.height / rect.height));
-
-                // If recording coordinates, record the point
-                if ($scope.isRecordingCoordinates) {
-                    $scope.recordPoint(x, y);
-                    return;
-                }
-
-                // Show marker at clicked position
-                $scope.showMarker(event.clientX - rect.left, event.clientY - rect.top);
-
-                // Auto-fill coordinate inputs using $timeout to ensure safe digest cycle
-                $timeout(function() {
-                    $scope.newCoordinate.x = x;
-                    $scope.newCoordinate.y = y;
-                    console.log('Captured coordinates:', { x: x, y: y });
-                    
-                    // Show a brief notification of captured coordinates
-                    if (typeof g_form !== 'undefined' && g_form.addInfoMessage) {
-                        g_form.addInfoMessage('Coordinates captured: X=' + x + ', Y=' + y, 'info');
-                    } else {
-                        // For standalone version, show a brief alert
-                        console.log('Coordinates captured: X=' + x + ', Y=' + y);
-                    }
-                });
-            };
-
-            $scope.addCoordinate = function() {
-                if ($scope.newCoordinate.x && $scope.newCoordinate.y) {
-                    $scope.coordinates.push({
-                        x: parseFloat($scope.newCoordinate.x),
-                        y: parseFloat($scope.newCoordinate.y)
-                    });
-                    $scope.newCoordinate = {};
-                }
-            };
-
-            $scope.removeCoordinate = function(index) {
-                $scope.coordinates.splice(index, 1);
-            };
-
-            $scope.navigateToCoordinate = function(coord) {
-                if (!canvas) return;
-
-                const rect = canvas.getBoundingClientRect();
-                const canvasX = (coord.x / canvas.width) * rect.width;
-                const canvasY = (coord.y / canvas.height) * rect.height;
-
-                $scope.showMarker(canvasX, canvasY);
-
-                // Smooth scroll to coordinate
-                const container = canvas.parentElement;
-                const scrollX = canvasX - container.clientWidth / 2;
-                const scrollY = canvasY - container.clientHeight / 2;
-
-                container.scrollTo({
-                    left: scrollX,
-                    top: scrollY,
-                    behavior: 'smooth'
-                });
-            };
-
-            $scope.showMarker = function(x, y) {
-                $scope.activeMarker = {
-                    left: x + 'px',
-                    top: y + 'px'
-                };
-
-                // Hide marker after 4 seconds
-                $timeout(function() {
-                    $scope.activeMarker = null;
-                }, 4000);
-            };
-
-            $scope.clearHighlights = function() {
-                // Clear any existing polygon highlights on canvas
-                if (canvas && ctx) {
-                    // Redraw the current page to clear highlights
-                    $scope.renderPage($scope.currentPage).then(function() {
-                        // After redrawing, we can add highlights back if needed
-                        console.log('Highlights cleared');
-                    });
-                }
-            };
-
-            $scope.zoomIn = function() {
-                $scope.scale += 0.2;
-                $scope.renderPage($scope.currentPage);
-            };
-
-            $scope.zoomOut = function() {
-                if ($scope.scale > 0.4) {
-                    $scope.scale -= 0.2;
-                    $scope.renderPage($scope.currentPage);
-                }
-            };
-
-            $scope.resetZoom = function() {
-                $scope.scale = 1.0;
-                $scope.renderPage($scope.currentPage);
-            };
-
-            $scope.nextPage = function() {
-                if ($scope.currentPage < $scope.totalPages) {
-                    $scope.currentPage++;
-                    $scope.renderPage($scope.currentPage);
-                }
-            };
-
-            $scope.previousPage = function() {
-                if ($scope.currentPage > 1) {
-                    $scope.currentPage--;
-                    $scope.renderPage($scope.currentPage);
-                }
-            };
-
-            $scope.isValidPolygon = function() {
-                return $scope.newPolygon.page && 
-                       $scope.newPolygon.x1 !== null && $scope.newPolygon.y1 !== null &&
-                       $scope.newPolygon.x2 !== null && $scope.newPolygon.y2 !== null &&
-                       $scope.newPolygon.x3 !== null && $scope.newPolygon.y3 !== null &&
-                       $scope.newPolygon.x4 !== null && $scope.newPolygon.y4 !== null;
-            };
-
-            $scope.addPolygonCoordinate = function() {
-                if ($scope.isValidPolygon()) {
-                    $scope.polygons.push({...$scope.newPolygon});
-                    // Reset form
-                    $scope.newPolygon = {page: $scope.currentPage};
-                }
-            };
-
-            $scope.parseCoordinateString = function() {
-                const str = $scope.coordinateString;
-                const regex = /D\((\d+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+)\)/;
-                const match = str.match(regex);
-                
-                if (match) {
-                    $scope.newPolygon = {
-                        page: parseInt(match[1]),
-                        x1: parseFloat(match[2]), y1: parseFloat(match[3]),
-                        x2: parseFloat(match[4]), y2: parseFloat(match[5]),
-                        x3: parseFloat(match[6]), y3: parseFloat(match[7]),
-                        x4: parseFloat(match[8]), y4: parseFloat(match[9])
-                    };
-                    console.log('Parsed coordinates:', $scope.newPolygon);
-                    alert('Coordinates parsed successfully!');
-                } else {
-                    alert('Invalid coordinate string format. Expected: D(page,x1,y1,x2,y2,x3,y3,x4,y4)');
-                }
-            };
-
-            $scope.copyToManualPolygon = function(fieldData) {
-                if (!fieldData.source) {
-                    alert('No coordinate data available for this field');
-                    return;
-                }
-
-                const coord = $scope.parseSourceCoordinate(fieldData.source);
-                if (coord) {
-                    // Convert inches to pixels (PDF points)
-                    const toPx = v => v * 72;
-                    $scope.newPolygon = {
-                        page: coord.page,
-                        x1: toPx(coord.x1), y1: toPx(coord.y1),
-                        x2: toPx(coord.x2), y2: toPx(coord.y2),
-                        x3: toPx(coord.x3), y3: toPx(coord.y3),
-                        x4: toPx(coord.x4), y4: toPx(coord.y4)
-                    };
-                    $scope.coordinateString = 'D(' + coord.page + ',' + $scope.newPolygon.x1 + ',' + $scope.newPolygon.y1 + ',' + $scope.newPolygon.x2 + ',' + $scope.newPolygon.y2 + ',' + $scope.newPolygon.x3 + ',' + $scope.newPolygon.y3 + ',' + $scope.newPolygon.x4 + ',' + $scope.newPolygon.y4 + ')';
-                    alert('Coordinates copied to manual polygon section!');
-                } else {
-                    alert('Could not parse coordinates from field data');
-                }
-            };
-
-            $scope.editPolygon = function(index) {
-                const poly = $scope.polygons[index];
-                $scope.newPolygon = { ...poly };
-                $scope.polygons.splice(index, 1);
-                $scope.coordinateString = 'D(' + poly.page + ',' + poly.x1 + ',' + poly.y1 + ',' + poly.x2 + ',' + poly.y2 + ',' + poly.x3 + ',' + poly.y3 + ',' + poly.x4 + ',' + poly.y4 + ')';
-            };
-
-            $scope.removePolygon = function(index) {
-                $scope.polygons.splice(index, 1);
-            };
-
-            $scope.navigateToPolygon = function(poly) {
-                // Clear existing highlights first
-                $scope.clearHighlights();
-                
-                if (poly.page !== $scope.currentPage) {
-                    $scope.currentPage = poly.page;
-                    $scope.renderPage(poly.page).then(() => {
-                        $scope.highlightPolygon(poly);
-                    });
-                } else {
-                    $scope.highlightPolygon(poly);
-                }
-            };
-
-            $scope.highlightPolygon = function(poly) {
-                if (!canvas || !ctx) {
-                    console.error('Canvas or context not available');
-                    return;
-                }
-
-                console.log('Highlighting polygon:', poly);
-                
-                // First, ensure we're on the correct page
-                if (poly.page !== $scope.currentPage) {
-                    console.log('Switching to page', poly.page);
-                    $scope.currentPage = poly.page;
-                    $scope.renderPage(poly.page).then(function() {
-                        $scope.highlightPolygon(poly);
-                    });
-                    return;
-                }
-
-                const rect = canvas.getBoundingClientRect();
-                
-                // Calculate center point of polygon in PDF coordinates
-                const centerX = (poly.x1 + poly.x2 + poly.x3 + poly.x4) / 4;
-                const centerY = (poly.y1 + poly.y2 + poly.y3 + poly.y4) / 4;
-                
-                // Convert PDF coordinates to canvas coordinates
-                const canvasX = centerX * (rect.width / canvas.width);
-                const canvasY = centerY * (rect.height / canvas.height);
-                
-                // Show marker at center
-                $scope.showMarker(canvasX, canvasY);
-                
-                // Draw polygon with background color
-                ctx.fillStyle = 'rgba(255, 255, 0, 0.3)'; // Semi-transparent yellow background
-                ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)'; // Red border
-                ctx.lineWidth = 3;
+            console.log('Stopped coordinate recording.');
+        };
+        
+        $scope.recordPoint = function(x, y) {
+            if (!$scope.isRecordingCoordinates) return;
+            
+            $scope.recordedPoints.push({ x: x, y: y });
+            console.log('Recorded point', $scope.recordedPoints.length, ':', { x: x, y: y });
+            
+            // Show visual feedback for recorded point
+            if (ctx) {
+                ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
                 ctx.beginPath();
-                ctx.moveTo(poly.x1, poly.y1);
-                ctx.lineTo(poly.x2, poly.y2);
-                ctx.lineTo(poly.x3, poly.y3);
-                ctx.lineTo(poly.x4, poly.y4);
-                ctx.closePath();
-                ctx.fill(); // Fill the polygon
-                ctx.stroke(); // Draw the border
+                ctx.arc(x, y, 5, 0, 2 * Math.PI);
+                ctx.fill();
                 
-                console.log('Polygon drawn with coordinates:', {
-                    x1: poly.x1, y1: poly.y1,
-                    x2: poly.x2, y2: poly.y2,
-                    x3: poly.x3, y3: poly.y3,
-                    x4: poly.x4, y4: poly.y4
-                });
-                
-                // Scroll to center of polygon
-                const container = canvas.parentElement;
-                container.scrollTo({
-                    left: canvasX - container.clientWidth / 2,
-                    top: canvasY - container.clientHeight / 2,
-                    behavior: 'smooth'
-                });
+                // Add point number
+                ctx.fillStyle = 'white';
+                ctx.font = '12px Arial';
+                ctx.fillText($scope.recordedPoints.length, x + 8, y - 8);
+            }
+            
+            // Check if we have 4 points
+            if ($scope.recordedPoints.length === 4) {
+                $scope.completeCoordinateRecording();
+            }
+        };
+        
+        $scope.completeCoordinateRecording = function() {
+            if ($scope.recordedPoints.length !== 4) return;
+            
+            // Convert recorded points to polygon format
+            $scope.newPolygon = {
+                page: $scope.recordingPage,
+                x1: $scope.recordedPoints[0].x,
+                y1: $scope.recordedPoints[0].y,
+                x2: $scope.recordedPoints[1].x,
+                y2: $scope.recordedPoints[1].y,
+                x3: $scope.recordedPoints[2].x,
+                y3: $scope.recordedPoints[2].y,
+                x4: $scope.recordedPoints[3].x,
+                y4: $scope.recordedPoints[3].y
             };
-
-            // Coordinate recording functions
-            $scope.startCoordinateRecording = function() {
-                $scope.isRecordingCoordinates = true;
-                $scope.recordedPoints = [];
-                $scope.recordingPage = $scope.currentPage;
-                console.log('Started coordinate recording. Click 4 points on the PDF.');
-            };
-
-            $scope.stopCoordinateRecording = function() {
-                $scope.isRecordingCoordinates = false;
-                $scope.recordedPoints = [];
-                console.log('Stopped coordinate recording.');
-            };
-
-            $scope.recordPoint = function(x, y) {
-                if (!$scope.isRecordingCoordinates) return;
-
-                $scope.recordedPoints.push({ x: x, y: y });
-                console.log('Recorded point', $scope.recordedPoints.length, ':', { x: x, y: y });
-
-                // Show visual feedback for recorded point
-                if (ctx) {
-                    ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
-                    ctx.beginPath();
-                    ctx.arc(x, y, 5, 0, 2 * Math.PI);
-                    ctx.fill();
-                    
-                    // Add point number
-                    ctx.fillStyle = 'white';
-                    ctx.font = '12px Arial';
-                    ctx.fillText($scope.recordedPoints.length, x + 8, y - 8);
-                }
-
-                // Check if we have 4 points
-                if ($scope.recordedPoints.length === 4) {
-                    $scope.completeCoordinateRecording();
-                }
-            };
-
-            $scope.completeCoordinateRecording = function() {
-                if ($scope.recordedPoints.length !== 4) return;
-
-                // Convert recorded points to polygon format
-                $scope.newPolygon = {
-                    page: $scope.recordingPage,
-                    x1: $scope.recordedPoints[0].x,
-                    y1: $scope.recordedPoints[0].y,
-                    x2: $scope.recordedPoints[1].x,
-                    y2: $scope.recordedPoints[1].y,
-                    x3: $scope.recordedPoints[2].x,
-                    y3: $scope.recordedPoints[2].y,
-                    x4: $scope.recordedPoints[3].x,
-                    y4: $scope.recordedPoints[3].y
-                };
-
-                // Update coordinate string
-                $scope.coordinateString = 'D(' + $scope.recordingPage + ',' + 
-                    $scope.recordedPoints[0].x + ',' + $scope.recordedPoints[0].y + ',' +
-                    $scope.recordedPoints[1].x + ',' + $scope.recordedPoints[1].y + ',' +
-                    $scope.recordedPoints[2].x + ',' + $scope.recordedPoints[2].y + ',' +
-                    $scope.recordedPoints[3].x + ',' + $scope.recordedPoints[3].y + ')';
-
-                // Stop recording
-                $scope.stopCoordinateRecording();
-
-                // Show success message
-                alert('Coordinates recorded successfully! Polygon has been added to the form.');
-                console.log('Completed coordinate recording:', $scope.newPolygon);
-            };
-
-            // Test function for debugging polygon highlighting
-            $scope.testHighlight = function(poly) {
-                console.log('Testing highlight for polygon:', poly);
-                console.log('Current page:', $scope.currentPage);
-                console.log('Canvas dimensions:', canvas ? {width: canvas.width, height: canvas.height} : 'No canvas');
-                console.log('Canvas rect:', canvas ? canvas.getBoundingClientRect() : 'No canvas');
-                
-                // Try to highlight the polygon
-                $scope.highlightPolygon(poly);
-            };
-        }]);
-    </script>
+            
+            // Update coordinate string
+            $scope.coordinateString = 'D(' + $scope.recordingPage + ',' + 
+            $scope.recordedPoints[0].x + ',' + $scope.recordedPoints[0].y + ',' +
+            $scope.recordedPoints[1].x + ',' + $scope.recordedPoints[1].y + ',' +
+            $scope.recordedPoints[2].x + ',' + $scope.recordedPoints[2].y + ',' +
+            $scope.recordedPoints[3].x + ',' + $scope.recordedPoints[3].y + ')';
+            
+            // Stop recording
+            $scope.stopCoordinateRecording();
+            
+            // Show success message
+            alert('Coordinates recorded successfully! Polygon has been added to the form.');
+            console.log('Completed coordinate recording:', $scope.newPolygon);
+        };
+    }]);
+</script>
 </body>
 </html>
