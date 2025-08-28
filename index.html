@@ -1,515 +1,293 @@
 <!DOCTYPE html>
-<html lang="en" ng-app="pdfNavigatorApp">
+<html ng-app="pdfApp">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF Coordinate Navigator</title>
-    
-    <!-- AngularJS CDN -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.8.3/angular.min.js"></script>
-    
-    <!-- PDF.js CDN -->
+    <title>PDF Eyeball - Smart Document Viewer</title>
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?display=swap&family=Inter:wght@400;500;700;900&family=Noto+Sans:wght@400;500;700;900" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
-    
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 20px;
-            display: grid;
-            grid-template-columns: 350px 1fr;
-            gap: 20px;
-            height: 100vh;
-        }
-
-        .sidebar {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 30px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-            display: flex;
-            flex-direction: column;
-            gap: 25px;
-        }
-
-        .main-content {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 30px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
-        }
-
-        h1 {
-            color: #333;
-            font-size: 2.2em;
-            font-weight: 300;
-            text-align: center;
-            margin-bottom: 30px;
-            background: linear-gradient(45deg, #667eea, #764ba2);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .upload-section {
-            border: 3px dashed #667eea;
-            border-radius: 15px;
-            padding: 25px;
-            text-align: center;
-            transition: all 0.3s ease;
-            cursor: pointer;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .upload-section:hover {
-            border-color: #764ba2;
-            background: rgba(102, 126, 234, 0.05);
-            transform: translateY(-2px);
-        }
-
-        .upload-section input[type="file"] {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            opacity: 0;
-            cursor: pointer;
-        }
-
-        .upload-icon {
-            font-size: 3em;
-            color: #667eea;
-            margin-bottom: 10px;
-            display: block;
-        }
-
-        .coordinates-section {
-            background: rgba(102, 126, 234, 0.1);
-            border-radius: 15px;
-            padding: 20px;
-        }
-
-        .coordinates-section h3 {
-            color: #333;
-            margin-bottom: 15px;
-            font-weight: 500;
-        }
-
-        .coordinate-input {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-
-        .coordinate-input input {
-            flex: 1;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 10px;
-            font-size: 14px;
-            transition: all 0.3s ease;
-        }
-
-        .coordinate-input input:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        .btn {
-            background: linear-gradient(45deg, #667eea, #764ba2);
-            color: white;
-            border: none;
-            padding: 12px 25px;
-            border-radius: 10px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            width: 100%;
-        }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
-        }
-
-        .btn:active {
-            transform: translateY(0);
-        }
-
-        .btn-small {
-            padding: 8px 15px;
-            font-size: 12px;
-            width: auto;
-        }
-
-        .coordinate-list {
-            max-height: 200px;
-            overflow-y: auto;
-            margin-top: 15px;
-        }
-
-        .coordinate-item {
-            background: white;
-            padding: 10px 15px;
-            border-radius: 8px;
-            margin-bottom: 8px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
-        }
-
-        .coordinate-item:hover {
-            transform: translateX(5px);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
-        }
-
-        .pdf-container {
-            height: 100%;
-            border-radius: 15px;
-            overflow: hidden;
-            background: #f5f5f5;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-        }
-
-        #pdfCanvas {
-            max-width: 100%;
-            max-height: 100%;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-            border-radius: 10px;
-            cursor: crosshair;
-        }
-
-        .pdf-controls {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            display: flex;
-            gap: 10px;
-            z-index: 10;
-        }
-
-        .control-btn {
-            background: rgba(255, 255, 255, 0.9);
-            border: none;
-            padding: 10px;
-            border-radius: 50%;
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
-        }
-
-        .control-btn:hover {
-            background: white;
-            transform: scale(1.1);
-        }
-
-        .zoom-info {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 8px 15px;
-            border-radius: 20px;
-            font-size: 12px;
-        }
-
-        .coordinate-marker {
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            background: rgba(255, 0, 0, 0.7);
-            border: 2px solid white;
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            animation: pulse 2s infinite;
-            pointer-events: none;
-            z-index: 5;
-        }
-
-        @keyframes pulse {
-            0% { transform: translate(-50%, -50%) scale(1); }
-            50% { transform: translate(-50%, -50%) scale(1.2); }
-            100% { transform: translate(-50%, -50%) scale(1); }
-        }
-
-        .no-pdf {
-            color: #888;
-            font-size: 1.2em;
-            text-align: center;
-        }
-
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: #fff;
-            animation: spin 1s ease-in-out infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        @media (max-width: 768px) {
-            .container {
-                grid-template-columns: 1fr;
-                height: auto;
-            }
-            
-            .sidebar {
-                order: 2;
-            }
-        }
-    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.8.2/angular.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
 </head>
-<body ng-controller="PdfNavigatorController">
-    <div class="container">
-        <!-- Sidebar -->
-        <div class="sidebar">
-            <h1>🎯 PDF Navigator</h1>
+<body ng-controller="PdfController" class="bg-gray-100">
+    <div class="min-h-screen flex">
+        <!-- Left Navigation Panel -->
+        <div class="w-96 bg-white shadow-lg fixed h-full overflow-y-auto z-10">
+            <!-- Branding -->
+            <div class="p-4 border-b bg-gradient-to-r from-orange-400 to-pink-500">
+                <div class="flex items-center space-x-2 text-white">
+                    <div class="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                        </svg>
+                    </div>
+                    <h1 class="text-xl font-bold">PDF Eyeball</h1>
+                </div>
+                <p class="text-white text-opacity-90 text-sm mt-1">Smart Document Viewer</p>
+            </div>
             
             <!-- Upload Section -->
-            <div class="upload-section" ng-class="{'uploading': isUploading}">
-                <input type="file" accept=".pdf" onchange="angular.element(this).scope().uploadPdf(this.files[0])">
-                <span class="upload-icon">📄</span>
-                <p ng-if="!isUploading"><strong>Click to upload PDF</strong><br>or drag & drop here</p>
-                <p ng-if="isUploading"><span class="loading"></span> Loading PDF...</p>
+            <div class="p-4 border-b bg-gradient-to-br from-orange-50 to-pink-50">
+                <button ng-click="showUploadModal()" 
+                        class="w-full px-4 py-2 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-md hover:from-orange-600 hover:to-pink-600 text-sm font-medium shadow-md">
+                    <svg class="inline-block w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                    </svg>
+                    Upload Files
+                </button>
             </div>
 
-            <!-- Coordinates Section -->
-            <div class="coordinates-section" ng-if="pdfLoaded">
-                <h3>🎯 Navigate to Coordinates</h3>
-                <div class="coordinate-input">
-                    <input type="number" placeholder="X" ng-model="newCoordinate.x" step="0.1">
-                    <input type="number" placeholder="Y" ng-model="newCoordinate.y" step="0.1">
-                </div>
-                <button class="btn btn-small" ng-click="addCoordinate()" ng-disabled="!newCoordinate.x || !newCoordinate.y">
-                    Add Coordinate
+            <!-- Advanced Mode -->
+            <div class="border-b">
+                <button ng-click="toggleAdvancedMode()" 
+                        class="w-full p-4 text-left flex items-center justify-between hover:bg-gradient-to-r hover:from-orange-50 hover:to-pink-50"
+                        ng-class="{'bg-gradient-to-r from-orange-50 to-pink-50 border-l-4 border-orange-400': showAdvancedMode}">
+                    <span class="text-sm font-medium text-gray-700">Advanced Mode</span>
+                    <svg ng-show="!showAdvancedMode" class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                    <svg ng-show="showAdvancedMode" class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/>
+                    </svg>
                 </button>
+                
+                <div ng-show="showAdvancedMode" class="px-4 pb-4 bg-gray-50">
+                    <!-- Coordinate String Input -->
+                    <div class="mb-4">
+                        <label class="block text-xs font-medium text-gray-700 mb-2">Coordinate String (D Format)</label>
+                        <textarea ng-model="manualCoordinate"
+                                placeholder="D(1,100,200,150,250,100,300,150,350)"
+                                class="w-full px-2 py-2 border border-orange-300 rounded-md focus:ring-orange-500 focus:border-orange-500 text-xs"
+                                rows="2"></textarea>
+                        <div class="mt-1 text-xs text-gray-500" ng-if="calculatedPixels">
+                            Pixels: {{calculatedPixels}}
+                        </div>
+                    </div>
+                    
+                    <!-- Manual Coordinates -->
+                    <div class="mb-4">
+                        <label class="block text-xs font-medium text-gray-700 mb-2">Manual Coordinates</label>
+                        <div class="space-y-2">
+                            <input type="number" ng-model="manualFields.page" placeholder="Page"
+                                   class="w-full px-2 py-1 border border-orange-300 rounded-md focus:ring-orange-500 focus:border-orange-500 text-xs">
+                            <div class="grid grid-cols-2 gap-1">
+                                <div class="relative">
+                                    <input type="number" ng-model="manualFields.x1" placeholder="x1"
+                                           class="w-full px-2 py-1 border border-orange-300 rounded-md focus:ring-orange-500 focus:border-orange-500 text-xs"
+                                           ng-change="updateCalculatedPixels()">
+                                    <div class="absolute -bottom-3 left-0 text-xs text-gray-400">{{manualFields.x1 * 72 | number:0}}px</div>
+                                </div>
+                                <div class="relative">
+                                    <input type="number" ng-model="manualFields.y1" placeholder="y1"
+                                           class="w-full px-2 py-1 border border-orange-300 rounded-md focus:ring-orange-500 focus:border-orange-500 text-xs"
+                                           ng-change="updateCalculatedPixels()">
+                                    <div class="absolute -bottom-3 left-0 text-xs text-gray-400">{{manualFields.y1 * 72 | number:0}}px</div>
+                                </div>
+                                <div class="relative mt-4">
+                                    <input type="number" ng-model="manualFields.x2" placeholder="x2"
+                                           class="w-full px-2 py-1 border border-orange-300 rounded-md focus:ring-orange-500 focus:border-orange-500 text-xs"
+                                           ng-change="updateCalculatedPixels()">
+                                    <div class="absolute -bottom-3 left-0 text-xs text-gray-400">{{manualFields.x2 * 72 | number:0}}px</div>
+                                </div>
+                                <div class="relative mt-4">
+                                    <input type="number" ng-model="manualFields.y2" placeholder="y2"
+                                           class="w-full px-2 py-1 border border-orange-300 rounded-md focus:ring-orange-500 focus:border-orange-500 text-xs"
+                                           ng-change="updateCalculatedPixels()">
+                                    <div class="absolute -bottom-3 left-0 text-xs text-gray-400">{{manualFields.y2 * 72 | number:0}}px</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-4 text-xs text-gray-500">
+                            Note: Coordinates are in PDF units. Multiply by 72 to get pixels.
+                        </div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="flex flex-col space-y-2">
+                        <button ng-click="navigateToManualCoordinates()"
+                                class="w-full px-3 py-2 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-md hover:from-orange-600 hover:to-pink-600 text-xs shadow-md">
+                            Go to Coordinates
+                        </button>
+                        <button ng-click="copyCurrentCoordinates()"
+                                class="w-full px-3 py-2 border border-orange-300 text-orange-700 rounded-md hover:bg-orange-50 text-xs">
+                            Copy Current Coordinates
+                        </button>
+                    </div>
+                </div>
+            </div>
 
-                <div class="coordinate-list" ng-if="coordinates.length > 0">
-                    <div class="coordinate-item" ng-repeat="coord in coordinates track by $index">
-                        <span>({{coord.x}}, {{coord.y}})</span>
-                        <div>
-                            <button class="btn btn-small" ng-click="navigateToCoordinate(coord)" style="margin-right: 5px; background: #28a745;">Go</button>
-                            <button class="btn btn-small" ng-click="removeCoordinate($index)" style="background: #dc3545;">×</button>
+            <!-- Fields Section -->
+            <div class="p-4 border-b">
+                <h2 class="text-lg font-bold text-gray-900 mb-3">Fields</h2>
+                <input type="text" 
+                       ng-model="fieldSearch" 
+                       placeholder="Search fields..." 
+                       class="w-full px-3 py-2 text-sm border border-orange-300 rounded-md focus:ring-orange-500 focus:border-orange-500">
+                <div class="text-sm text-gray-500 mt-2" ng-if="extractedFields.length > 0">
+                    {{(extractedFields | filter:{fieldName: fieldSearch}).length}} of {{extractedFields.length}} fields
+                </div>
+            </div>
+            
+            <!-- Fields List -->
+            <div class="p-4" ng-if="extractedFields.length > 0">
+                <div class="space-y-3">
+                    <div ng-repeat="field in extractedFields | filter:{fieldName: fieldSearch}" 
+                         ng-click="navigateToField(field)"
+                         ng-class="{'bg-orange-50 border-orange-400': field === activeField}"
+                         class="field-card border border-gray-200 rounded-lg cursor-pointer transition-all duration-150">
+                        
+                        <!-- Field Name -->
+                        <div class="px-3 py-2 section-border border-b border-gray-200 bg-gray-50 rounded-t-lg">
+                            <div class="font-semibold text-sm text-gray-800">{{field.fieldName}}</div>
+                        </div>
+                        
+                        <!-- Value -->
+                        <div class="px-3 py-2 section-border border-b border-gray-200">
+                            <input type="text" 
+                                   ng-model="field.value" 
+                                   ng-disabled="true"
+                                   placeholder="No value"
+                                   class="w-full px-2 py-1 text-sm bg-gray-50 border border-gray-200 rounded text-gray-700">
+                        </div>
+                        
+                        <!-- Confidence Score -->
+                        <div class="px-3 py-2 rounded-b-lg">
+                            <div class="text-xs text-gray-600 mb-1">Confidence Score</div>
+                            <div class="flex items-center justify-between">
+                                <span class="px-2 py-1 rounded-full text-xs font-medium" 
+                                      ng-class="getConfidenceClass(field.confidence)">
+                                    {{field.confidence * 100 | number:0}}%
+                                </span>
+                                <span class="text-xs text-gray-500">Page {{field.page}}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
+            
+            <!-- No Data State -->
+            <div class="p-4" ng-if="!jsonData" class="text-center text-gray-500 py-8">
+                <svg class="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                <p class="mt-2 text-sm">Upload a JSON file to see extracted fields</p>
+            </div>
         </div>
 
-        <!-- Main Content -->
-        <div class="main-content">
-            <div class="pdf-container">
-                <div ng-if="!pdfLoaded" class="no-pdf">
-                    <p>Upload a PDF file to get started! 🚀</p>
-                    <p style="font-size: 0.9em; margin-top: 10px; color: #666;">
-                        Click on the PDF to capture coordinates, then navigate between them using the sidebar.
-                    </p>
-                </div>
-                
-                <canvas id="pdfCanvas" ng-if="pdfLoaded" ng-click="captureCoordinate($event)"></canvas>
-                
-                <!-- PDF Controls -->
-                <div class="pdf-controls" ng-if="pdfLoaded">
-                    <button class="control-btn" ng-click="zoomIn()" title="Zoom In">🔍+</button>
-                    <button class="control-btn" ng-click="zoomOut()" title="Zoom Out">🔍-</button>
-                    <button class="control-btn" ng-click="resetZoom()" title="Reset Zoom">⚡</button>
-                </div>
+        <!-- PDF Viewer Area -->
+        <div class="flex-1 ml-96">
+            <div class="h-screen p-4">
+                <div class="bg-white rounded-lg shadow h-full flex flex-col max-w-4xl mx-auto">
+                    <!-- PDF Controls -->
+                    <div class="flex justify-between items-center p-3 border-b">
+                        <div class="flex space-x-2">
+                            <button ng-click="previousPage()" 
+                                    ng-disabled="currentPage <= 1" 
+                                    class="px-3 py-1 bg-gradient-to-r from-orange-400 to-pink-400 text-white rounded hover:from-orange-500 hover:to-pink-500 disabled:opacity-50 disabled:from-gray-300 disabled:to-gray-300 text-sm shadow-sm">
+                                Previous
+                            </button>
+                            <span class="px-3 py-1 text-sm bg-gray-100 rounded">Page {{currentPage}} of {{totalPages}}</span>
+                            <button ng-click="nextPage()" 
+                                    ng-disabled="currentPage >= totalPages" 
+                                    class="px-3 py-1 bg-gradient-to-r from-orange-400 to-pink-400 text-white rounded hover:from-orange-500 hover:to-pink-500 disabled:opacity-50 disabled:from-gray-300 disabled:to-gray-300 text-sm shadow-sm">
+                                Next
+                            </button>
+                        </div>
+                        <div class="flex space-x-2 items-center">
+                            <button ng-click="zoomOut()" 
+                                    class="px-3 py-1 bg-gradient-to-r from-orange-400 to-pink-400 text-white rounded hover:from-orange-500 hover:to-pink-500 text-sm shadow-sm">
+                                -
+                            </button>
+                            <span class="px-3 py-1 text-sm bg-gray-100 rounded min-w-16 text-center">{{(scale * 100) | number:0}}%</span>
+                            <button ng-click="zoomIn()" 
+                                    class="px-3 py-1 bg-gradient-to-r from-orange-400 to-pink-400 text-white rounded hover:from-orange-500 hover:to-pink-500 text-sm shadow-sm">
+                                +
+                            </button>
+                        </div>
+                    </div>
 
-                <!-- Zoom Info -->
-                <div class="zoom-info" ng-if="pdfLoaded">
-                    Zoom: {{Math.round(scale * 100)}}% | Page: {{currentPage}}/{{totalPages}}
+                    <!-- PDF Canvas -->
+                    <div class="flex-1 relative overflow-auto bg-gray-50">
+                        <div class="flex justify-center items-start p-4 min-h-full">
+                            <div class="relative">
+                                <canvas id="pdfCanvas" class="bg-white shadow-lg border border-gray-300"></canvas>
+                                <div id="pageMarker" class="absolute hidden w-4 h-4 bg-orange-500 rounded-full transform -translate-x-1/2 -translate-y-1/2"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Footer -->
+                    <div class="p-2 text-center text-xs text-gray-500 border-t bg-gray-50">
+                        A4 Page Size: 595 × 842 points | Current Scale: {{(scale * 100) | number:0}}%
+                    </div>
                 </div>
-
-                <!-- Coordinate Marker -->
-                <div class="coordinate-marker" ng-if="activeMarker" ng-style="activeMarker"></div>
             </div>
         </div>
     </div>
 
-    <script>
-        // Configure PDF.js worker
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
+    <!-- Upload Modal -->
+    <div ng-show="showModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50">
+        <div class="relative bg-white rounded-lg shadow-xl p-6 m-4 max-w-2xl w-full" ng-click="$event.stopPropagation()">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold">Upload Files</h3>
+                <button ng-click="closeModal($event)" class="text-gray-500 hover:text-gray-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
 
-        angular.module('pdfNavigatorApp', [])
-        .controller('PdfNavigatorController', ['$scope', '$timeout', function($scope, $timeout) {
-            $scope.pdfLoaded = false;
-            $scope.isUploading = false;
-            $scope.coordinates = [];
-            $scope.newCoordinate = {};
-            $scope.scale = 1.0;
-            $scope.currentPage = 1;
-            $scope.totalPages = 0;
-            $scope.activeMarker = null;
-            $scope.Math = Math;
+            <!-- PDF Upload -->
+            <div class="mb-4">
+                <div ng-class="{'border-orange-500': isDraggingPdf}" 
+                     class="border-2 border-dashed rounded-lg p-6 text-center"
+                     ng-dragover="handleDragOver($event, 'pdf')"
+                     ng-dragleave="handleDragLeave($event, 'pdf')"
+                     ng-drop="handleDrop($event, 'pdf')">
+                    <input type="file" id="pdfFile" accept=".pdf" class="hidden" 
+                           onchange="angular.element(this).scope().handleFileSelect(this, 'pdf')">
+                    <label for="pdfFile" class="cursor-pointer">
+                        <span class="text-orange-600">Choose PDF file</span> or drag it here
+                    </label>
+                    <div ng-if="pdfFile" class="mt-2 text-sm text-gray-600">
+                        Selected: {{pdfFile.name}}
+                    </div>
+                </div>
+            </div>
 
-            let pdfDoc = null;
-            let canvas = null;
-            let ctx = null;
+            <!-- JSON Upload -->
+            <div class="mb-6">
+                <div ng-class="{'border-orange-500': isDraggingJson}"
+                     class="border-2 border-dashed rounded-lg p-6 text-center"
+                     ng-dragover="handleDragOver($event, 'json')"
+                     ng-dragleave="handleDragLeave($event, 'json')"
+                     ng-drop="handleDrop($event, 'json')">
+                    <input type="file" id="jsonFile" accept=".json" class="hidden" 
+                           onchange="angular.element(this).scope().handleFileSelect(this, 'json')">
+                    <label for="jsonFile" class="cursor-pointer">
+                        <span class="text-orange-600">Choose JSON file</span> or drag it here
+                    </label>
+                    <div ng-if="jsonFile" class="mt-2 text-sm text-gray-600">
+                        Selected: {{jsonFile.name}}
+                    </div>
+                </div>
+            </div>
 
-            $scope.uploadPdf = function(file) {
-                if (!file) return;
-                
-                $scope.isUploading = true;
-                $scope.$apply();
+            <div class="flex justify-end">
+                <button ng-click="closeModal($event)" class="mr-2 px-4 py-2 text-gray-600 hover:text-gray-800">
+                    Cancel
+                </button>
+                <button ng-click="uploadFiles()" 
+                        ng-disabled="!pdfFile && !jsonFile"
+                        class="px-4 py-2 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-md hover:from-orange-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-md">
+                    Upload
+                </button>
+            </div>
+        </div>
+    </div>
 
-                const fileReader = new FileReader();
-                fileReader.onload = function(e) {
-                    const typedarray = new Uint8Array(e.target.result);
-                    
-                    pdfjsLib.getDocument(typedarray).promise.then(function(pdf) {
-                        pdfDoc = pdf;
-                        $scope.totalPages = pdf.numPages;
-                        $scope.currentPage = 1;
-                        $scope.pdfLoaded = true;
-                        $scope.isUploading = false;
-                        
-                        $timeout(function() {
-                            canvas = document.getElementById('pdfCanvas');
-                            ctx = canvas.getContext('2d');
-                            $scope.renderPage(1);
-                        }, 100);
-
-                        $scope.$apply();
-                    }).catch(function(error) {
-                        console.error('Error loading PDF:', error);
-                        $scope.isUploading = false;
-                        $scope.$apply();
-                        alert('Error loading PDF file. Please try again.');
-                    });
-                };
-                fileReader.readAsArrayBuffer(file);
-            };
-
-            $scope.renderPage = function(pageNumber) {
-                if (!pdfDoc) return;
-
-                pdfDoc.getPage(pageNumber).then(function(page) {
-                    const viewport = page.getViewport({ scale: $scope.scale });
-                    canvas.height = viewport.height;
-                    canvas.width = viewport.width;
-
-                    const renderContext = {
-                        canvasContext: ctx,
-                        viewport: viewport
-                    };
-
-                    page.render(renderContext).promise.then(function() {
-                        $scope.$apply();
-                    });
-                });
-            };
-
-            $scope.captureCoordinate = function(event) {
-                if (!canvas) return;
-
-                const rect = canvas.getBoundingClientRect();
-                const x = Math.round((event.clientX - rect.left) * (canvas.width / rect.width));
-                const y = Math.round((event.clientY - rect.top) * (canvas.height / rect.height));
-
-                // Show marker at clicked position
-                $scope.showMarker(event.clientX - rect.left, event.clientY - rect.top);
-
-                // Auto-fill coordinate inputs
-                $scope.newCoordinate.x = x;
-                $scope.newCoordinate.y = y;
-                $scope.$apply();
-            };
-
-            $scope.addCoordinate = function() {
-                if ($scope.newCoordinate.x && $scope.newCoordinate.y) {
-                    $scope.coordinates.push({
-                        x: parseFloat($scope.newCoordinate.x),
-                        y: parseFloat($scope.newCoordinate.y)
-                    });
-                    $scope.newCoordinate = {};
-                }
-            };
-
-            $scope.removeCoordinate = function(index) {
-                $scope.coordinates.splice(index, 1);
-            };
-
-            $scope.navigateToCoordinate = function(coord) {
-                if (!canvas) return;
-
-                const rect = canvas.getBoundingClientRect();
-                const canvasX = (coord.x / canvas.width) * rect.width;
-                const canvasY = (coord.y / canvas.height) * rect.height;
-
-                $scope.showMarker(canvasX, canvasY);
-
-                // Smooth scroll to coordinate
-                const container = canvas.parentElement;
-                const scrollX = canvasX - container.clientWidth / 2;
-                const scrollY = canvasY - container.clientHeight / 2;
-
-                container.scrollTo({
-                    left: scrollX,
-                    top: scrollY,
-                    behavior: 'smooth'
-                });
-            };
-
-            $scope.showMarker = function(x, y) {
-                const container = document.querySelector('.pdf-container');
-                const containerRect = container.getBoundingClientRect();
-                
-                $scope.activeMarker = {
-                    left: x + 'px',
-                    top: y + 'px'
-                };
-
-                // Hide marker after 3 seconds
-                $timeout(function() {
-                    $scope.activeMarker = null;
-                }, 3000);
-            };
-
-            $scope.zoomIn = function() {
-                $scope.scale += 0.2;
-                $scope.renderPage($scope.currentPage);
-            };
-
-            $scope.zoomOut = function() {
-                if ($scope.scale > 0.4) {
-                    $scope.scale -= 0.2;
-                    $scope.renderPage($scope.currentPage);
-                }
-            };
-
-            $scope.resetZoom = function() {
-                $scope.scale = 1.0;
-                $scope.renderPage($scope.currentPage);
-            };
-        }]);
+    <script src="app.js"></script>
     </script>
 </body>
 </html>
