@@ -2,29 +2,28 @@
 <html ng-app="pdfApp">
 <head>
     <meta charset="UTF-8">
-    <title>Data Viewer</title>
+    <title>PDF Eyeball - Smart Document Viewer</title>
     <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?display=swap&family=Inter:wght@400;500;700;900&family=Noto+Sans:wght@400;500;700;900" />
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.8.2/angular.min.js"></script>
     <style>
-        .group:hover {
+        .field-card:hover {
             border: 2px solid transparent;
             background: linear-gradient(white, white) padding-box,
                         linear-gradient(45deg, #f97316, #ec4899) border-box;
         }
-        .group:hover .border-gray-200 {
+        .field-card:hover .section-border {
             border-color: rgba(251, 146, 60, 0.3) !important;
         }
     </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.8.2/angular.min.js"></script>
 </head>
-<body ng-controller="PdfNavigatorController" class="bg-gray-100">
-    <!-- Main Container with Side Navigation -->
+<body ng-controller="PdfController" class="bg-gray-100">
     <div class="min-h-screen flex">
         <!-- Left Navigation Panel -->
         <div class="w-96 bg-white shadow-lg fixed h-full overflow-y-auto z-10">
-            <!-- Branding Section -->
+            <!-- Branding -->
             <div class="p-4 border-b bg-gradient-to-r from-orange-400 to-pink-500">
                 <div class="flex items-center space-x-2 text-white">
                     <div class="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
@@ -48,7 +47,7 @@
                 </button>
             </div>
 
-            <!-- Advanced Mode Section -->
+            <!-- Advanced Mode -->
             <div class="border-b">
                 <button ng-click="toggleAdvancedMode()" 
                         class="w-full p-4 text-left flex items-center justify-between hover:bg-gradient-to-r hover:from-orange-50 hover:to-pink-50"
@@ -62,12 +61,11 @@
                     </svg>
                 </button>
                 
-                <!-- Advanced Mode Panel -->
                 <div ng-show="showAdvancedMode" class="px-4 pb-4 bg-gray-50">
-                    <!-- Coordinate Input -->
+                    <!-- Coordinate String Input -->
                     <div class="mb-4">
                         <label class="block text-xs font-medium text-gray-700 mb-2">Coordinate String (D Format)</label>
-                        <input type="text" ng-model="manualCoordinate"
+                        <textarea ng-model="manualCoordinate"
                                 placeholder="D(1,100,200,150,250,100,300,150,350)"
                                 class="w-full px-2 py-2 border border-orange-300 rounded-md focus:ring-orange-500 focus:border-orange-500 text-xs"
                                 rows="2"></textarea>
@@ -76,7 +74,7 @@
                         </div>
                     </div>
                     
-                    <!-- Manual Fields -->
+                    <!-- Manual Coordinates -->
                     <div class="mb-4">
                         <label class="block text-xs font-medium text-gray-700 mb-2">Manual Coordinates</label>
                         <div class="space-y-2">
@@ -116,7 +114,7 @@
                     
                     <!-- Action Buttons -->
                     <div class="flex flex-col space-y-2">
-                        <button ng-click="parseAndNavigate()"
+                        <button ng-click="navigateToManualCoordinates()"
                                 class="w-full px-3 py-2 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-md hover:from-orange-600 hover:to-pink-600 text-xs shadow-md">
                             Go to Coordinates
                         </button>
@@ -131,52 +129,46 @@
             <!-- Fields Section -->
             <div class="p-4 border-b">
                 <h2 class="text-lg font-bold text-gray-900 mb-3">Fields</h2>
-                <div class="mb-3">
-                    <input type="text" 
-                           ng-model="fieldSearch" 
-                           placeholder="Search fields..." 
-                           class="w-full px-3 py-2 text-sm border border-orange-300 rounded-md focus:ring-orange-500 focus:border-orange-500">
-                </div>
-                <div class="text-sm text-gray-500" ng-if="coordinates.length > 0">
-                    {{coordinates.length}} fields found
+                <input type="text" 
+                       ng-model="fieldSearch" 
+                       placeholder="Search fields..." 
+                       class="w-full px-3 py-2 text-sm border border-orange-300 rounded-md focus:ring-orange-500 focus:border-orange-500">
+                <div class="text-sm text-gray-500 mt-2" ng-if="extractedFields.length > 0">
+                    {{(extractedFields | filter:{fieldName: fieldSearch}).length}} of {{extractedFields.length}} fields
                 </div>
             </div>
             
             <!-- Fields List -->
-            <div class="p-4" ng-if="coordinates.length > 0">
+            <div class="p-4" ng-if="extractedFields.length > 0">
                 <div class="space-y-3">
-                    <div ng-repeat="coord in coordinates | filter:{fieldName: fieldSearch}" 
-                         ng-click="navigateToCoordinate(coord)"
-                         ng-class="{'bg-orange-50 border-orange-400': coord === activeMarker}"
-                         class="border border-gray-200 rounded-lg hover:border-gradient cursor-pointer transition-all duration-150 group">
+                    <div ng-repeat="field in extractedFields | filter:{fieldName: fieldSearch}" 
+                         ng-click="navigateToField(field)"
+                         ng-class="{'bg-orange-50 border-orange-400': field === activeField}"
+                         class="field-card border border-gray-200 rounded-lg cursor-pointer transition-all duration-150">
                         
-                        <!-- Field Name Label -->
-                        <div class="px-3 py-2 border-b border-gray-200 bg-gray-50 rounded-t-lg group-hover:border-orange-300">
-                            <div class="font-semibold text-sm text-gray-800">{{coord.fieldName}}</div>
+                        <!-- Field Name -->
+                        <div class="px-3 py-2 section-border border-b border-gray-200 bg-gray-50 rounded-t-lg">
+                            <div class="font-semibold text-sm text-gray-800">{{field.fieldName}}</div>
                         </div>
                         
-                        <!-- Value Field -->
-                        <div class="px-3 py-2 border-b border-gray-200 group-hover:border-orange-300">
+                        <!-- Value -->
+                        <div class="px-3 py-2 section-border border-b border-gray-200">
                             <input type="text" 
-                                   ng-model="coord.value" 
+                                   ng-model="field.value" 
                                    ng-disabled="true"
                                    placeholder="No value"
-                                   class="w-full px-2 py-1 text-sm bg-gray-50 border border-gray-200 rounded text-gray-700 group-hover:border-orange-300">
+                                   class="w-full px-2 py-1 text-sm bg-gray-50 border border-gray-200 rounded text-gray-700">
                         </div>
                         
-                        <!-- Confidence Score with Label -->
+                        <!-- Confidence Score -->
                         <div class="px-3 py-2 rounded-b-lg">
                             <div class="text-xs text-gray-600 mb-1">Confidence Score</div>
                             <div class="flex items-center justify-between">
                                 <span class="px-2 py-1 rounded-full text-xs font-medium" 
-                                      ng-class="{
-                                          'bg-green-100 text-green-800': coord.confidence >= 0.8,
-                                          'bg-yellow-100 text-yellow-800': coord.confidence >= 0.5 && coord.confidence < 0.8,
-                                          'bg-red-100 text-red-800': coord.confidence < 0.5
-                                      }">
-                                    {{coord.confidence * 100 | number:0}}%
+                                      ng-class="getConfidenceClass(field.confidence)">
+                                    {{field.confidence * 100 | number:0}}%
                                 </span>
-                                <span class="text-xs text-gray-500">Page {{coord.page}}</span>
+                                <span class="text-xs text-gray-500">Page {{field.page}}</span>
                             </div>
                         </div>
                     </div>
@@ -184,19 +176,16 @@
             </div>
             
             <!-- No Data State -->
-            <div class="p-4" ng-if="!jsonData">
-                <div class="text-center text-gray-500 py-8">
-                    <svg class="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                    </svg>
-                    <p class="mt-2 text-sm">Upload a JSON file to see extracted fields</p>
-                </div>
+            <div class="p-4" ng-if="!jsonData" class="text-center text-gray-500 py-8">
+                <svg class="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                <p class="mt-2 text-sm">Upload a JSON file to see extracted fields</p>
             </div>
         </div>
 
-        <!-- Main PDF Viewer Area -->
+        <!-- PDF Viewer Area -->
         <div class="flex-1 ml-96">
-            <!-- PDF Viewer with optimal sizing for 100% view -->
             <div class="h-screen p-4">
                 <div class="bg-white rounded-lg shadow h-full flex flex-col max-w-4xl mx-auto">
                     <!-- PDF Controls -->
@@ -227,7 +216,7 @@
                         </div>
                     </div>
 
-                    <!-- PDF Canvas Container -->
+                    <!-- PDF Canvas -->
                     <div class="flex-1 relative overflow-auto bg-gray-50">
                         <div class="flex justify-center items-start p-4 min-h-full">
                             <div class="relative">
@@ -237,7 +226,7 @@
                         </div>
                     </div>
                     
-                    <!-- Footer Info -->
+                    <!-- Footer -->
                     <div class="p-2 text-center text-xs text-gray-500 border-t bg-gray-50">
                         A4 Page Size: 595 × 842 points | Current Scale: {{(scale * 100) | number:0}}%
                     </div>
@@ -258,20 +247,17 @@
                 </button>
             </div>
 
-            <!-- PDF Upload Zone -->
+            <!-- PDF Upload -->
             <div class="mb-4">
-                <div ng-class="{'border-blue-500': isDraggingPdf}" 
+                <div ng-class="{'border-orange-500': isDraggingPdf}" 
                      class="border-2 border-dashed rounded-lg p-6 text-center"
                      ng-dragover="handleDragOver($event, 'pdf')"
                      ng-dragleave="handleDragLeave($event, 'pdf')"
                      ng-drop="handleDrop($event, 'pdf')">
-                    <input type="file" 
-                           id="pdfFile" 
-                           accept=".pdf" 
-                           class="hidden" 
+                    <input type="file" id="pdfFile" accept=".pdf" class="hidden" 
                            onchange="angular.element(this).scope().handleFileSelect(this, 'pdf')">
                     <label for="pdfFile" class="cursor-pointer">
-                        <span class="text-blue-600">Choose PDF file</span> or drag it here
+                        <span class="text-orange-600">Choose PDF file</span> or drag it here
                     </label>
                     <div ng-if="pdfFile" class="mt-2 text-sm text-gray-600">
                         Selected: {{pdfFile.name}}
@@ -279,20 +265,17 @@
                 </div>
             </div>
 
-            <!-- JSON Upload Zone -->
+            <!-- JSON Upload -->
             <div class="mb-6">
-                <div ng-class="{'border-blue-500': isDraggingJson}"
+                <div ng-class="{'border-orange-500': isDraggingJson}"
                      class="border-2 border-dashed rounded-lg p-6 text-center"
                      ng-dragover="handleDragOver($event, 'json')"
                      ng-dragleave="handleDragLeave($event, 'json')"
                      ng-drop="handleDrop($event, 'json')">
-                    <input type="file" 
-                           id="jsonFile" 
-                           accept=".json" 
-                           class="hidden" 
+                    <input type="file" id="jsonFile" accept=".json" class="hidden" 
                            onchange="angular.element(this).scope().handleFileSelect(this, 'json')">
                     <label for="jsonFile" class="cursor-pointer">
-                        <span class="text-blue-600">Choose JSON file</span> or drag it here
+                        <span class="text-orange-600">Choose JSON file</span> or drag it here
                     </label>
                     <div ng-if="jsonFile" class="mt-2 text-sm text-gray-600">
                         Selected: {{jsonFile.name}}
@@ -314,49 +297,41 @@
     </div>
 
     <script>
-        // Initialize PDF.js worker
+        // Initialize PDF.js
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
 
         angular.module('pdfApp', [])
-        .controller('PdfNavigatorController', ['$scope', '$timeout', function($scope, $timeout) {
-            // Initialize variables
+        .controller('PdfController', ['$scope', function($scope) {
+            // State variables
             $scope.pdfLoaded = false;
             $scope.isUploading = false;
-            $scope.coordinates = [];
+            $scope.extractedFields = [];
             $scope.scale = 1.0;
             $scope.currentPage = 1;
             $scope.totalPages = 0;
-            $scope.activeMarker = null;
-            $scope.jsonData = null;
             $scope.activeField = null;
+            $scope.jsonData = null;
             $scope.fieldSearch = '';
             $scope.showModal = false;
             $scope.isDraggingPdf = false;
             $scope.isDraggingJson = false;
             $scope.pdfFile = null;
             $scope.jsonFile = null;
-            $scope.activeTab = 'fields'; // Default tab
             $scope.showAdvancedMode = false;
             $scope.manualCoordinate = '';
-            $scope.manualFields = {
-                page: 1,
-                x1: 0, y1: 0,
-                x2: 0, y2: 0
-            };
-            
-            // Function to calculate page dimensions
-            $scope.getPageDimensions = function() {
-                return {
-                    width: 595, // A4 width in points
-                    height: 842, // A4 height in points
-                    actualWidth: 595 * $scope.scale,
-                    actualHeight: 842 * $scope.scale
-                };
-            };
+            $scope.manualFields = { page: 1, x1: 0, y1: 0, x2: 0, y2: 0 };
+            $scope.calculatedPixels = '';
 
             let pdfDoc = null;
             let canvas = null;
             let ctx = null;
+
+            // Utility functions
+            $scope.getConfidenceClass = function(confidence) {
+                if (confidence >= 0.8) return 'bg-green-100 text-green-800';
+                if (confidence >= 0.5) return 'bg-yellow-100 text-yellow-800';
+                return 'bg-red-100 text-red-800';
+            };
 
             // Modal controls
             $scope.showUploadModal = function() {
@@ -376,8 +351,8 @@
                 if (!file) return;
                 
                 $scope.isUploading = true;
-                
                 const reader = new FileReader();
+                
                 reader.onload = function(e) {
                     const typedarray = new Uint8Array(e.target.result);
                     
@@ -388,14 +363,12 @@
                             $scope.isUploading = false;
                             $scope.totalPages = pdf.numPages;
                             $scope.currentPage = 1;
-                            $scope.scale = 1.0; // Set default scale to 100%
+                            $scope.scale = 1.0;
                         });
                         renderPage($scope.currentPage);
                     }).catch(function(error) {
                         console.error('Error loading PDF:', error);
-                        $scope.$apply(function() {
-                            $scope.isUploading = false;
-                        });
+                        $scope.$apply(() => $scope.isUploading = false);
                     });
                 };
                 reader.readAsArrayBuffer(file);
@@ -403,55 +376,36 @@
 
             $scope.uploadJson = function(file) {
                 if (!file) return;
-                console.log('Uploading JSON file:', file.name); // Debug log
                 
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     try {
                         const jsonData = JSON.parse(e.target.result);
-                        console.log('Parsed JSON data:', jsonData); // Debug log
-                        
                         $scope.$apply(function() {
                             $scope.jsonData = jsonData;
-                            $scope.processJsonData(jsonData);
+                            processJsonData(jsonData);
                         });
                     } catch (error) {
                         console.error('Error parsing JSON:', error);
                         alert('Error parsing JSON file. Please check the file format.');
                     }
                 };
-                reader.onerror = function(error) {
-                    console.error('Error reading file:', error);
-                    alert('Error reading the file. Please try again.');
-                };
                 reader.readAsText(file);
             };
 
-            // File drop handlers
+            // Drag and drop handlers
             $scope.handleDragOver = function(event, type) {
                 event.preventDefault();
                 event.stopPropagation();
-                if (type === 'pdf') {
-                    $scope.isDraggingPdf = true;
-                } else {
-                    $scope.isDraggingJson = true;
-                }
-                if (!$scope.$$phase) {
-                    $scope.$apply();
-                }
+                $scope[type === 'pdf' ? 'isDraggingPdf' : 'isDraggingJson'] = true;
+                if (!$scope.$$phase) $scope.$apply();
             };
 
             $scope.handleDragLeave = function(event, type) {
                 event.preventDefault();
                 event.stopPropagation();
-                if (type === 'pdf') {
-                    $scope.isDraggingPdf = false;
-                } else {
-                    $scope.isDraggingJson = false;
-                }
-                if (!$scope.$$phase) {
-                    $scope.$apply();
-                }
+                $scope[type === 'pdf' ? 'isDraggingPdf' : 'isDraggingJson'] = false;
+                if (!$scope.$$phase) $scope.$apply();
             };
 
             $scope.handleDrop = function(event, type) {
@@ -461,43 +415,31 @@
                 const file = event.dataTransfer.files[0];
                 if (!file) return;
 
-                if (type === 'pdf' && (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf'))) {
-                    $scope.pdfFile = file;
-                    $scope.uploadPdf(file);
-                } else if (type === 'json' && (file.type === 'application/json' || file.name.toLowerCase().endsWith('.json'))) {
-                    $scope.jsonFile = file;
-                    $scope.uploadJson(file);
+                const isValidType = type === 'pdf' ? 
+                    (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) :
+                    (file.type === 'application/json' || file.name.toLowerCase().endsWith('.json'));
+
+                if (isValidType) {
+                    $scope[type + 'File'] = file;
+                    $scope[type === 'pdf' ? 'uploadPdf' : 'uploadJson'](file);
                 }
 
                 $scope.isDraggingPdf = false;
                 $scope.isDraggingJson = false;
-                if (!$scope.$$phase) {
-                    $scope.$apply();
-                }
+                if (!$scope.$$phase) $scope.$apply();
             };
 
-            // File button select handler
             $scope.handleFileSelect = function(element, type) {
                 const file = element.files[0];
                 if (!file) return;
-
-                if (type === 'pdf') {
-                    $scope.pdfFile = file;
-                    $scope.uploadPdf(file);
-                } else if (type === 'json') {
-                    $scope.jsonFile = file;
-                    $scope.uploadJson(file);
-                }
+                
+                $scope[type + 'File'] = file;
+                $scope[type === 'pdf' ? 'uploadPdf' : 'uploadJson'](file);
             };
 
-            // Upload button handler
             $scope.uploadFiles = function() {
-                if ($scope.pdfFile) {
-                    $scope.uploadPdf($scope.pdfFile);
-                }
-                if ($scope.jsonFile) {
-                    $scope.uploadJson($scope.jsonFile);
-                }
+                if ($scope.pdfFile) $scope.uploadPdf($scope.pdfFile);
+                if ($scope.jsonFile) $scope.uploadJson($scope.jsonFile);
                 $scope.closeModal();
             };
 
@@ -507,68 +449,58 @@
             };
 
             $scope.updateCalculatedPixels = function() {
-                const coord = {
+                const coords = {
                     x1: ($scope.manualFields.x1 || 0) * 72,
                     y1: ($scope.manualFields.y1 || 0) * 72,
                     x2: ($scope.manualFields.x2 || 0) * 72,
                     y2: ($scope.manualFields.y2 || 0) * 72
                 };
-                $scope.calculatedPixels = `(${coord.x1.toFixed(0)}, ${coord.y1.toFixed(0)}) - (${coord.x2.toFixed(0)}, ${coord.y2.toFixed(0)})`;
+                $scope.calculatedPixels = `(${coords.x1.toFixed(0)}, ${coords.y1.toFixed(0)}) - (${coords.x2.toFixed(0)}, ${coords.y2.toFixed(0)})`;
             };
 
-            $scope.parseAndNavigate = function() {
-                let coord;
+            $scope.navigateToManualCoordinates = function() {
+                let coord = null;
+                
                 if ($scope.manualCoordinate) {
-                    // Parse D string format
-                    coord = parseSourceCoordinate($scope.manualCoordinate);
+                    coord = parseCoordinateString($scope.manualCoordinate);
                 } else {
-                    // Use manual fields
                     coord = {
                         page: parseInt($scope.manualFields.page) || 1,
                         x1: parseFloat($scope.manualFields.x1) || 0,
                         y1: parseFloat($scope.manualFields.y1) || 0,
                         x2: parseFloat($scope.manualFields.x2) || 0,
-                        y2: parseFloat($scope.manualFields.y2) || 0,
+                        y2: parseFloat($scope.manualFields.y2) || 0
                     };
                 }
+                
                 if (coord) {
-                    $scope.navigateToCoordinate(coord);
-                    $scope.updateCalculatedPixels(); // Update pixel calculations
+                    navigateToCoordinate(coord);
+                    $scope.updateCalculatedPixels();
                 }
             };
 
             $scope.copyCurrentCoordinates = function() {
-                if ($scope.activeMarker) {
-                    // Format as D string
-                    const coord = $scope.activeMarker;
-                    const dString = `D(${coord.page},${coord.x1},${coord.y1},${coord.x2},${coord.y2},${coord.x3},${coord.y3},${coord.x4},${coord.y4})`;
-                    
-                    // Copy to clipboard
-                    navigator.clipboard.writeText(dString).then(() => {
-                        // Show success message
-                        const message = document.createElement('div');
-                        message.textContent = 'Coordinates copied!';
-                        message.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-md shadow-lg z-50';
-                        document.body.appendChild(message);
-                        setTimeout(() => message.remove(), 2000);
-                    });
+                if (!$scope.activeField) return;
+                
+                const coord = $scope.activeField;
+                const dString = `D(${coord.page},${coord.x1},${coord.y1},${coord.x2},${coord.y2},${coord.x3 || coord.x1},${coord.y3 || coord.y1},${coord.x4 || coord.x2},${coord.y4 || coord.y2})`;
+                
+                navigator.clipboard.writeText(dString).then(() => {
+                    showNotification('Coordinates copied!');
+                });
 
-                    // Update manual fields
-                    $scope.manualCoordinate = dString;
-                    $scope.manualFields = {
-                        page: coord.page,
-                        x1: coord.x1,
-                        y1: coord.y1,
-                        x2: coord.x2,
-                        y2: coord.y2
-                    };
-                    if (!$scope.$$phase) {
-                        $scope.$apply();
-                    }
-                }
+                $scope.manualCoordinate = dString;
+                $scope.manualFields = {
+                    page: coord.page,
+                    x1: coord.x1,
+                    y1: coord.y1,
+                    x2: coord.x2,
+                    y2: coord.y2
+                };
+                if (!$scope.$$phase) $scope.$apply();
             };
 
-            // PDF rendering - Fixed zoom functionality
+            // PDF rendering
             function renderPage(pageNumber) {
                 if (!pdfDoc) return;
                 
@@ -577,32 +509,20 @@
                     if (!canvas) return;
                     
                     ctx = canvas.getContext('2d');
-                    
-                    // Clear previous content
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
                     
                     const viewport = page.getViewport({ scale: $scope.scale });
                     canvas.height = viewport.height;
                     canvas.width = viewport.width;
 
-                    const renderContext = {
+                    return page.render({
                         canvasContext: ctx,
                         viewport: viewport
-                    };
-
-                    return page.render(renderContext).promise.then(() => {
-                        // Update scope after rendering
-                        $scope.$apply(() => {
-                            $scope.pageDimensions = {
-                                width: viewport.width,
-                                height: viewport.height
-                            };
-                        });
-                    });
+                    }).promise;
                 });
             }
 
-            // Navigation
+            // Navigation controls
             $scope.nextPage = function() {
                 if ($scope.currentPage < $scope.totalPages) {
                     $scope.currentPage++;
@@ -628,54 +548,46 @@
                 renderPage($scope.currentPage);
             };
 
-            // Process JSON data
-            $scope.processJsonData = function(jsonData) {
-                console.log('Processing JSON data:', jsonData); // Debug log
-                $scope.coordinates = [];
+            // Field navigation
+            $scope.navigateToField = function(field) {
+                if (!field || !canvas) return;
                 
-                // Handle both new and old JSON format
-                if (jsonData.extracted_data && jsonData.extracted_data.fields) {
-                    // New format
-                    Object.entries(jsonData.extracted_data.fields).forEach(([key, value]) => {
-                        if (value.source) {
-                            const coord = parseSourceCoordinate(value.source);
-                            if (coord) {
-                                $scope.coordinates.push({
-                                    ...coord,
-                                    fieldName: key,
-                                    value: value.value || value.text || '',
-                                    confidence: value.confidence || 0
-                                });
-                            }
-                        }
+                $scope.activeField = field;
+                
+                if (field.page !== $scope.currentPage) {
+                    $scope.currentPage = field.page;
+                    renderPage(field.page).then(() => {
+                        highlightField(field);
                     });
-                } else if (typeof jsonData === 'object') {
-                    // Old/direct format
-                    Object.entries(jsonData).forEach(([key, value]) => {
-                        if (value && value.source) {
-                            const coord = parseSourceCoordinate(value.source);
-                            if (coord) {
-                                $scope.coordinates.push({
-                                    ...coord,
-                                    fieldName: key,
-                                    value: value.value || value.text || '',
-                                    confidence: value.confidence || 0
-                                });
-                            }
-                        }
-                    });
-                }
-                
-                console.log('Processed coordinates:', $scope.coordinates); // Debug log
-                
-                // Ensure the view updates
-                if (!$scope.$phase) {
-                    $scope.$apply();
+                } else {
+                    highlightField(field);
                 }
             };
 
-            // Parse coordinate string
-            function parseSourceCoordinate(source) {
+            // Data processing
+            function processJsonData(jsonData) {
+                $scope.extractedFields = [];
+                
+                const fieldsData = jsonData.extracted_data?.fields || jsonData;
+                
+                Object.entries(fieldsData).forEach(([key, value]) => {
+                    if (value && value.source) {
+                        const coordinates = parseCoordinateString(value.source);
+                        if (coordinates) {
+                            $scope.extractedFields.push({
+                                fieldName: key,
+                                value: value.value || value.text || '',
+                                confidence: value.confidence || 0,
+                                page: coordinates.page,
+                                ...coordinates
+                            });
+                        }
+                    }
+                });
+            }
+
+            // Coordinate parsing
+            function parseCoordinateString(source) {
                 if (!source || typeof source !== 'string') return null;
                 
                 const match = source.match(/D\((\d+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+)\)/);
@@ -695,56 +607,59 @@
                 return null;
             }
 
-            // Navigate to coordinate
-            $scope.navigateToCoordinate = function(coord) {
+            // Navigation helper
+            function navigateToCoordinate(coord) {
                 if (!coord || !canvas) return;
                 
                 if (coord.page !== $scope.currentPage) {
                     $scope.currentPage = coord.page;
                     renderPage(coord.page).then(() => {
                         highlightCoordinate(coord);
-                        $scope.activeMarker = coord;
                     });
                 } else {
                     highlightCoordinate(coord);
-                    $scope.activeMarker = coord;
                 }
-            };
+            }
+
+            // Highlighting functions
+            function highlightField(field) {
+                highlightCoordinate(field);
+            }
 
             function highlightCoordinate(coord) {
                 if (!canvas || !ctx) return;
 
-                // Convert coordinates to pixels (PDF points)
-                const toPx = v => v * 72;
-                const pxCoord = {
-                    x1: toPx(coord.x1),
-                    y1: toPx(coord.y1),
-                    x2: toPx(coord.x2),
-                    y2: toPx(coord.y2),
-                    x3: toPx(coord.x3),
-                    y3: toPx(coord.y3),
-                    x4: toPx(coord.x4),
-                    y4: toPx(coord.y4)
+                // Convert PDF points to pixels (multiply by 72)
+                const toPixels = (value) => value * 72;
+                const pixelCoords = {
+                    x1: toPixels(coord.x1),
+                    y1: toPixels(coord.y1),
+                    x2: toPixels(coord.x2),
+                    y2: toPixels(coord.y2),
+                    x3: toPixels(coord.x3 || coord.x2),
+                    y3: toPixels(coord.y3 || coord.y2),
+                    x4: toPixels(coord.x4 || coord.x1),
+                    y4: toPixels(coord.y4 || coord.y1)
                 };
 
                 // Calculate center point
-                const centerX = (pxCoord.x1 + pxCoord.x2 + pxCoord.x3 + pxCoord.x4) / 4;
-                const centerY = (pxCoord.y1 + pxCoord.y2 + pxCoord.y3 + pxCoord.y4) / 4;
+                const centerX = (pixelCoords.x1 + pixelCoords.x2 + pixelCoords.x3 + pixelCoords.x4) / 4;
+                const centerY = (pixelCoords.y1 + pixelCoords.y2 + pixelCoords.y3 + pixelCoords.y4) / 4;
 
-                // Draw highlight
+                // Draw highlight overlay
                 ctx.fillStyle = 'rgba(255, 162, 13, 0.3)';
                 ctx.strokeStyle = 'rgba(255, 162, 13, 0.8)';
                 ctx.lineWidth = 2;
                 ctx.beginPath();
-                ctx.moveTo(pxCoord.x1, pxCoord.y1);
-                ctx.lineTo(pxCoord.x2, pxCoord.y2);
-                ctx.lineTo(pxCoord.x3, pxCoord.y3);
-                ctx.lineTo(pxCoord.x4, pxCoord.y4);
+                ctx.moveTo(pixelCoords.x1, pixelCoords.y1);
+                ctx.lineTo(pixelCoords.x2, pixelCoords.y2);
+                ctx.lineTo(pixelCoords.x3, pixelCoords.y3);
+                ctx.lineTo(pixelCoords.x4, pixelCoords.y4);
                 ctx.closePath();
                 ctx.fill();
                 ctx.stroke();
 
-                // Show marker
+                // Show position marker
                 const marker = document.getElementById('pageMarker');
                 if (marker) {
                     marker.style.display = 'block';
@@ -752,13 +667,22 @@
                     marker.style.top = centerY + 'px';
                 }
 
-                // Scroll to the coordinate
+                // Scroll to coordinate
                 const container = canvas.parentElement.parentElement;
                 container.scrollTo({
                     left: centerX - container.clientWidth / 2,
                     top: centerY - container.clientHeight / 2,
                     behavior: 'smooth'
                 });
+            }
+
+            // Utility function for notifications
+            function showNotification(message) {
+                const notification = document.createElement('div');
+                notification.textContent = message;
+                notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-md shadow-lg z-50';
+                document.body.appendChild(notification);
+                setTimeout(() => notification.remove(), 2000);
             }
         }]);
     </script>
