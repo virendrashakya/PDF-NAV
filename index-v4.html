@@ -443,16 +443,29 @@
                     canvas = document.getElementById('pdfCanvas');
                     ctx = canvas.getContext('2d');
                     
-                    const viewport = page.getViewport({ scale: $scope.scale });
-                    canvas.height = viewport.height;
-                    canvas.width = viewport.width;
+                    // Calculate scale to fit A4 width (595 points)
+                    const viewport = page.getViewport({ scale: 1.0 });
+                    const desiredWidth = 595; // A4 width in points
+                    $scope.scale = desiredWidth / viewport.width;
+                    
+                    const finalViewport = page.getViewport({ scale: $scope.scale });
+                    canvas.height = finalViewport.height;
+                    canvas.width = finalViewport.width;
 
                     const renderContext = {
                         canvasContext: ctx,
-                        viewport: viewport
+                        viewport: finalViewport
                     };
 
-                    return page.render(renderContext).promise;
+                    return page.render(renderContext).promise.then(() => {
+                        // Update scope after rendering
+                        $scope.$apply(() => {
+                            $scope.pageDimensions = {
+                                width: finalViewport.width,
+                                height: finalViewport.height
+                            };
+                        });
+                    });
                 });
             }
 
