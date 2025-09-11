@@ -7,6 +7,7 @@ angular.module('pdfApp', [])
     $scope.pdfLoaded = false;
     $scope.isUploading = false;
     $scope.extractedFields = [];
+    $scope.fieldDefinitions = [];
     $scope.scale = 1.0;
     $scope.currentPage = 1;
     $scope.totalPages = 0;
@@ -22,6 +23,119 @@ angular.module('pdfApp', [])
     $scope.manualCoordinate = '';
     $scope.manualFields = { page: 1, x1: 0, y1: 0, x2: 0, y2: 0 };
     $scope.calculatedPixels = '';
+    $scope.mobileMenuOpen = false;
+
+    // Initialize field definitions based on Image 2 format
+    $scope.fieldDefinitions = [
+        {
+            fieldName: 'AmountDue',
+            description: 'Total amount due to the vendor',
+            valueType: 'Number',
+            method: 'Extract',
+            value: '',
+            confidence: 0,
+            page: 1
+        },
+        {
+            fieldName: 'BillingAddress',
+            description: 'Explicit billing address for the vendor',
+            valueType: 'String',
+            method: 'Extract',
+            value: '',
+            confidence: 0,
+            page: 1
+        },
+        {
+            fieldName: 'BillingAddressRecipient',
+            description: 'Name associated with the billing address',
+            valueType: 'String',
+            method: 'Extract',
+            value: '',
+            confidence: 0,
+            page: 1
+        },
+        {
+            fieldName: 'CustomerAddress',
+            description: 'Mailing address for the customer',
+            valueType: 'String',
+            method: 'Extract',
+            value: '',
+            confidence: 0,
+            page: 1
+        },
+        {
+            fieldName: 'CustomerAddressRecipient',
+            description: 'Name associated with the customer address',
+            valueType: 'String',
+            method: 'Extract',
+            value: '',
+            confidence: 0,
+            page: 1
+        },
+        {
+            fieldName: 'CustomerId',
+            description: 'Reference ID for the customer',
+            valueType: 'String',
+            method: 'Extract',
+            value: '',
+            confidence: 0,
+            page: 1
+        },
+        {
+            fieldName: 'CustomerName',
+            description: 'Customer being invoiced',
+            valueType: 'String',
+            method: 'Extract',
+            value: '',
+            confidence: 0,
+            page: 1
+        },
+        {
+            fieldName: 'CustomerTaxId',
+            description: 'The government ID number associated with the customer',
+            valueType: 'String',
+            method: 'Extract',
+            value: '',
+            confidence: 0,
+            page: 1
+        },
+        {
+            fieldName: 'DueDate',
+            description: 'Date payment for this invoice is due',
+            valueType: 'Date',
+            method: 'Extract',
+            value: '',
+            confidence: 0,
+            page: 1
+        },
+        {
+            fieldName: 'InvoiceDate',
+            description: 'Date the invoice was issued',
+            valueType: 'Date',
+            method: 'Extract',
+            value: '',
+            confidence: 0,
+            page: 1
+        },
+        {
+            fieldName: 'InvoiceId',
+            description: 'ID for this specific invoice (often called Invoice Number)',
+            valueType: 'String',
+            method: 'Extract',
+            value: '',
+            confidence: 0,
+            page: 1
+        },
+        {
+            fieldName: 'InvoiceTotal',
+            description: 'Total new charges associated with this invoice',
+            valueType: 'Number',
+            method: 'Extract',
+            value: '',
+            confidence: 0,
+            page: 1
+        }
+    ];
 
     let pdfDoc = null;
     let canvas = null;
@@ -149,6 +263,15 @@ angular.module('pdfApp', [])
         $scope.showAdvancedMode = !$scope.showAdvancedMode;
     };
 
+    // Mobile menu controls
+    $scope.toggleMobileMenu = function() {
+        $scope.mobileMenuOpen = !$scope.mobileMenuOpen;
+        const leftNav = document.querySelector('.left-nav');
+        if (leftNav) {
+            leftNav.classList.toggle('open');
+        }
+    };
+
     $scope.updateCalculatedPixels = function() {
         const coords = {
             x1: ($scope.manualFields.x1 || 0) * 72,
@@ -271,6 +394,31 @@ angular.module('pdfApp', [])
         
         const fieldsData = jsonData.extracted_data?.fields || jsonData;
         
+        // Update field definitions with actual data
+        $scope.fieldDefinitions.forEach(fieldDef => {
+            // Try to find matching data in the JSON
+            const matchingData = Object.entries(fieldsData).find(([key, value]) => {
+                // Simple matching logic - you can enhance this
+                return key.toLowerCase().includes(fieldDef.fieldName.toLowerCase()) ||
+                       fieldDef.fieldName.toLowerCase().includes(key.toLowerCase());
+            });
+            
+            if (matchingData) {
+                const [key, value] = matchingData;
+                fieldDef.value = value.value || value.text || '';
+                fieldDef.confidence = value.confidence || 0;
+                
+                if (value.source) {
+                    const coordinates = parseCoordinateString(value.source);
+                    if (coordinates) {
+                        fieldDef.page = coordinates.page;
+                        Object.assign(fieldDef, coordinates);
+                    }
+                }
+            }
+        });
+        
+        // Also maintain the original extractedFields for backward compatibility
         Object.entries(fieldsData).forEach(([key, value]) => {
             if (value && value.source) {
                 const coordinates = parseCoordinateString(value.source);
