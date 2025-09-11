@@ -1,0 +1,247 @@
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?display=swap&family=Segoe+UI:wght@300;400;600;700&family=Inter:wght@400;500;600;700" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<div class="pdf-viewer-container">
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" ng-show="c.isLoading">
+    <div class="loader-container">
+      <div class="spinner"></div>
+      <p class="loading-text">{{c.loadingMessage}}</p>
+    </div>
+  </div>
+
+  <!-- Main Layout -->
+  <div class="main-layout">
+    <!-- Left Sidebar -->
+    <div class="left-sidebar">
+      <!-- Header -->
+      <div class="sidebar-header">
+        <div class="brand">
+          <i class="fas fa-file-invoice"></i>
+          <span>Pre-Bind Suite</span>
+        </div>
+      </div>
+
+      <!-- Document Selector -->
+      <div class="section">
+        <label class="section-label">Select Document</label>
+        <div class="select-wrapper">
+          <select ng-model="c.selectedDocument" 
+                  ng-change="c.loadDocument()" 
+                  ng-disabled="c.isLoading"
+                  ng-options="doc as doc.name for doc in c.documents track by doc.url"
+                  class="form-select">
+          </select>
+          <i class="fas fa-chevron-down select-icon"></i>
+        </div>
+      </div>
+
+      <!-- Advanced Mode Toggle -->
+      <div class="section" ng-if="c.showAdvancedButton">
+        <button ng-click="c.showAdvancedMode = !c.showAdvancedMode" 
+                class="advanced-toggle"
+                ng-class="{'active': c.showAdvancedMode}">
+          <span>Advanced Mode</span>
+          <i class="fas fa-chevron-down" ng-class="{'rotate-180': c.showAdvancedMode}"></i>
+        </button>
+        
+        <div ng-show="c.showAdvancedMode" class="advanced-panel">
+          <div class="form-group">
+            <label class="form-label">Coordinate String (D Format)</label>
+            <textarea ng-model="c.manualCoordinate"
+                    placeholder="D(1,100,200,150,250,100,300,150,350)"
+                    class="form-textarea"
+                    rows="2"></textarea>
+            <div class="helper-text" ng-if="c.calculatedPixels">
+              Pixels: {{c.calculatedPixels}}
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Manual Coordinates</label>
+            <div class="coord-grid">
+              <input type="number" ng-model="c.manualFields.page" placeholder="Page" class="form-input">
+              <div class="coord-inputs">
+                <div ng-repeat="coord in ['x1','y1','x2','y2','x3','y3','x4','y4']" class="coord-item">
+                  <input type="number" 
+                         ng-model="c.manualFields[coord]" 
+                         placeholder="{{coord}}"
+                         ng-change="c.updateCalculatedPixels()"
+                         class="form-input">
+                  <span class="coord-value">{{c.manualFields[coord] * 72 * c.scale | number:0}}px</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="button-group">
+            <button ng-click="c.navigateToManualCoordinates()" 
+                    ng-disabled="c.isLoading"
+                    class="btn btn-primary">
+              <i class="fas fa-location-dot"></i>
+              Go to Coordinates
+            </button>
+            <button ng-click="c.copyCurrentCoordinates()" 
+                    ng-disabled="!c.activeField"
+                    class="btn btn-secondary">
+              <i class="fas fa-copy"></i>
+              Copy Coordinates
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fields Section -->
+      <div class="section">
+        <div class="section-header">
+          <h3 class="section-title">Fields</h3>
+          <span class="field-count" ng-if="c.extractedFields.length > 0">
+            {{(c.extractedFields | filter:{field_name: c.fieldSearch}).length}} of {{c.extractedFields.length}}
+          </span>
+        </div>
+        
+        <div class="search-wrapper">
+          <i class="fas fa-search search-icon"></i>
+          <input type="text" 
+                 ng-model="c.fieldSearch" 
+                 placeholder="Search fields..." 
+                 class="search-input">
+        </div>
+      </div>
+
+      <!-- Fields Table -->
+      <div class="fields-table-container" ng-if="c.extractedFields.length > 0">
+        <table class="fields-table">
+          <thead>
+            <tr>
+              <th>Field Name</th>
+              <th>Value</th>
+              <th>Score</th>
+              <th>Page</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr ng-repeat="field in c.extractedFields | filter:{field_name: c.fieldSearch}" 
+                ng-click="c.navigateToField(field)"
+                ng-class="{'active-row': field === c.activeField}">
+              <td class="field-name">{{field.field_name}}</td>
+              <td class="field-value">
+                <span class="value-text">{{field.field_value || '-'}}</span>
+              </td>
+              <td>
+                <div class="confidence-score" ng-class="c.getConfidenceClass(field.confidence_indicator)">
+                  {{field.confidence_indicator * 100 | number:0}}%
+                </div>
+              </td>
+              <td class="page-num">{{field.coordinates.page}}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- No Data State -->
+      <div class="empty-state" ng-if="!c.mappingData && c.selectedDocument && !c.isLoading">
+        <i class="fas fa-inbox empty-icon"></i>
+        <p>No field data available</p>
+      </div>
+    </div>
+
+    <!-- PDF Viewer Panel -->
+    <div class="pdf-panel">
+      <!-- PDF Header -->
+      <div class="pdf-header">
+        <div class="pdf-title">
+          <i class="fas fa-file-pdf"></i>
+          <span ng-if="c.selectedDocument">{{c.selectedDocument.name}}</span>
+          <span ng-if="!c.selectedDocument">No document selected</span>
+        </div>
+        
+        <div class="pdf-controls">
+          <!-- Page Navigation -->
+          <div class="control-group">
+            <button ng-click="c.previousPage()" 
+                    ng-disabled="c.currentPage <= 1 || c.isLoading" 
+                    class="btn-icon"
+                    title="Previous Page">
+              <i class="fas fa-chevron-left"></i>
+            </button>
+            <div class="page-info">
+              <span>Page {{c.currentPage}} of {{c.totalPages}}</span>
+            </div>
+            <button ng-click="c.nextPage()" 
+                    ng-disabled="c.currentPage >= c.totalPages || c.isLoading" 
+                    class="btn-icon"
+                    title="Next Page">
+              <i class="fas fa-chevron-right"></i>
+            </button>
+          </div>
+
+          <!-- Zoom Controls -->
+          <!--
+          <div class="control-group">
+            <button ng-click="c.zoomOut()" 
+                    ng-disabled="c.scale <= 0.5 || c.isLoading"
+                    class="btn-icon"
+                    title="Zoom Out">
+              <i class="fas fa-magnifying-glass-minus"></i>
+            </button>
+            <div class="zoom-info">{{(c.scale * 100) | number:0}}%</div>
+            <button ng-click="c.zoomIn()" 
+                    ng-disabled="c.scale >= 3 || c.isLoading"
+                    class="btn-icon"
+                    title="Zoom In">
+              <i class="fas fa-magnifying-glass-plus"></i>
+            </button>
+            <div class="separator"></div>
+            <button ng-click="c.resetZoom()" 
+                    ng-disabled="c.scale === 1 || c.isLoading"
+                    class="btn-icon"
+                    title="Reset Zoom">
+              <i class="fas fa-maximize"></i>
+            </button>
+          </div>
+
+          <!-- Additional Controls 
+          <div class="control-group">
+            <button class="btn-icon" title="Download">
+              <i class="fas fa-download"></i>
+            </button>
+            <button class="btn-icon" title="Settings">
+              <i class="fas fa-gear"></i>
+            </button>
+          </div>
+          -->
+        </div>
+      </div>
+
+      <!-- PDF Content Area -->
+      <div class="pdf-content" id="pdfContainer">
+        <div class="pdf-canvas-wrapper">
+          <canvas id="pdfCanvas" class="pdf-canvas"></canvas>
+          <canvas id="annotationCanvas" class="annotation-canvas"></canvas>
+          <div id="pageMarker" class="page-marker"></div>
+        </div>
+      </div>
+
+      <!-- PDF Footer -->
+      <div class="pdf-footer">
+        <div class="footer-content">
+          <span class="footer-item">
+            <i class="fas fa-file"></i>
+            A4: 595 × 842 points
+          </span>
+          <span class="footer-item">
+            <i class="fas fa-expand"></i>
+            Scale: {{(c.scale * 100) | number:0}}%
+          </span>
+          <span class="footer-item" ng-if="c.activeField">
+            <i class="fas fa-crosshairs"></i>
+            Active: {{c.activeField.field_name}}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

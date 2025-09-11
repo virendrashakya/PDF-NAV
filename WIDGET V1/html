@@ -1,0 +1,254 @@
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?display=swap&family=Inter:wght@400;500;700;900&family=Noto+Sans:wght@400;500;700;900" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+<div class="pdf-eyeball-container">
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" ng-show="c.isLoading">
+    <div class="loader-container">
+      <div class="spinner"></div>
+      <p class="loading-text">{{c.loadingMessage}}</p>
+    </div>
+  </div>
+
+  <div class="min-h-screen flex">
+    <!-- Left Navigation Panel -->
+    <div class="nav-panel">
+      <!-- Branding -->
+      <div class="branding-section">
+        <div class="flex items-center space-x-2 text-grey">
+          <div class="logo-circle">
+            <i class="fa fa-check-circle"></i>
+          </div>
+          <h1 class="font-medium font-bold">Pre-Bind Suite</h1>
+        </div>
+        <!-- <p class="text-white text-opacity-90 text-sm mt-1">Smart Document Viewer</p> -->
+      </div>
+      
+      <!-- Document Selection --> 
+      <div class="document-section">
+        <label class="block text-sm font-medium text-gray-700 mb-2">Select Document</label>
+        <select ng-model="c.selectedDocument" 
+                ng-change="c.loadDocument()" 
+                ng-disabled="c.isLoading"
+                ng-options="doc as doc.name for doc in c.documents track by doc.url"
+                class="w-full px-3 py-2 border border-orange-300 rounded-md">
+          <!-- <option value="">-- Select Document --</option>
+          <option ng-repeat="doc in c.documents" value="{{doc.url}}">
+            {{doc.name}}
+          </option> -->
+        </select>
+      </div> 
+
+      <!-- Advanced Mode -->
+      <div class="advanced-mode-section">
+        <button ng-click="c.showAdvancedMode = !c.showAdvancedMode" 
+                class="advanced-toggle"
+                ng-class="{'active': c.showAdvancedMode}">
+          <span class="text-sm font-medium text-gray-700">Advanced Mode</span>
+          <i class="fa" ng-class="c.showAdvancedMode ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+        </button>
+        
+        <div ng-show="c.showAdvancedMode" class="advanced-content">
+          <!-- Coordinate String Input -->
+          <div class="mb-4">
+            <label class="block text-xs font-medium text-gray-700 mb-2">Coordinate String (D Format)</label>
+            <textarea ng-model="c.manualCoordinate"
+                    placeholder="D(1,100,200,150,250,100,300,150,350)"
+                    class="coord-input"
+                    rows="2"></textarea>
+            <div class="mt-1 text-xs text-gray-500" ng-if="c.calculatedPixels">
+              Pixels: {{c.calculatedPixels}}
+            </div>
+          </div>
+          
+          <!-- Manual Coordinates -->
+          <div class="mb-4">
+            <label class="block text-xs font-medium text-gray-700 mb-2">Manual Coordinates</label>
+            <div class="space-y-2">
+              <input type="number" ng-model="c.manualFields.page" placeholder="Page"
+                     class="coord-input">
+              <div class="grid grid-cols-2 gap-1">
+                <div ng-repeat="coord in ['x1','y1','x2','y2','x3','y3','x4','y4']">
+                  <input type="number" 
+                         ng-model="c.manualFields[coord]" 
+                         placeholder="{{coord}}"
+                         ng-change="c.updateCalculatedPixels()"
+                         class="coord-input">
+                  <div class="text-xs text-gray-400">
+                    {{coord}}: {{c.manualFields[coord] * 72 * c.scale | number:0}}px
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Action Buttons -->
+          <div class="flex flex-col space-y-2">
+            <button ng-click="c.navigateToManualCoordinates()" 
+                    ng-disabled="c.isLoading"
+                    class="primary-btn">
+              Go to Coordinates
+            </button>
+            <button ng-click="c.copyCurrentCoordinates()" 
+                    ng-disabled="!c.activeField"
+                    class="secondary-btn">
+              Copy Current Coordinates
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fields Section -->
+      <div class="fields-section">
+        <h2 class="text-lg font-bold text-gray-900 mb-3">Fields</h2>
+        <input type="text" 
+               ng-model="c.fieldSearch" 
+               placeholder="Search fields..." 
+               class="search-input">
+        <div class="text-sm text-gray-500 mt-2" ng-if="c.extractedFields.length > 0">
+          {{(c.extractedFields | filter:{field_name: c.fieldSearch}).length}} of {{c.extractedFields.length}} fields
+        </div>
+      </div>
+      
+      <div class="fields-list" ng-if="c.extractedFields.length > 0">
+        <div class="extracted-field-list">
+        	<div class="table-wrapper">
+          	<table>
+            	<thead>
+              	<tr>
+                  <th>Field Name</th>
+                  <th>Field Value</th>
+                  <th>Score</th>
+                  <th>Page</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr ng-repeat="field in c.extractedFields | filter:{field_name: c.fieldSearch}" ng-click="c.navigateToField(field)">
+                  <td>{{field.field_name}}</td>
+                  <td>{{field.field_value}}</td>
+                  <td class="confidence-badge" ng-class="c.getConfidenceClass(field.confidence_indicator)">{{field.confidence_indicator * 100 | number:0}}%</td>
+                  <td>{{field.coordinates.page}}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>      
+
+      
+      <!-- Fields List -->
+      <!--
+      <div class="fields-list" ng-if="c.extractedFields.length > 0">
+        <div class="extracted-field-list">
+          <div ng-repeat="field in c.extractedFields | filter:{field_name: c.fieldSearch}" 
+               ng-click="c.navigateToField(field)"
+               ng-class="{'active-field': field === c.activeField}"
+               class="field-card">
+            
+           
+            <div class="field-header">
+              <div class="font-semibold text-m text-gray-600 ng-binding">{{field.field_name}}</div>
+            </div>
+            
+            
+            <div class="field-value">
+              <input type="text" 
+                     ng-model="field.field_value" 
+                     ng-disabled="true"
+                     placeholder="No value"
+                     class="value-input">
+            </div>
+            
+            
+            <div class="field-confidence">
+              <div class="text-xs text-gray-600 mb-1">Confidence Score</div>
+              <div class="flex items-center justify-between">
+                <span class="confidence-badge" 
+                      ng-class="c.getConfidenceClass(field.confidence_indicator)">
+                  {{field.confidence_indicator * 100 | number:0}}%
+                </span>
+                <span class="text-xs text-gray-500">Page {{field.coordinates.page}}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+
+      <div class="no-data" ng-if="!c.mappingData && c.selectedDocument && !c.isLoading">
+        <i class="fa fa-file-text-o fa-3x text-gray-400"></i>
+        <p class="mt-2 text-sm">No field data available</p>
+      </div>
+			-->
+    </div>
+	
+
+
+    <!-- PDF Viewer Area -->
+    <div class="pdf-viewer-area">
+      <div class="h-screen p-4">
+        <div class="pdf-container">
+          <!-- PDF Controls -->
+          <div class="pdf-controls">
+            <div class="flex space-x-2 page-nav">
+              <button ng-click="c.previousPage()" 
+                      ng-disabled="c.currentPage <= 1 || c.isLoading" 
+                      class="control-btn">
+                <i class="fa fa-chevron-left"></i> Previous
+              </button>
+              <span class="page-indicator">Page {{c.currentPage}} of {{c.totalPages}}</span>
+              <button ng-click="c.nextPage()" 
+                      ng-disabled="c.currentPage >= c.totalPages || c.isLoading" 
+                      class="control-btn">
+                Next <i class="fa fa-chevron-right"></i>
+              </button>
+            </div>
+            <!--
+            <div class="flex space-x-2 items-center">
+              <button ng-click="c.zoomOut()" 
+                      ng-disabled="c.scale <= 0.5 || c.isLoading"
+                      class="control-btn zoom-btn">
+                <i class="fa fa-search-minus"></i>
+              </button>
+              <span class="zoom-indicator">{{(c.scale * 100) | number:0}}%</span>
+              <button ng-click="c.zoomIn()" 
+                      ng-disabled="c.scale >= 3 || c.isLoading"
+                      class="control-btn zoom-btn">
+                <i class="fa fa-search-plus"></i>
+              </button>
+              <button ng-click="c.resetZoom()" 
+                      ng-disabled="c.scale === 1 || c.isLoading"
+                      class="control-btn zoom-btn">
+                <i class="fa fa-compress"></i>
+              </button>
+            </div>
+						-->
+          </div>
+
+
+          <!-- PDF Canvas -->
+          <div class="pdf-canvas-container" id="pdfContainer">
+            <div class="pdf-canvas-wrapper">
+              <canvas id="pdfCanvas" class="pdf-canvas"></canvas>
+              <canvas id="annotationCanvas" class="annotation-canvas"></canvas>
+              <div id="pageMarker" class="page-marker"></div>
+            </div>
+          </div>
+          
+          <!-- Footer -->
+          <div class="pdf-footer">
+            <div class="footer-info">
+              <span>A4 Page Size: 595 × 842 points</span>
+              <span class="separator">|</span>
+              <span>Scale: {{(c.scale * 100) | number:0}}%</span>
+              <span class="separator" ng-if="c.activeField">|</span>
+              <span ng-if="c.activeField">Active Field: {{c.activeField.field_name}}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
