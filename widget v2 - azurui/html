@@ -116,6 +116,7 @@
         <table class="fields-table">
           <thead>
             <tr>
+              <th>Section Name</th>
               <th>Field Name</th>
               <th>Value</th>
               <th>Score</th>
@@ -126,6 +127,7 @@
             <tr ng-repeat="field in c.extractedFields | filter:{field_name: c.fieldSearch}" 
                 ng-click="c.navigateToField(field)"
                 ng-class="{'active-row': field === c.activeField}">
+              <td class="field-name">{{field.section_name}}</td>
               <td class="field-name">{{field.field_name}}</td>
               <td class="field-value">
                 <span class="value-text">{{field.field_value || '-'}}</span>

@@ -3,7 +3,9 @@
   data.canUpload = gs.hasRole('admin') || gs.hasRole('pdf_uploader');
   
   var attachmentTableName = 'x_gegis_uwm_dashbo_attachments';
-  var DEFAULT_SUBMISSION_SYS_ID = 'c8ae16a533bbee507ef8f499ed5c7bdc';
+	var submissionTableName = 'x_gegis_uwm_dashbo_submission';
+	var sysAttachmentTable = 'sys_attachment';
+	var supportedContentType = 'application/pdf';
   
   // Helper function to format file size
   function _formatFileSize(bytes) {
@@ -27,9 +29,9 @@
 	function _getAttachmentData(attachmentSysId) {
 		var attachmentData = null;
 		try {
-			var attachmentGr = new GlideRecord('sys_attachment');
+			var attachmentGr = new GlideRecord(sysAttachmentTable);
 			attachmentGr.addQuery('sys_id', attachmentSysId);
-			attachmentGr.addQuery('content_type', 'application/pdf');
+			attachmentGr.addQuery('content_type', supportedContentType);
 			attachmentGr.orderByDesc('sys_created_on');
 			attachmentGr.setLimit(1); // Limit for performance
 			attachmentGr.query();
@@ -92,7 +94,7 @@
       submissionSysId = submissionSysId;
 			
 			//Query submission record
-			var submissionGr = new GlideRecord('x_gegis_uwm_dashbo_submission')
+			var submissionGr = new GlideRecord(submissionTableName)
 
 			submissionGr.addQuery('sys_id', submissionSysId);
 			submissionGr.setLimit(1);
@@ -110,7 +112,9 @@
       var mappingGr = new GlideRecord('x_gegis_uwm_dashbo_data_extraction_lineitem');
       mappingGr.addQuery('parent', submissionData[0].data_extract_sys_id);
       mappingGr.addNotNullQuery('source');
-      mappingGr.addQuery('source', '!=', '');
+			mappingGr.addNotNullQuery('documentname_attachment_sysid');
+      mappingGr.addQuery('documentname_attachment_sysid', '!=', '');
+			mappingGr.addQuery('source', '!=', '');
       mappingGr.orderBy('field_name');
       mappingGr.setLimit(500); // Limit for performance
       mappingGr.query();
@@ -138,6 +142,7 @@
           
           var mapping = {
             sys_id: mappingGr.getUniqueValue(),
+						section_name: _getValue(mappingGr, 'section_name'),
             field_name: _getValue(mappingGr, 'field_name'),
             field_value: _getValue(mappingGr, 'field_value'),
             source: source,
