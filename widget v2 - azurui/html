@@ -11,7 +11,7 @@
       <p class="loading-text">{{c.loadingMessage}}</p>
     </div>
   </div>
-
+  
   <!-- Main Layout -->
   <div class="main-layout">
     <!-- Left Sidebar -->
@@ -23,130 +23,188 @@
           <span>Pre-Bind Suite</span>
         </div>
       </div>
-
+      
       <!-- Document Selector -->
       <div class="section">
         <label class="section-label">Select Document</label>
         <div class="select-wrapper">
           <select ng-model="c.selectedDocument" 
-                  ng-change="c.loadDocument()" 
-                  ng-disabled="c.isLoading"
-                  ng-options="doc as doc.name for doc in c.documents track by doc.url"
-                  class="form-select">
-          </select>
-          <i class="fas fa-chevron-down select-icon"></i>
-        </div>
-      </div>
-
+            ng-change="c.loadDocument()" 
+            ng-disabled="c.isLoading"
+            ng-options="doc as doc.name for doc in c.documents track by doc.url"
+            class="form-select">
+        	</select>
+        	<i class="fas fa-chevron-down select-icon"></i>
+      	</div>
+    	</div>
+    
       <!-- Advanced Mode Toggle -->
       <div class="section" ng-if="c.showAdvancedButton">
         <button ng-click="c.showAdvancedMode = !c.showAdvancedMode" 
-                class="advanced-toggle"
-                ng-class="{'active': c.showAdvancedMode}">
-          <span>Advanced Mode</span>
-          <i class="fas fa-chevron-down" ng-class="{'rotate-180': c.showAdvancedMode}"></i>
-        </button>
-        
-        <div ng-show="c.showAdvancedMode" class="advanced-panel">
-          <div class="form-group">
-            <label class="form-label">Coordinate String (D Format)</label>
-            <textarea ng-model="c.manualCoordinate"
-                    placeholder="D(1,100,200,150,250,100,300,150,350)"
-                    class="form-textarea"
-                    rows="2"></textarea>
-            <div class="helper-text" ng-if="c.calculatedPixels">
-              Pixels: {{c.calculatedPixels}}
-            </div>
-          </div>
-          
-          <div class="form-group">
-            <label class="form-label">Manual Coordinates</label>
-            <div class="coord-grid">
-              <input type="number" ng-model="c.manualFields.page" placeholder="Page" class="form-input">
-              <div class="coord-inputs">
-                <div ng-repeat="coord in ['x1','y1','x2','y2','x3','y3','x4','y4']" class="coord-item">
-                  <input type="number" 
-                         ng-model="c.manualFields[coord]" 
-                         placeholder="{{coord}}"
-                         ng-change="c.updateCalculatedPixels()"
-                         class="form-input">
-                  <span class="coord-value">{{c.manualFields[coord] * 72 * c.scale | number:0}}px</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          
+        	class="advanced-toggle"
+        	ng-class="{'active': c.showAdvancedMode}">
+        	<span>Advanced Mode</span>
+        	<i class="fas fa-chevron-down" ng-class="{'rotate-180': c.showAdvancedMode}"></i>
+      	</button>
+    
+      	<div ng-show="c.showAdvancedMode" class="advanced-panel">
+        	<div class="form-group">
+          	<label class="form-label">Coordinate Strings (Multiple D Formats)</label>
+          	<textarea ng-model="c.manualCoordinate"
+          		placeholder="D(1,100,200,150,250,100,300,150,350);D(2,50,100,150,200,250,300,350,400)"
+          		class="form-textarea"
+          		rows="3">
+            </textarea>
+          	<div class="helper-text">
+            	Enter multiple coordinates separated by semicolons (;)
+          	</div>
+          	<div class="helper-text" ng-if="c.parsedCoordinatesCount">
+            	Parsed {{c.parsedCoordinatesCount}} coordinate(s)
+          	</div>
+        	</div>
+      
+      		<div class="form-group" ng-if="c.parsedManualCoordinates.length > 0">
+        		<label class="form-label">Parsed Coordinates</label>
+        		<div class="parsed-coords-list">
+              <div ng-repeat="coord in c.parsedManualCoordinates" 
+                class="parsed-coord-item"
+                ng-click="c.navigateToSingleCoordinate(coord)">
+          		<span class="coord-page">Page {{coord.page}}</span>
+          		<span class="coord-details">{{coord.displayText}}</span>
+        		</div>
+      			</div>
+    			</div>
+    
           <div class="button-group">
             <button ng-click="c.navigateToManualCoordinates()" 
-                    ng-disabled="c.isLoading"
-                    class="btn btn-primary">
+              ng-disabled="c.isLoading || !c.manualCoordinate"
+              class="btn btn-primary">
               <i class="fas fa-location-dot"></i>
-              Go to Coordinates
+              Highlight All Coordinates
             </button>
             <button ng-click="c.copyCurrentCoordinates()" 
-                    ng-disabled="!c.activeField"
-                    class="btn btn-secondary">
+              ng-disabled="!c.activeField"
+              class="btn btn-secondary">
               <i class="fas fa-copy"></i>
-              Copy Coordinates
+              Copy Active Coordinates
             </button>
           </div>
         </div>
-      </div>
+			</div>
 
       <!-- Fields Section -->
       <div class="section">
         <div class="section-header">
           <h3 class="section-title">Fields</h3>
-          <span class="field-count" ng-if="c.extractedFields.length > 0">
-            {{(c.extractedFields | filter:{field_name: c.fieldSearch}).length}} of {{c.extractedFields.length}}
+          <span class="field-count">
+            {{c.getFilteredCount()}} of {{c.getTotalCount()}}
+            <span ng-if="c.selectedDocument" class="text-xs text-gray-500">
+              ({{c.selectedDocument.name}})
+            </span>
           </span>
         </div>
-        
-        <div class="search-wrapper">
-          <i class="fas fa-search search-icon"></i>
+  
+    		<div class="search-wrapper">
+      		<i class="fas fa-search search-icon"></i>
           <input type="text" 
-                 ng-model="c.fieldSearch" 
-                 placeholder="Search fields..." 
-                 class="search-input">
+            ng-model="c.fieldSearch" 
+            ng-change="c.onSearchChange()"
+            placeholder="Search fields..." 
+            class="search-input">
+    		</div>
+  
+        <!-- Optional: Show document filter info -->
+        <div ng-if="c.selectedDocument" class="filter-info" style="padding: 8px; background: #f0f9ff; border-radius: 4px; margin-top: 8px; font-size: 12px;">
+          <i class="fas fa-filter" style="color: #3b82f6; margin-right: 4px;"></i>
+          Showing fields from: <strong>{{c.selectedDocument.name}}</strong>
+          <span style="color: #64748b;">({{c.getDocumentFieldCount()}} fields)</span>
         </div>
-      </div>
+			</div>
 
-      <!-- Fields Table -->
-      <div class="fields-table-container" ng-if="c.extractedFields.length > 0">
-        <table class="fields-table">
-          <thead>
-            <tr>
-              <th>Section Name</th>
-              <th>Field Name</th>
-              <th>Value</th>
-              <th>Score</th>
-              <th>Page</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr ng-repeat="field in c.extractedFields | filter:{field_name: c.fieldSearch}" 
-                ng-click="c.navigateToField(field)"
-                ng-class="{'active-row': field === c.activeField}">
-              <td class="field-name">{{field.section_name}}</td>
-              <td class="field-name">{{field.field_name}}</td>
-              <td class="field-value">
-                <span class="value-text">{{field.field_value || '-'}}</span>
-              </td>
-              <td>
-                <div class="confidence-score" ng-class="c.getConfidenceClass(field.confidence_indicator)">
-                  {{field.confidence_indicator * 100 | number:0}}%
-                </div>
-              </td>
-              <td class="page-num">{{field.coordinates.page}}</td>
-            </tr>
-          </tbody>
-        </table>
+      <!-- Grouped Fields Table -->
+      <div class="section fields-table-container" ng-if="true || c.groupedFields && Object.keys(c.groupedFields).length > 0">
+    		<div ng-repeat="(sectionName, fields) in c.groupedFields" 
+    			ng-show="c.getSectionFilteredCount(sectionName) > 0"
+    			class="section-group">
+    			<div class="section-group-header" 
+            ng-click="c.toggleSection(sectionName)"
+            ng-class="{'collapsed': c.collapsedSections[sectionName]}">
+            <i class="fas fa-chevron-right section-toggle" 
+              ng-class="{'rotate-90': !c.collapsedSections[sectionName]}">
+            </i>
+            <span class="section-group-title">{{sectionName || 'Uncategorized'}}</span>
+            <span class="section-field-count">{{c.getSectionFilteredCount(sectionName)}}</span>
+          </div>
+
+          <table class="fields-table" ng-show="!c.collapsedSections[sectionName]">
+            <thead>
+              <tr>
+                <th>Field Name</th>
+                <th>Value</th>
+                <th>Score</th>
+                <th>Page</th>
+                <th ng-if="!c.selectedDocument">File</th>
+              </tr>
+            </thead>
+            <tbody>
+        <tr ng-repeat="field in fields | filter:{field_name: c.fieldSearch}" 
+          ng-show="!c.selectedDocument || (field.attachmentData.file_name === c.selectedDocument.name)"
+          ng-click="c.navigateToField(field)"
+          ng-class="{'active-row': field === c.activeField}">
+          <td class="field-name">
+            {{field.field_name}}
+            <span ng-if="field.attachmentData && !c.selectedDocument" 
+              style="display: block; font-size: 11px; color: #64748b;">
+              {{field.attachmentData.file_name | limitTo:30}}{{field.attachmentData.file_name.length > 30 ? '...' : ''}}
+            </span>
+          </td>
+          <td class="field-value">
+            <span class="value-text" title="{{field.field_value}}">
+              {{field.field_value || '-'}}
+            </span>
+          </td>
+          <td>
+            <div class="confidence-score" 
+              ng-class="c.getConfidenceClass(field.confidence_indicator)"
+              title="Confidence: {{(field.confidence_indicator * 100) | number:1}}%">
+              {{(field.confidence_indicator * 100) | number:0}}%
+            </div>
+          </td>
+          <td class="page-num">
+            <span ng-if="!field.allCoordinates || field.allCoordinates.length === 0">-</span>
+            <span ng-if="field.allCoordinates || field.allCoordinates.length === 1">
+              {{field.allCoordinates[0].page}}
+            </span>
+            <!--<span ng-if="field.allCoordinates && field.allCoordinates.length > 1" 
+              class="multi-page"
+              title="{{field.allCoordinates.length}} coordinates">
+              <i class="fas fa-layer-group"></i> {{field.allCoordinates.length}}
+            </span> -->
+          </td>
+          <td ng-if="!c.selectedDocument" class="file-name" style="font-size: 11px; color: #64748b;">
+            <span title="{{field.attachmentData.file_name}}">
+              {{field.attachmentData.file_name | limitTo:20}}{{field.attachmentData.file_name.length > 20 ? '...' : ''}}
+            </span>
+          </td>
+        </tr>
+      </tbody>
+          </table>
+        </div>
+
+      <!-- No Results Message -->
+      <div ng-if="c.getFilteredCount() === 0 && c.fieldSearch" class="empty-state" style="padding: 20px; text-align: center;">
+        <i class="fas fa-search" style="font-size: 32px; color: #cbd5e1; margin-bottom: 10px;"></i>
+        <p style="color: #64748b;">No fields found matching "{{c.fieldSearch}}"</p>
+        <button ng-click="c.fieldSearch = ''" class="btn btn-sm" style="margin-top: 10px;">
+          Clear Search
+        </button>
       </div>
+     </div>
 
       <!-- No Data State -->
-      <div class="empty-state" ng-if="!c.mappingData && c.selectedDocument && !c.isLoading">
+      <div class="empty-state" ng-if="(!c.groupedFields || Object.keys(c.groupedFields).length === 0) && c.selectedDocument && !c.isLoading">
         <i class="fas fa-inbox empty-icon"></i>
-        <p>No field data available</p>
+        <p>No field data available for this document</p>
       </div>
     </div>
 
@@ -159,62 +217,26 @@
           <span ng-if="c.selectedDocument">{{c.selectedDocument.name}}</span>
           <span ng-if="!c.selectedDocument">No document selected</span>
         </div>
-        
+
         <div class="pdf-controls">
           <!-- Page Navigation -->
           <div class="control-group">
             <button ng-click="c.previousPage()" 
-                    ng-disabled="c.currentPage <= 1 || c.isLoading" 
-                    class="btn-icon"
-                    title="Previous Page">
+              ng-disabled="c.currentPage <= 1 || c.isLoading" 
+              class="btn-icon"
+              title="Previous Page">
               <i class="fas fa-chevron-left"></i>
             </button>
             <div class="page-info">
               <span>Page {{c.currentPage}} of {{c.totalPages}}</span>
             </div>
             <button ng-click="c.nextPage()" 
-                    ng-disabled="c.currentPage >= c.totalPages || c.isLoading" 
-                    class="btn-icon"
-                    title="Next Page">
+              ng-disabled="c.currentPage >= c.totalPages || c.isLoading" 
+              class="btn-icon"
+              title="Next Page">
               <i class="fas fa-chevron-right"></i>
             </button>
           </div>
-
-          <!-- Zoom Controls -->
-          <!--
-          <div class="control-group">
-            <button ng-click="c.zoomOut()" 
-                    ng-disabled="c.scale <= 0.5 || c.isLoading"
-                    class="btn-icon"
-                    title="Zoom Out">
-              <i class="fas fa-magnifying-glass-minus"></i>
-            </button>
-            <div class="zoom-info">{{(c.scale * 100) | number:0}}%</div>
-            <button ng-click="c.zoomIn()" 
-                    ng-disabled="c.scale >= 3 || c.isLoading"
-                    class="btn-icon"
-                    title="Zoom In">
-              <i class="fas fa-magnifying-glass-plus"></i>
-            </button>
-            <div class="separator"></div>
-            <button ng-click="c.resetZoom()" 
-                    ng-disabled="c.scale === 1 || c.isLoading"
-                    class="btn-icon"
-                    title="Reset Zoom">
-              <i class="fas fa-maximize"></i>
-            </button>
-          </div>
-
-          <!-- Additional Controls 
-          <div class="control-group">
-            <button class="btn-icon" title="Download">
-              <i class="fas fa-download"></i>
-            </button>
-            <button class="btn-icon" title="Settings">
-              <i class="fas fa-gear"></i>
-            </button>
-          </div>
-          -->
         </div>
       </div>
 
@@ -241,6 +263,9 @@
           <span class="footer-item" ng-if="c.activeField">
             <i class="fas fa-crosshairs"></i>
             Active: {{c.activeField.field_name}}
+            <span ng-if="c.activeField.allCoordinates && c.activeField.allCoordinates.length > 1">
+              ({{c.activeFieldCoordIndex + 1}}/{{c.activeField.allCoordinates.length}})
+            </span>
           </span>
         </div>
       </div>
