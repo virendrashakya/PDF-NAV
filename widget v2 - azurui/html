@@ -219,6 +219,24 @@
         </div>
 
         <div class="pdf-controls">
+          <!-- Zoom Controls -->
+          <div class="control-group">
+            <button ng-click="c.fitWidth()" 
+              ng-disabled="c.isLoading || !c.pdfLoaded" 
+              class="btn-icon"
+              ng-class="{'active': c.zoomMode === 'fit-width'}"
+              title="Fit to Width">
+              <i class="fas fa-arrows-left-right"></i>
+            </button>
+            <button ng-click="c.actual100Percent()" 
+              ng-disabled="c.isLoading || !c.pdfLoaded" 
+              class="btn-icon"
+              ng-class="{'active': c.zoomMode === 'actual-size'}"
+              title="Actual Size (100%)">
+              <i class="fas fa-search-plus"></i>
+            </button>
+          </div>
+
           <!-- Page Navigation -->
           <div class="control-group">
             <button ng-click="c.previousPage()" 

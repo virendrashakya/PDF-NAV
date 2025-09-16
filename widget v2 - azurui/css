@@ -471,6 +471,16 @@
   cursor: not-allowed;
 }
 
+.btn-icon.active {
+  background: #f9d292;
+  color: #323130;
+  border-color: #f9d292;
+}
+
+.btn-icon.active:hover {
+  background: #f7c452;
+}
+
 /* Fields Table */
 .fields-table-container {
   max-height: 100vh;

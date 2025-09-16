@@ -28,6 +28,8 @@ api.controller = function($scope, $location, $filter, $window, spUtil, $timeout)
   c.canUpload = c.data.canUpload || false;
   c.isLoading = false;
   c.loadingMessage = 'Loading...';
+  c.zoomMode = 'fit-width'; // 'fit-width' or 'actual-size'
+  c.containerWidth = 0;
   
   $('head title').text("Pre-Bind Suite");
   
@@ -41,6 +43,7 @@ api.controller = function($scope, $location, $filter, $window, spUtil, $timeout)
   var pageNumPending = null;
   var currentHighlights = [];
   var renderTask = null;
+  var currentPageInstance = null;
   
   // URL parameters
   var submissionSysId = $location.search().submissionSysId || 'f70447bafb7bea10b70efc647befdcb7';
@@ -369,13 +372,18 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
       c.pdfLoaded = true;
       c.totalPages = pdf.numPages;
       c.currentPage = 1;
-      c.scale = 1.0;
+      
+      // Set initial zoom mode to fit-width
+      c.zoomMode = 'fit-width';
       
       $scope.$apply(function() {
         c.isLoading = false;
       });
       
-      renderPage(c.currentPage);
+      // Wait for container to be ready, then render with fit-width
+      $timeout(function() {
+        renderPage(c.currentPage);
+      }, 100);
     }).catch(function(error) {
       console.error('Error loading PDF:', error);
       c.isLoading = false;
@@ -508,6 +516,18 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
     }
     
     pdfDoc.getPage(pageNumber).then(function(page) {
+      currentPageInstance = page;
+      
+      // Auto-adjust scale if in fit-width mode
+      if (c.zoomMode === 'fit-width') {
+        var container = document.getElementById('pdfContainer');
+        if (container) {
+          c.containerWidth = container.clientWidth - 40; // Subtract padding
+          var baseViewport = page.getViewport({ scale: 1.0 });
+          c.scale = c.containerWidth / baseViewport.width;
+        }
+      }
+      
       var viewport = page.getViewport({ scale: c.scale });
       
       // Set canvas dimensions
@@ -804,6 +824,29 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
     renderPage(c.currentPage);
   };
   
+  // Fit to width function
+  c.fitWidth = function() {
+    if (!pdfDoc || !currentPageInstance) return;
+    
+    c.zoomMode = 'fit-width';
+    var container = document.getElementById('pdfContainer');
+    if (container) {
+      c.containerWidth = container.clientWidth - 40; // Subtract padding
+      var viewport = currentPageInstance.getViewport({ scale: 1.0 });
+      c.scale = c.containerWidth / viewport.width;
+      renderPage(c.currentPage);
+    }
+  };
+  
+  // Actual 100% size function
+  c.actual100Percent = function() {
+    if (!pdfDoc) return;
+    
+    c.zoomMode = 'actual-size';
+    c.scale = 1.0;
+    renderPage(c.currentPage);
+  };
+  
   // Get confidence class
   c.getConfidenceClass = function(confidence) {
     var value = parseFloat(confidence) || 0;
@@ -925,6 +968,16 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
       pdfDoc.destroy();
     }
   });
+  
+  // Window resize handler
+  var resizeHandler = debounce(function() {
+    if (c.zoomMode === 'fit-width' && pdfDoc && currentPageInstance) {
+      c.fitWidth();
+    }
+  }, 300);
+  
+  // Add resize listener
+  $window.addEventListener('resize', resizeHandler);
   
   // Initialize on load
   $timeout(function() {
