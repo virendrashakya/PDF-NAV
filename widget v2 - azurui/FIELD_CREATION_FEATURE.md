@@ -7,28 +7,28 @@ The PDF viewer widget has been enhanced with interactive field creation and mana
 
 ### 1. Create New Fields
 - Click the **"Create Field"** button in the PDF viewer header
-- **Click and drag** on the PDF to select a field area
+- **Click and drag** on the PDF to select a field area (single selection only)
 - Text is automatically extracted from the selected area
-- Add multiple selections for the same field (for multi-line text)
 - Enter field name and section in the dialog (value is pre-filled)
-- Fields are saved to the ServiceNow database
+- Field is marked as "Unsaved" and added to pending queue
+- Click **"Save"** button to persist all changes to ServiceNow
 
-### 2. Add Coordinates to Existing Fields
-- Click the **"+"** button next to any field in the table
-- Click and drag to add another selection area
-- Text from new area is appended to field value
-- Useful for fields that span multiple lines or pages
-
-### 3. Edit Coordinates
-- Hover over the **"⋮"** menu button for any field
-- Select a specific coordinate set to edit
+### 2. Edit Fields
+- Click the **Edit** button (pencil icon) next to any field
 - Click and drag to replace the existing selection
-- Field value is updated with text from new selection
+- Field value is updated with newly extracted text
+- Field is marked as "Unsaved" until you click Save
 
-### 4. Delete Operations
-- Delete individual coordinate sets (if field has multiple)
-- Delete entire fields from the database
-- Confirmation required for destructive actions
+### 3. Delete Fields
+- Click the **Delete** button (trash icon) next to any field
+- Confirmation required before deletion
+- Field is immediately removed from the database
+
+### 4. Batch Save
+- All new and edited fields are queued as "pending"
+- Unsaved fields show a green "UNSAVED" badge
+- Click the **"Save (X)"** button in the header to save all pending fields
+- All changes are persisted to ServiceNow in a single batch operation
 
 ## Visual Indicators
 
@@ -42,7 +42,7 @@ The PDF viewer widget has been enhanced with interactive field creation and mana
 ### Color Coding
 - **Blue**: Active drag selection and handles
 - **Orange**: Active field highlights
-- **Green**: Successfully added coordinate sets
+- **Green**: Pending/unsaved fields and save button
 - **Red**: Deletion confirmations
 
 ## Technical Implementation
@@ -74,13 +74,26 @@ The PDF viewer widget has been enhanced with interactive field creation and mana
 
 ## Usage Workflow
 
+### Creating New Fields
 1. **Load a PDF document** from the dropdown
-2. **Click "Create Field"** button in the PDF header to enter creation mode
+2. **Click "Create Field"** button in the PDF header
 3. **Click and drag** on the PDF to select the field area
 4. **Text is automatically extracted** from the selection
-5. **Optionally add more selections** for the same field
-6. **Enter field name** in the dialog (value is pre-filled with extracted text)
-7. **Save** to persist to database
+5. **Enter field name** in the dialog (value is pre-filled with extracted text)
+6. Field is added to the table with "UNSAVED" badge
+7. **Click "Save (X)"** button in header to persist all pending fields
+
+### Editing Existing Fields
+1. **Click Edit button** (pencil icon) next to a field
+2. **Click and drag** to select new area on PDF
+3. Field value updates with newly extracted text
+4. Field shows "UNSAVED" badge
+5. **Click "Save (X)"** to persist changes
+
+### Deleting Fields
+1. **Click Delete button** (trash icon) next to a field
+2. **Confirm deletion** in dialog
+3. Field is immediately removed from database
 
 ## Data Format
 Fields are stored with D-string format coordinates:

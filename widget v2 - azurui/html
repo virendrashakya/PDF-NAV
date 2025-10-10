@@ -189,8 +189,9 @@
               <tr ng-repeat="field in fields | filter:{field_name: c.fieldSearch}" 
                 ng-show="!c.selectedDocument || (field.attachmentData.file_name === c.selectedDocument.name)"
                 ng-click="c.navigateToField(field)"
-                ng-class="{'active-row': field === c.activeField}">
+                ng-class="{'active-row': field === c.activeField, 'pending-row': field.isPending}">
                 <td class="field-name">
+                  <span ng-if="field.isPending" class="pending-badge">Unsaved</span>
                   {{field.field_name}}
                   <span ng-if="field.attachmentData && !c.selectedDocument" 
                     style="display: block; font-size: 11px; color: #64748b;">
@@ -227,31 +228,12 @@
                 </td>
                 <td class="width-10per field-actions">
                   <div class="action-menu">
-                    <button class="action-btn" ng-click="c.addCoordinatesToField(field); $event.stopPropagation()" title="Add Coordinates">
-                      <i class="fas fa-plus"></i>
+                    <button class="action-btn" ng-click="c.editField(field); $event.stopPropagation()" title="Edit Field">
+                      <i class="fas fa-edit"></i>
                     </button>
-                    <div class="dropdown">
-                      <button class="action-btn dropdown-toggle" ng-click="$event.stopPropagation()" title="More Actions">
-                        <i class="fas fa-ellipsis-v"></i>
-                      </button>
-                      <div class="dropdown-menu">
-                        <div ng-repeat="coord in field.allCoordinates track by $index" class="dropdown-item coord-edit">
-                          <span>Coord {{$index + 1}}</span>
-                          <div class="coord-actions">
-                            <button ng-click="c.editCoordinate(field, $index); $event.stopPropagation()" title="Edit">
-                              <i class="fas fa-edit"></i>
-                            </button>
-                            <button ng-click="c.deleteCoordinate(field, $index); $event.stopPropagation()" title="Delete">
-                              <i class="fas fa-trash"></i>
-                            </button>
-                          </div>
-                        </div>
-                        <div class="dropdown-divider"></div>
-                        <button class="dropdown-item delete-field" ng-click="c.deleteField(field); $event.stopPropagation()">
-                          <i class="fas fa-trash"></i> Delete Field
-                        </button>
-                      </div>
-                    </div>
+                    <button class="action-btn" ng-click="c.deleteField(field); $event.stopPropagation()" title="Delete Field">
+                      <i class="fas fa-trash"></i>
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -311,6 +293,13 @@
               class="btn btn-secondary btn-sm">
               <i class="fas fa-times"></i>
               Cancel
+            </button>
+            <button ng-show="c.pendingFields.length > 0 && !c.isCreatingField" 
+              ng-click="c.saveAllFields()"
+              ng-disabled="c.isSaving"
+              class="btn btn-success btn-sm">
+              <i class="fas fa-save"></i>
+              Save ({{c.pendingFields.length}})
             </button>
           </div>
           

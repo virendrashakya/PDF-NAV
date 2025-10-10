@@ -49,6 +49,8 @@ api.controller = function($scope, $location, $filter, $window, spUtil, $timeout)
   c.dragStart = null;
   c.dragEnd = null;
   c.currentSelection = null;
+  c.pendingFields = [];
+  c.isSaving = false;
   
   $('head title').text("Genpact Insurance Policy Suite");
   
@@ -122,29 +124,26 @@ api.controller = function($scope, $location, $filter, $window, spUtil, $timeout)
     spUtil.addInfoMessage('Click and drag to add another area to: ' + field.field_name);
   };
   
-  // NEW: Edit specific coordinate set
-  c.editCoordinate = function(field, coordIndex) {
+  // NEW: Edit field
+  c.editField = function(field) {
     if (!c.pdfLoaded) return;
     c.isCreatingField = true;
     c.creationMode = 'edit';
     c.editingField = field;
-    c.editingCoordIndex = coordIndex;
     c.creationPoints = [];
     c.isDragging = false;
     c.dragStart = null;
     c.dragEnd = null;
     clearAnnotations();
     
-    // Highlight other coordinates in the set
-    var otherCoords = field.allCoordinates.filter(function(coord, idx) {
-      return idx !== coordIndex;
-    });
-    if (otherCoords.length > 0) {
-      highlightMultipleFields(otherCoords, false);
+    // Navigate to field page if needed
+    if (field.coordinates && field.coordinates.page !== c.currentPage) {
+      c.currentPage = field.coordinates.page;
+      renderPage(c.currentPage);
     }
     
     enableCreationMode();
-    spUtil.addInfoMessage('Click and drag to replace coordinate set ' + (coordIndex + 1));
+    spUtil.addInfoMessage('Click and drag to update field selection: ' + field.field_name);
   };
   
   // NEW: Delete coordinate set
@@ -227,14 +226,16 @@ api.controller = function($scope, $location, $filter, $window, spUtil, $timeout)
         field_value: c.newFieldData.field_value,
         new_section_name: c.newFieldData.section_name,
         confidence_indicator: c.newFieldData.confidence_indicator,
-        allCoordinates: c.tempCoordinateSets,
-        coordinates: c.tempCoordinateSets[0],
-        source: c.tempCoordinateSets.map(formatDString).join(';'),
+        allCoordinates: [c.newFieldData.coordinates],
+        coordinates: c.newFieldData.coordinates,
+        source: formatDString(c.newFieldData.coordinates),
         attachmentData: {
           file_name: c.selectedDocument ? c.selectedDocument.name : '',
           file_url: c.selectedDocument ? c.selectedDocument.url : ''
         },
-        sys_id: 'temp_' + Date.now()
+        sys_id: 'temp_' + Date.now(),
+        isPending: true,
+        isNew: true
       };
       
       // Add to grouped fields
@@ -244,8 +245,10 @@ api.controller = function($scope, $location, $filter, $window, spUtil, $timeout)
       }
       c.groupedFields[newField.new_section_name].push(newField);
       
-      spUtil.addInfoMessage('Field created: ' + newField.field_name);
-      c.saveFieldChanges(newField);
+      // Add to pending fields
+      c.pendingFields.push(newField);
+      
+      spUtil.addInfoMessage('Field added - click Save to persist: ' + newField.field_name);
     }
     
     c.showFieldDialog = false;
@@ -261,7 +264,60 @@ api.controller = function($scope, $location, $filter, $window, spUtil, $timeout)
            coord.x4.toFixed(4) + ',' + coord.y4.toFixed(4) + ')';
   }
   
-  // NEW: Save field changes to server
+  // NEW: Save all pending fields
+  c.saveAllFields = function() {
+    if (c.pendingFields.length === 0) {
+      spUtil.addInfoMessage('No pending fields to save');
+      return;
+    }
+    
+    c.isSaving = true;
+    var savePromises = [];
+    
+    c.pendingFields.forEach(function(field) {
+      var promise = c.server.get({
+        action: 'saveField',
+        field: {
+          sys_id: field.sys_id,
+          field_name: field.field_name,
+          field_value: field.field_value,
+          source: field.source,
+          section_name: field.new_section_name,
+          confidence: field.confidence_indicator,
+          document_name: field.attachmentData.file_name,
+          document_url: field.attachmentData.file_url,
+          submission_sys_id: submissionSysId
+        }
+      }).then(function(response) {
+        if (response.data.success) {
+          if (response.data.sys_id && field.sys_id.indexOf('temp_') === 0) {
+            field.sys_id = response.data.sys_id;
+          }
+          field.isPending = false;
+          field.isNew = false;
+          return true;
+        }
+        return false;
+      });
+      
+      savePromises.push(promise);
+    });
+    
+    Promise.all(savePromises).then(function(results) {
+      var successCount = results.filter(function(r) { return r; }).length;
+      c.isSaving = false;
+      c.pendingFields = [];
+      
+      spUtil.addInfoMessage('Successfully saved ' + successCount + ' field(s)');
+      $scope.$apply();
+    }).catch(function(error) {
+      c.isSaving = false;
+      spUtil.addErrorMessage('Error saving fields');
+      $scope.$apply();
+    });
+  };
+  
+  // NEW: Save field changes to server (legacy - kept for compatibility)
   c.saveFieldChanges = function(field) {
     c.server.get({
       action: 'saveField',
@@ -361,44 +417,29 @@ api.controller = function($scope, $location, $filter, $window, spUtil, $timeout)
       c.currentSelection = newCoord;
       
       if (c.creationMode === 'new') {
-        c.tempCoordinateSets.push(newCoord);
         c.newFieldData.field_value = extractedText || '';
-        
-        // Ask if user wants to add more coordinates
-        if (confirm('Area selected. Add another area for this field?')) {
-          drawTemporaryCoordinateSets();
-        } else {
-          c.showFieldDialog = true;
-          $scope.$apply();
-        }
-      } else if (c.creationMode === 'add') {
-        c.editingField.allCoordinates.push(newCoord);
-        c.editingField.source = c.editingField.allCoordinates.map(formatDString).join(';');
-        
-        // Append extracted text to existing field value
-        if (extractedText) {
-          c.editingField.field_value = (c.editingField.field_value || '') + ' ' + extractedText;
-        }
-        
-        c.saveFieldChanges(c.editingField);
-        c.cancelFieldCreation();
-        spUtil.addInfoMessage('Area added to field');
+        c.newFieldData.coordinates = newCoord;
+        c.showFieldDialog = true;
         $scope.$apply();
       } else if (c.creationMode === 'edit') {
-        c.editingField.allCoordinates[c.editingCoordIndex] = newCoord;
-        if (c.editingCoordIndex === 0) {
-          c.editingField.coordinates = newCoord;
-        }
-        c.editingField.source = c.editingField.allCoordinates.map(formatDString).join(';');
+        // Update field with new selection
+        c.editingField.coordinates = newCoord;
+        c.editingField.allCoordinates = [newCoord];
+        c.editingField.source = formatDString(newCoord);
+        c.editingField.field_value = extractedText || '';
+        c.editingField.isPending = true;
         
-        // Update field value with new extracted text
-        if (extractedText) {
-          c.editingField.field_value = extractedText;
+        // Add to pending fields if not already there
+        var existingIndex = c.pendingFields.findIndex(function(f) {
+          return f.sys_id === c.editingField.sys_id;
+        });
+        
+        if (existingIndex === -1) {
+          c.pendingFields.push(c.editingField);
         }
         
-        c.saveFieldChanges(c.editingField);
         c.cancelFieldCreation();
-        spUtil.addInfoMessage('Coordinate set updated');
+        spUtil.addInfoMessage('Field updated - click Save to persist changes');
         $scope.$apply();
       }
     });

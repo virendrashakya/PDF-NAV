@@ -770,6 +770,15 @@
   background: #f3f2f1;
 }
 
+.btn-success {
+  background: #10b981;
+  color: #ffffff;
+}
+
+.btn-success:hover:not(:disabled) {
+  background: #059669;
+}
+
 .btn-icon {
   width: 32px;
   height: 32px;
@@ -857,6 +866,23 @@
 
 .fields-table tbody tr.active-row {
   background: #f9d292;
+}
+
+.fields-table tbody tr.pending-row {
+  background: #f0fdf4;
+  border-left: 3px solid #10b981;
+}
+
+.pending-badge {
+  display: inline-block;
+  background: #10b981;
+  color: white;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-right: 6px;
+  text-transform: uppercase;
 }
 
 .field-name {
