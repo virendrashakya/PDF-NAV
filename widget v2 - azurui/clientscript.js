@@ -45,6 +45,10 @@ api.controller = function($scope, $location, $filter, $window, spUtil, $timeout)
     confidence_indicator: 1.0
   };
   c.tempCoordinateSets = [];
+  c.isDragging = false;
+  c.dragStart = null;
+  c.dragEnd = null;
+  c.currentSelection = null;
   
   $('head title').text("Genpact Insurance Policy Suite");
   
@@ -87,6 +91,10 @@ api.controller = function($scope, $location, $filter, $window, spUtil, $timeout)
     c.creationMode = 'new';
     c.creationPoints = [];
     c.tempCoordinateSets = [];
+    c.isDragging = false;
+    c.dragStart = null;
+    c.dragEnd = null;
+    c.currentSelection = null;
     c.newFieldData = {
       field_name: '',
       field_value: '',
@@ -94,7 +102,8 @@ api.controller = function($scope, $location, $filter, $window, spUtil, $timeout)
       confidence_indicator: 1.0
     };
     clearAnnotations();
-    spUtil.addInfoMessage('Click 4 points on the PDF to define a field boundary');
+    enableCreationMode();
+    spUtil.addInfoMessage('Click and drag on the PDF to select a field area');
   };
   
   // NEW: Add coordinates to existing field
@@ -104,9 +113,13 @@ api.controller = function($scope, $location, $filter, $window, spUtil, $timeout)
     c.creationMode = 'add';
     c.editingField = field;
     c.creationPoints = [];
+    c.isDragging = false;
+    c.dragStart = null;
+    c.dragEnd = null;
     clearAnnotations();
     highlightMultipleFields(field.allCoordinates, false);
-    spUtil.addInfoMessage('Click 4 points to add another coordinate set to: ' + field.field_name);
+    enableCreationMode();
+    spUtil.addInfoMessage('Click and drag to add another area to: ' + field.field_name);
   };
   
   // NEW: Edit specific coordinate set
@@ -117,6 +130,9 @@ api.controller = function($scope, $location, $filter, $window, spUtil, $timeout)
     c.editingField = field;
     c.editingCoordIndex = coordIndex;
     c.creationPoints = [];
+    c.isDragging = false;
+    c.dragStart = null;
+    c.dragEnd = null;
     clearAnnotations();
     
     // Highlight other coordinates in the set
@@ -127,7 +143,8 @@ api.controller = function($scope, $location, $filter, $window, spUtil, $timeout)
       highlightMultipleFields(otherCoords, false);
     }
     
-    spUtil.addInfoMessage('Click 4 points to replace coordinate set ' + (coordIndex + 1));
+    enableCreationMode();
+    spUtil.addInfoMessage('Click and drag to replace coordinate set ' + (coordIndex + 1));
   };
   
   // NEW: Delete coordinate set
@@ -183,6 +200,7 @@ api.controller = function($scope, $location, $filter, $window, spUtil, $timeout)
     c.editingCoordIndex = null;
     c.tempCoordinateSets = [];
     clearAnnotations();
+    disableCreationMode();
     
     // Re-highlight active field if exists
     if (c.activeField && c.activeField.allCoordinates) {
@@ -267,8 +285,8 @@ api.controller = function($scope, $location, $filter, $window, spUtil, $timeout)
     });
   };
   
-  // NEW: Handle canvas click for point selection
-  function handleCanvasClick(event) {
+  // NEW: Handle mouse down for drag selection
+  function handleMouseDown(event) {
     if (!c.isCreatingField) return;
     
     var rect = canvas.getBoundingClientRect();
@@ -279,31 +297,75 @@ api.controller = function($scope, $location, $filter, $window, spUtil, $timeout)
     var pdfX = x / (72 * c.scale);
     var pdfY = y / (72 * c.scale);
     
-    c.creationPoints.push({x: pdfX, y: pdfY});
+    c.isDragging = true;
+    c.dragStart = { x: pdfX, y: pdfY };
+    c.dragEnd = { x: pdfX, y: pdfY };
     
-    // Draw temporary point
-    drawTemporaryPoints();
+    // Prevent text selection
+    event.preventDefault();
+  }
+  
+  // NEW: Handle mouse move for drag selection
+  function handleMouseMove(event) {
+    if (!c.isCreatingField || !c.isDragging) return;
     
-    if (c.creationPoints.length === 4) {
-      // Complete the coordinate set
-      var newCoord = {
-        page: c.currentPage,
-        x1: c.creationPoints[0].x,
-        y1: c.creationPoints[0].y,
-        x2: c.creationPoints[1].x,
-        y2: c.creationPoints[1].y,
-        x3: c.creationPoints[2].x,
-        y3: c.creationPoints[2].y,
-        x4: c.creationPoints[3].x,
-        y4: c.creationPoints[3].y
-      };
+    var rect = canvas.getBoundingClientRect();
+    var x = event.clientX - rect.left;
+    var y = event.clientY - rect.top;
+    
+    // Convert to PDF coordinates
+    var pdfX = x / (72 * c.scale);
+    var pdfY = y / (72 * c.scale);
+    
+    c.dragEnd = { x: pdfX, y: pdfY };
+    
+    // Draw selection rectangle
+    drawSelectionRectangle();
+  }
+  
+  // NEW: Handle mouse up to complete selection
+  function handleMouseUp(event) {
+    if (!c.isCreatingField || !c.isDragging) return;
+    
+    c.isDragging = false;
+    
+    // Ensure we have a valid selection
+    if (!c.dragStart || !c.dragEnd || 
+        (Math.abs(c.dragEnd.x - c.dragStart.x) < 0.1 && 
+         Math.abs(c.dragEnd.y - c.dragStart.y) < 0.1)) {
+      spUtil.addInfoMessage('Please drag to create a selection area');
+      clearAnnotations();
+      return;
+    }
+    
+    // Create rectangle coordinates
+    var minX = Math.min(c.dragStart.x, c.dragEnd.x);
+    var minY = Math.min(c.dragStart.y, c.dragEnd.y);
+    var maxX = Math.max(c.dragStart.x, c.dragEnd.x);
+    var maxY = Math.max(c.dragStart.y, c.dragEnd.y);
+    
+    var newCoord = {
+      page: c.currentPage,
+      x1: minX,
+      y1: minY,
+      x2: maxX,
+      y2: minY,
+      x3: maxX,
+      y3: maxY,
+      x4: minX,
+      y4: maxY
+    };
+    
+    // Extract text from the selected area
+    extractTextFromArea(newCoord).then(function(extractedText) {
+      c.currentSelection = newCoord;
       
       if (c.creationMode === 'new') {
         c.tempCoordinateSets.push(newCoord);
-        c.creationPoints = [];
+        c.newFieldData.field_value = extractedText || '';
         
         // Ask if user wants to add more coordinates
-        if (confirm('Coordinate set added. Add another coordinate set for this field?')) {
+        if (confirm('Area selected. Add another area for this field?')) {
           drawTemporaryCoordinateSets();
         } else {
           c.showFieldDialog = true;
@@ -312,9 +374,15 @@ api.controller = function($scope, $location, $filter, $window, spUtil, $timeout)
       } else if (c.creationMode === 'add') {
         c.editingField.allCoordinates.push(newCoord);
         c.editingField.source = c.editingField.allCoordinates.map(formatDString).join(';');
+        
+        // Append extracted text to existing field value
+        if (extractedText) {
+          c.editingField.field_value = (c.editingField.field_value || '') + ' ' + extractedText;
+        }
+        
         c.saveFieldChanges(c.editingField);
         c.cancelFieldCreation();
-        spUtil.addInfoMessage('Coordinate set added');
+        spUtil.addInfoMessage('Area added to field');
         $scope.$apply();
       } else if (c.creationMode === 'edit') {
         c.editingField.allCoordinates[c.editingCoordIndex] = newCoord;
@@ -322,67 +390,61 @@ api.controller = function($scope, $location, $filter, $window, spUtil, $timeout)
           c.editingField.coordinates = newCoord;
         }
         c.editingField.source = c.editingField.allCoordinates.map(formatDString).join(';');
+        
+        // Update field value with new extracted text
+        if (extractedText) {
+          c.editingField.field_value = extractedText;
+        }
+        
         c.saveFieldChanges(c.editingField);
         c.cancelFieldCreation();
         spUtil.addInfoMessage('Coordinate set updated');
         $scope.$apply();
       }
-    } else {
-      spUtil.addInfoMessage((4 - c.creationPoints.length) + ' points remaining');
-    }
+    });
   }
   
-  // NEW: Draw temporary points during creation
-  function drawTemporaryPoints() {
-    if (!annotationCtx) return;
+  // NEW: Draw selection rectangle during drag
+  function drawSelectionRectangle() {
+    if (!annotationCtx || !c.isDragging || !c.dragStart || !c.dragEnd) return;
     
     clearAnnotations();
     drawTemporaryCoordinateSets();
     
-    // Draw points
-    annotationCtx.fillStyle = 'rgba(220, 38, 127, 0.8)';
-    annotationCtx.strokeStyle = 'rgba(220, 38, 127, 1)';
+    // Calculate rectangle dimensions
+    var x1 = c.dragStart.x * 72 * c.scale;
+    var y1 = c.dragStart.y * 72 * c.scale;
+    var x2 = c.dragEnd.x * 72 * c.scale;
+    var y2 = c.dragEnd.y * 72 * c.scale;
     
-    c.creationPoints.forEach(function(point, index) {
-      var x = point.x * 72 * c.scale;
-      var y = point.y * 72 * c.scale;
-      
-      // Draw circle
-      annotationCtx.beginPath();
-      annotationCtx.arc(x, y, 5, 0, 2 * Math.PI);
-      annotationCtx.fill();
-      annotationCtx.stroke();
-      
-      // Draw number
-      annotationCtx.fillStyle = 'white';
-      annotationCtx.font = 'bold 10px Arial';
-      annotationCtx.fillText((index + 1).toString(), x - 3, y + 3);
-      annotationCtx.fillStyle = 'rgba(220, 38, 127, 0.8)';
-    });
+    var x = Math.min(x1, x2);
+    var y = Math.min(y1, y2);
+    var width = Math.abs(x2 - x1);
+    var height = Math.abs(y2 - y1);
     
-    // Draw lines between points
-    if (c.creationPoints.length > 1) {
-      annotationCtx.strokeStyle = 'rgba(220, 38, 127, 0.5)';
-      annotationCtx.setLineDash([5, 5]);
-      annotationCtx.beginPath();
-      for (var i = 0; i < c.creationPoints.length; i++) {
-        var x = c.creationPoints[i].x * 72 * c.scale;
-        var y = c.creationPoints[i].y * 72 * c.scale;
-        if (i === 0) {
-          annotationCtx.moveTo(x, y);
-        } else {
-          annotationCtx.lineTo(x, y);
-        }
-      }
-      if (c.creationPoints.length === 3) {
-        // Preview closing line
-        var x0 = c.creationPoints[0].x * 72 * c.scale;
-        var y0 = c.creationPoints[0].y * 72 * c.scale;
-        annotationCtx.lineTo(x0, y0);
-      }
-      annotationCtx.stroke();
-      annotationCtx.setLineDash([]);
-    }
+    // Draw selection rectangle
+    annotationCtx.fillStyle = 'rgba(59, 130, 246, 0.1)';
+    annotationCtx.strokeStyle = 'rgba(59, 130, 246, 0.8)';
+    annotationCtx.lineWidth = 2;
+    annotationCtx.setLineDash([5, 5]);
+    
+    annotationCtx.fillRect(x, y, width, height);
+    annotationCtx.strokeRect(x, y, width, height);
+    
+    annotationCtx.setLineDash([]);
+    
+    // Draw resize handles at corners
+    var handleSize = 6;
+    annotationCtx.fillStyle = 'rgba(59, 130, 246, 1)';
+    
+    // Top-left handle
+    annotationCtx.fillRect(x - handleSize/2, y - handleSize/2, handleSize, handleSize);
+    // Top-right handle
+    annotationCtx.fillRect(x + width - handleSize/2, y - handleSize/2, handleSize, handleSize);
+    // Bottom-left handle
+    annotationCtx.fillRect(x - handleSize/2, y + height - handleSize/2, handleSize, handleSize);
+    // Bottom-right handle
+    annotationCtx.fillRect(x + width - handleSize/2, y + height - handleSize/2, handleSize, handleSize);
   }
   
   // NEW: Draw temporary coordinate sets
@@ -413,6 +475,101 @@ api.controller = function($scope, $location, $filter, $window, spUtil, $timeout)
         annotationCtx.fill();
         annotationCtx.stroke();
       }
+    });
+  }
+  
+  // NEW: Enable creation mode visual indicators
+  function enableCreationMode() {
+    var pdfContent = document.getElementById('pdfContainer');
+    if (pdfContent) {
+      pdfContent.classList.add('creation-mode');
+    }
+    if (annotationCanvas) {
+      annotationCanvas.classList.add('creation-mode');
+    }
+  }
+  
+  // NEW: Disable creation mode visual indicators
+  function disableCreationMode() {
+    var pdfContent = document.getElementById('pdfContainer');
+    if (pdfContent) {
+      pdfContent.classList.remove('creation-mode');
+    }
+    if (annotationCanvas) {
+      annotationCanvas.classList.remove('creation-mode');
+    }
+  }
+  
+  // NEW: Extract text from selected area
+  function extractTextFromArea(coord) {
+    return new Promise(function(resolve) {
+      if (!currentPageInstance) {
+        resolve('');
+        return;
+      }
+      
+      currentPageInstance.getTextContent().then(function(textContent) {
+        var extractedText = '';
+        var items = textContent.items;
+        
+        // Get the coordinates in PDF units
+        var minX = coord.x1 * 72;
+        var minY = coord.y1 * 72;
+        var maxX = coord.x3 * 72;
+        var maxY = coord.y3 * 72;
+        
+        // Get viewport for coordinate conversion
+        var viewport = currentPageInstance.getViewport({ scale: 1.0 });
+        var pageHeight = viewport.height;
+        
+        // Extract text items within the selection area
+        var selectedItems = [];
+        
+        items.forEach(function(item) {
+          var transform = item.transform;
+          var x = transform[4];
+          var y = pageHeight - transform[5]; // Convert from PDF to screen coordinates
+          var width = item.width;
+          var height = item.height;
+          
+          // Check if text item is within or overlaps with selection
+          if (x + width >= minX && x <= maxX && 
+              y >= minY && y <= maxY) {
+            selectedItems.push({
+              text: item.str,
+              x: x,
+              y: y
+            });
+          }
+        });
+        
+        // Sort items by position (top to bottom, left to right)
+        selectedItems.sort(function(a, b) {
+          var yDiff = a.y - b.y;
+          if (Math.abs(yDiff) > 5) { // Different lines
+            return yDiff;
+          }
+          return a.x - b.x; // Same line, sort by x
+        });
+        
+        // Combine text items with appropriate spacing
+        var lastY = -1;
+        selectedItems.forEach(function(item, index) {
+          if (lastY !== -1 && Math.abs(item.y - lastY) > 5) {
+            extractedText += '\n'; // New line
+          }
+          if (index > 0 && lastY !== -1 && Math.abs(item.y - lastY) <= 5) {
+            extractedText += ' '; // Space between words on same line
+          }
+          extractedText += item.text;
+          lastY = item.y;
+        });
+        
+        resolve(extractedText.trim());
+      }).catch(function(error) {
+        console.error('Error extracting text:', error);
+        resolve('');
+      });
     });
   }
   
@@ -554,9 +711,19 @@ api.controller = function($scope, $location, $filter, $window, spUtil, $timeout)
         ctx = canvas.getContext('2d');
         annotationCtx = annotationCanvas.getContext('2d');
         
-        // NEW: Add click listener
-        annotationCanvas.addEventListener('click', handleCanvasClick);
-        annotationCanvas.style.pointerEvents = 'auto';
+        // NEW: Add mouse event listeners for drag selection
+        annotationCanvas.addEventListener('mousedown', handleMouseDown);
+        annotationCanvas.addEventListener('mousemove', handleMouseMove);
+        annotationCanvas.addEventListener('mouseup', handleMouseUp);
+        
+        // Handle mouse leave to cancel drag
+        annotationCanvas.addEventListener('mouseleave', function(event) {
+          if (c.isDragging) {
+            c.isDragging = false;
+            clearAnnotations();
+            drawTemporaryCoordinateSets();
+          }
+        });
       }
     }, 100);
     loadSourceMapping();
@@ -1240,7 +1407,9 @@ api.controller = function($scope, $location, $filter, $window, spUtil, $timeout)
       pdfDoc.destroy();
     }
     if (annotationCanvas) {
-      annotationCanvas.removeEventListener('click', handleCanvasClick);
+      annotationCanvas.removeEventListener('mousedown', handleMouseDown);
+      annotationCanvas.removeEventListener('mousemove', handleMouseMove);
+      annotationCanvas.removeEventListener('mouseup', handleMouseUp);
     }
   });
   
