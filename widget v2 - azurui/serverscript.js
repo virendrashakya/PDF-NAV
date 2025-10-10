@@ -145,9 +145,11 @@
 						section_name: _getValue(mappingGr, 'section_name'),
             field_name: _getValue(mappingGr, 'field_name'),
             field_value: _getValue(mappingGr, 'field_value'),
+						
             source: source,
 						attachmentData: _getAttachmentData(documentSysId),
             confidence_indicator: confidence,
+						section_confidence_avg: _getValue(mappingGr, 'section_confidence_avg'),
             parent: _getValue(mappingGr, 'parent')
           };
           

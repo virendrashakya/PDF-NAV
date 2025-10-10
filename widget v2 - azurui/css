@@ -58,6 +58,294 @@
   background: #ffffff;
 }
 
+/* NEW: Modal Dialog */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-dialog {
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+  width: 90%;
+  max-width: 500px;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e1dfdd;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #323130;
+}
+
+.modal-close {
+  background: transparent;
+  border: none;
+  color: #605e5c;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px;
+  transition: color 0.2s ease;
+}
+
+.modal-close:hover {
+  color: #323130;
+}
+
+.modal-body {
+  padding: 24px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid #e1dfdd;
+  background: #f8f8f8;
+  border-radius: 0 0 8px 8px;
+}
+
+.coord-preview {
+  max-height: 100px;
+  overflow-y: auto;
+  background: #f8f8f8;
+  border: 1px solid #e1dfdd;
+  border-radius: 4px;
+  padding: 8px;
+}
+
+.coord-item {
+  font-size: 12px;
+  color: #605e5c;
+  padding: 4px;
+  font-family: 'Consolas', 'Courier New', monospace;
+}
+
+/* NEW: Field Creation Section */
+.field-creation-section {
+  background: #f0f9ff;
+  border: 1px solid #3b82f6;
+  border-radius: 4px;
+  padding: 16px !important;
+}
+
+.creation-status {
+  margin-top: 12px;
+  padding: 12px;
+  background: #ffffff;
+  border: 1px solid #e1dfdd;
+  border-radius: 4px;
+}
+
+.status-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #0078d4;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.status-message i {
+  font-size: 16px;
+}
+
+/* NEW: Field Actions */
+.field-actions {
+  padding: 4px !important;
+}
+
+.action-menu {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+}
+
+.action-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #605e5c;
+  width: 24px;
+  height: 24px;
+  border-radius: 3px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  font-size: 11px;
+}
+
+.action-btn:hover {
+  background: #f3f2f1;
+  color: #323130;
+  border-color: #d2d0ce;
+}
+
+/* NEW: Dropdown Menu */
+.dropdown {
+  position: relative;
+}
+
+.dropdown-menu {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 4px;
+  min-width: 180px;
+  background: #ffffff;
+  border: 1px solid #e1dfdd;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+}
+
+.dropdown:hover .dropdown-menu {
+  display: block;
+}
+
+.dropdown-item {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #323130;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+
+.dropdown-item:hover {
+  background: #f3f2f1;
+}
+
+.dropdown-item.coord-edit {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.coord-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.coord-actions button {
+  background: transparent;
+  border: none;
+  color: #605e5c;
+  cursor: pointer;
+  padding: 2px 6px;
+  transition: color 0.2s ease;
+}
+
+.coord-actions button:hover {
+  color: #323130;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: #e1dfdd;
+  margin: 4px 0;
+}
+
+.delete-field {
+  color: #d13438;
+}
+
+.delete-field:hover {
+  background: #fde7e9;
+}
+
+/* NEW: Creation Indicator */
+.creation-indicator {
+  margin-right: 16px;
+}
+
+.creation-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #f0f9ff;
+  border: 1px solid #3b82f6;
+  border-radius: 16px;
+  color: #3b82f6;
+  font-size: 12px;
+  font-weight: 600;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.creation-badge i {
+  font-size: 14px;
+  animation: rotate 2s linear infinite;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* NEW: Cursor for creation mode */
+.cursor-crosshair {
+  cursor: crosshair !important;
+}
+
+.cursor-crosshair canvas {
+  cursor: crosshair !important;
+}
+
 /* Left Sidebar */
 .left-sidebar {
   width: 40%;
@@ -479,6 +767,10 @@
 
 .btn-icon.active:hover {
   background: #f7c452;
+}
+
+.width-10per {
+  width:10%;
 }
 
 /* Fields Table */

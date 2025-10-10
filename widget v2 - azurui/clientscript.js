@@ -1,7 +1,7 @@
 api.controller = function($scope, $location, $filter, $window, spUtil, $timeout) {
   var c = this;
   
-  // Initialize variables
+  // Initialize variables (existing)
   c.pdfLoaded = false;
   c.extractedFields = [];
   c.globalExtractedFields = [];
@@ -28,12 +28,27 @@ api.controller = function($scope, $location, $filter, $window, spUtil, $timeout)
   c.canUpload = c.data.canUpload || false;
   c.isLoading = false;
   c.loadingMessage = 'Loading...';
-  c.zoomMode = 'fit-width'; // 'fit-width' or 'actual-size'
+  c.zoomMode = 'actual-size';
   c.containerWidth = 0;
   
-  $('head title').text("Pre-Bind Suite");
+  // NEW: Field creation mode variables
+  c.isCreatingField = false;
+  c.creationPoints = [];
+  c.creationMode = 'new'; // 'new', 'add', 'edit'
+  c.editingField = null;
+  c.editingCoordIndex = null;
+  c.showFieldDialog = false;
+  c.newFieldData = {
+    field_name: '',
+    field_value: '',
+    section_name: 'User Created',
+    confidence_indicator: 1.0
+  };
+  c.tempCoordinateSets = [];
   
-  // PDF.js variables
+  $('head title').text("Genpact Insurance Policy Suite");
+  
+  // PDF.js variables (existing)
   var pdfDoc = null;
   var canvas = null;
   var ctx = null;
@@ -46,9 +61,9 @@ api.controller = function($scope, $location, $filter, $window, spUtil, $timeout)
   var currentPageInstance = null;
   
   // URL parameters
-  var submissionSysId = $location.search().submissionSysId || 'f70447bafb7bea10b70efc647befdcb7';
+  var submissionSysId = $location.search().submissionSysId || '74c2873d93947210ce18b5d97bba102d';
   
-  // Performance optimization: Debounce functions
+  // Performance optimization: Debounce functions (existing)
   var debounce = function(func, wait) {
     var timeout;
     return function() {
@@ -61,115 +76,450 @@ api.controller = function($scope, $location, $filter, $window, spUtil, $timeout)
       timeout = setTimeout(later, wait);
     };
   };
-	
-	//helper flattenmethod
-	// Method to flatten the nested structure
-	c.flatten = function(obj) {
-			var result = [];
-			for (var key in obj) {
-					if (obj.hasOwnProperty(key) && Array.isArray(obj[key])) {
-							result = result.concat(obj[key]);
-					}
-			}
-			return result;
-	};
+  
+  // NEW: Start field creation mode
+  c.startFieldCreation = function() {
+    if (!c.pdfLoaded) {
+      spUtil.addErrorMessage('Please load a document first');
+      return;
+    }
+    c.isCreatingField = true;
+    c.creationMode = 'new';
+    c.creationPoints = [];
+    c.tempCoordinateSets = [];
+    c.newFieldData = {
+      field_name: '',
+      field_value: '',
+      section_name: 'User Created',
+      confidence_indicator: 1.0
+    };
+    clearAnnotations();
+    spUtil.addInfoMessage('Click 4 points on the PDF to define a field boundary');
+  };
+  
+  // NEW: Add coordinates to existing field
+  c.addCoordinatesToField = function(field) {
+    if (!c.pdfLoaded) return;
+    c.isCreatingField = true;
+    c.creationMode = 'add';
+    c.editingField = field;
+    c.creationPoints = [];
+    clearAnnotations();
+    highlightMultipleFields(field.allCoordinates, false);
+    spUtil.addInfoMessage('Click 4 points to add another coordinate set to: ' + field.field_name);
+  };
+  
+  // NEW: Edit specific coordinate set
+  c.editCoordinate = function(field, coordIndex) {
+    if (!c.pdfLoaded) return;
+    c.isCreatingField = true;
+    c.creationMode = 'edit';
+    c.editingField = field;
+    c.editingCoordIndex = coordIndex;
+    c.creationPoints = [];
+    clearAnnotations();
     
-	//WORKING: Get filtered count considering both filters
-	c.getFilteredCount = function() {
-			return c.getFilteredByBoth().length;
-	};
-
-	//WORKING: Get total count
-	c.getTotalCount = function() {
-			return c.flatten(c.groupedFields).length;
-	};
-	
-	//WORKING: Get count for current document
-	c.getDocumentFieldCount = function() {
-			if (!c.selectedDocument || !c.selectedDocument.name) {
-					return c.getTotalCount();
-			}
-			return c.getFilteredByFileName(c.selectedDocument.name).length;
-	};
-
-	//WORKING: Get unique file names from all fields
-	c.getUniqueFileNames = function() {
-			var flattened = c.flatten(c.groupedFields);
-			var fileNames = {};
-
-			flattened.forEach(function(item) {
-					if (item.attachmentData && item.attachmentData.file_name) {
-							fileNames[item.attachmentData.file_name] = true;
-					}
-			});
-
-			return Object.keys(fileNames).sort();
-	};
-	
-	//WORKING: Enhanced groupFieldsBySection that filters by document
-	c.getFilteredGroupedFields = function() {
-			var filtered = c.getFilteredByBoth();
-			var grouped = {};
-			var collapsed = {};
-
-			filtered.forEach(function(field) {
-					var sectionName = field.section_name || 'Uncategorized';
-
-					if (!field.allCoordinates) {
-							if (field.coordinates) {
-									field.allCoordinates = [field.coordinates];
-							} else {
-									field.allCoordinates = [];
-							}
-					}
-
-					if (!grouped[sectionName]) {
-							grouped[sectionName] = [];
-							collapsed[sectionName] = c.collapsedSections[sectionName] || false;
-					}
-
-					grouped[sectionName].push(field);
-			});
-
-			// Sort sections alphabetically
-			var sortedSections = {};
-			Object.keys(grouped).sort().forEach(function(key) {
-					sortedSections[key] = grouped[key];
-			});
-
-			return sortedSections;
-	};
-	
-	// Method to get fields for a specific section with filters applied
-	c.getFilteredSectionFields = function(sectionName) {
-			var filteredGroups = c.getFilteredGroupedFields();
-			return filteredGroups[sectionName] || [];
-	};
-
-	// Method to get section field count with filters
-	c.getSectionFilteredCount = function(sectionName) {
-			var fields = c.groupedFields[sectionName] || [];
-			var filtered = fields;
-
-			// Apply field_name filter
-			if (c.fieldSearch) {
-					filtered = filtered.filter(function(item) {
-							return item.field_name && 
-									item.field_name.toLowerCase().indexOf(c.fieldSearch.toLowerCase()) !== -1;
-					});
-			}
-
-			// Apply file_name filter
-			if (c.selectedDocument && c.selectedDocument.name) {
-					filtered = filtered.filter(function(item) {
-							return item.attachmentData && 
-									item.attachmentData.file_name && 
-									item.attachmentData.file_name === c.selectedDocument.name;
-					});
-			}
-
-			return filtered.length;
-	};
+    // Highlight other coordinates in the set
+    var otherCoords = field.allCoordinates.filter(function(coord, idx) {
+      return idx !== coordIndex;
+    });
+    if (otherCoords.length > 0) {
+      highlightMultipleFields(otherCoords, false);
+    }
+    
+    spUtil.addInfoMessage('Click 4 points to replace coordinate set ' + (coordIndex + 1));
+  };
+  
+  // NEW: Delete coordinate set
+  c.deleteCoordinate = function(field, coordIndex) {
+    if (!field.allCoordinates || field.allCoordinates.length <= 1) {
+      spUtil.addErrorMessage('Cannot delete the only coordinate set. Delete the field instead.');
+      return;
+    }
+    
+    field.allCoordinates.splice(coordIndex, 1);
+    field.coordinates = field.allCoordinates[0];
+    
+    // Update source string
+    field.source = field.allCoordinates.map(function(coord) {
+      return formatDString(coord);
+    }).join(';');
+    
+    spUtil.addInfoMessage('Coordinate set deleted');
+    c.saveFieldChanges(field);
+  };
+  
+  // NEW: Delete entire field
+  c.deleteField = function(field) {
+    if (!confirm('Are you sure you want to delete this field?')) return;
+    
+    // Find and remove from grouped fields
+    for (var section in c.groupedFields) {
+      var idx = c.groupedFields[section].indexOf(field);
+      if (idx > -1) {
+        c.groupedFields[section].splice(idx, 1);
+        if (c.groupedFields[section].length === 0) {
+          delete c.groupedFields[section];
+        }
+        break;
+      }
+    }
+    
+    clearAnnotations();
+    spUtil.addInfoMessage('Field deleted: ' + field.field_name);
+    
+    // Call server to persist deletion
+    c.server.get({
+      action: 'deleteField',
+      fieldId: field.sys_id
+    });
+  };
+  
+  // NEW: Cancel field creation
+  c.cancelFieldCreation = function() {
+    c.isCreatingField = false;
+    c.creationPoints = [];
+    c.editingField = null;
+    c.editingCoordIndex = null;
+    c.tempCoordinateSets = [];
+    clearAnnotations();
+    
+    // Re-highlight active field if exists
+    if (c.activeField && c.activeField.allCoordinates) {
+      var coordsOnPage = c.activeField.allCoordinates.filter(function(coord) {
+        return coord.page === c.currentPage;
+      });
+      if (coordsOnPage.length > 0) {
+        highlightMultipleFields(coordsOnPage, false);
+      }
+    }
+  };
+  
+  // NEW: Save new field or complete edit
+  c.saveNewField = function() {
+    if (c.creationMode === 'new' && !c.newFieldData.field_name) {
+      spUtil.addErrorMessage('Please enter a field name');
+      return;
+    }
+    
+    if (c.creationMode === 'new') {
+      // Create new field object
+      var newField = {
+        field_name: c.newFieldData.field_name,
+        field_value: c.newFieldData.field_value,
+        new_section_name: c.newFieldData.section_name,
+        confidence_indicator: c.newFieldData.confidence_indicator,
+        allCoordinates: c.tempCoordinateSets,
+        coordinates: c.tempCoordinateSets[0],
+        source: c.tempCoordinateSets.map(formatDString).join(';'),
+        attachmentData: {
+          file_name: c.selectedDocument ? c.selectedDocument.name : '',
+          file_url: c.selectedDocument ? c.selectedDocument.url : ''
+        },
+        sys_id: 'temp_' + Date.now()
+      };
+      
+      // Add to grouped fields
+      if (!c.groupedFields[newField.new_section_name]) {
+        c.groupedFields[newField.new_section_name] = [];
+        c.collapsedSections[newField.new_section_name] = false;
+      }
+      c.groupedFields[newField.new_section_name].push(newField);
+      
+      spUtil.addInfoMessage('Field created: ' + newField.field_name);
+      c.saveFieldChanges(newField);
+    }
+    
+    c.showFieldDialog = false;
+    c.cancelFieldCreation();
+  };
+  
+  // NEW: Format coordinate to D string
+  function formatDString(coord) {
+    return 'D(' + coord.page + ',' +
+           coord.x1.toFixed(4) + ',' + coord.y1.toFixed(4) + ',' +
+           coord.x2.toFixed(4) + ',' + coord.y2.toFixed(4) + ',' +
+           coord.x3.toFixed(4) + ',' + coord.y3.toFixed(4) + ',' +
+           coord.x4.toFixed(4) + ',' + coord.y4.toFixed(4) + ')';
+  }
+  
+  // NEW: Save field changes to server
+  c.saveFieldChanges = function(field) {
+    c.server.get({
+      action: 'saveField',
+      field: {
+        sys_id: field.sys_id,
+        field_name: field.field_name,
+        field_value: field.field_value,
+        source: field.source,
+        section_name: field.new_section_name,
+        confidence: field.confidence_indicator,
+        document_name: field.attachmentData.file_name,
+        document_url: field.attachmentData.file_url,
+        submission_sys_id: submissionSysId
+      }
+    }).then(function(response) {
+      if (response.data.success) {
+        if (response.data.sys_id && field.sys_id.indexOf('temp_') === 0) {
+          field.sys_id = response.data.sys_id;
+        }
+      }
+    });
+  };
+  
+  // NEW: Handle canvas click for point selection
+  function handleCanvasClick(event) {
+    if (!c.isCreatingField) return;
+    
+    var rect = canvas.getBoundingClientRect();
+    var x = event.clientX - rect.left;
+    var y = event.clientY - rect.top;
+    
+    // Convert to PDF coordinates
+    var pdfX = x / (72 * c.scale);
+    var pdfY = y / (72 * c.scale);
+    
+    c.creationPoints.push({x: pdfX, y: pdfY});
+    
+    // Draw temporary point
+    drawTemporaryPoints();
+    
+    if (c.creationPoints.length === 4) {
+      // Complete the coordinate set
+      var newCoord = {
+        page: c.currentPage,
+        x1: c.creationPoints[0].x,
+        y1: c.creationPoints[0].y,
+        x2: c.creationPoints[1].x,
+        y2: c.creationPoints[1].y,
+        x3: c.creationPoints[2].x,
+        y3: c.creationPoints[2].y,
+        x4: c.creationPoints[3].x,
+        y4: c.creationPoints[3].y
+      };
+      
+      if (c.creationMode === 'new') {
+        c.tempCoordinateSets.push(newCoord);
+        c.creationPoints = [];
+        
+        // Ask if user wants to add more coordinates
+        if (confirm('Coordinate set added. Add another coordinate set for this field?')) {
+          drawTemporaryCoordinateSets();
+        } else {
+          c.showFieldDialog = true;
+          $scope.$apply();
+        }
+      } else if (c.creationMode === 'add') {
+        c.editingField.allCoordinates.push(newCoord);
+        c.editingField.source = c.editingField.allCoordinates.map(formatDString).join(';');
+        c.saveFieldChanges(c.editingField);
+        c.cancelFieldCreation();
+        spUtil.addInfoMessage('Coordinate set added');
+        $scope.$apply();
+      } else if (c.creationMode === 'edit') {
+        c.editingField.allCoordinates[c.editingCoordIndex] = newCoord;
+        if (c.editingCoordIndex === 0) {
+          c.editingField.coordinates = newCoord;
+        }
+        c.editingField.source = c.editingField.allCoordinates.map(formatDString).join(';');
+        c.saveFieldChanges(c.editingField);
+        c.cancelFieldCreation();
+        spUtil.addInfoMessage('Coordinate set updated');
+        $scope.$apply();
+      }
+    } else {
+      spUtil.addInfoMessage((4 - c.creationPoints.length) + ' points remaining');
+    }
+  }
+  
+  // NEW: Draw temporary points during creation
+  function drawTemporaryPoints() {
+    if (!annotationCtx) return;
+    
+    clearAnnotations();
+    drawTemporaryCoordinateSets();
+    
+    // Draw points
+    annotationCtx.fillStyle = 'rgba(220, 38, 127, 0.8)';
+    annotationCtx.strokeStyle = 'rgba(220, 38, 127, 1)';
+    
+    c.creationPoints.forEach(function(point, index) {
+      var x = point.x * 72 * c.scale;
+      var y = point.y * 72 * c.scale;
+      
+      // Draw circle
+      annotationCtx.beginPath();
+      annotationCtx.arc(x, y, 5, 0, 2 * Math.PI);
+      annotationCtx.fill();
+      annotationCtx.stroke();
+      
+      // Draw number
+      annotationCtx.fillStyle = 'white';
+      annotationCtx.font = 'bold 10px Arial';
+      annotationCtx.fillText((index + 1).toString(), x - 3, y + 3);
+      annotationCtx.fillStyle = 'rgba(220, 38, 127, 0.8)';
+    });
+    
+    // Draw lines between points
+    if (c.creationPoints.length > 1) {
+      annotationCtx.strokeStyle = 'rgba(220, 38, 127, 0.5)';
+      annotationCtx.setLineDash([5, 5]);
+      annotationCtx.beginPath();
+      for (var i = 0; i < c.creationPoints.length; i++) {
+        var x = c.creationPoints[i].x * 72 * c.scale;
+        var y = c.creationPoints[i].y * 72 * c.scale;
+        if (i === 0) {
+          annotationCtx.moveTo(x, y);
+        } else {
+          annotationCtx.lineTo(x, y);
+        }
+      }
+      if (c.creationPoints.length === 3) {
+        // Preview closing line
+        var x0 = c.creationPoints[0].x * 72 * c.scale;
+        var y0 = c.creationPoints[0].y * 72 * c.scale;
+        annotationCtx.lineTo(x0, y0);
+      }
+      annotationCtx.stroke();
+      annotationCtx.setLineDash([]);
+    }
+  }
+  
+  // NEW: Draw temporary coordinate sets
+  function drawTemporaryCoordinateSets() {
+    if (!annotationCtx || c.tempCoordinateSets.length === 0) return;
+    
+    c.tempCoordinateSets.forEach(function(coord) {
+      if (coord.page === c.currentPage) {
+        annotationCtx.fillStyle = 'rgba(34, 197, 94, 0.2)';
+        annotationCtx.strokeStyle = 'rgba(34, 197, 94, 0.6)';
+        annotationCtx.lineWidth = 2;
+        
+        var x1 = coord.x1 * 72 * c.scale;
+        var y1 = coord.y1 * 72 * c.scale;
+        var x2 = coord.x2 * 72 * c.scale;
+        var y2 = coord.y2 * 72 * c.scale;
+        var x3 = coord.x3 * 72 * c.scale;
+        var y3 = coord.y3 * 72 * c.scale;
+        var x4 = coord.x4 * 72 * c.scale;
+        var y4 = coord.y4 * 72 * c.scale;
+        
+        annotationCtx.beginPath();
+        annotationCtx.moveTo(x1, y1);
+        annotationCtx.lineTo(x2, y2);
+        annotationCtx.lineTo(x3, y3);
+        annotationCtx.lineTo(x4, y4);
+        annotationCtx.closePath();
+        annotationCtx.fill();
+        annotationCtx.stroke();
+      }
+    });
+  }
+  
+  // Add ALL existing trimInitialNumberAdvanced and other helper functions here...
+  c.trimInitialNumberAdvanced = function(text) {
+    return text.replace(/^(Group:\s*\d+\s*|\d+(?:\.\d+)*[\.\)\-\s]*)/, '').trim();
+  };
+  
+  c.flatten = function(obj) {
+    var result = [];
+    for (var key in obj) {
+      if (obj.hasOwnProperty(key) && Array.isArray(obj[key])) {
+        result = result.concat(obj[key]);
+      }
+    }
+    return result;
+  };
+  
+  c.getFilteredCount = function() {
+    return c.getFilteredByBoth().length;
+  };
+  
+  c.getTotalCount = function() {
+    return c.flatten(c.groupedFields).length;
+  };
+  
+  c.getDocumentFieldCount = function() {
+    if (!c.selectedDocument || !c.selectedDocument.name) {
+      return c.getTotalCount();
+    }
+    return c.getFilteredByFileName(c.selectedDocument.name).length;
+  };
+  
+  c.getUniqueFileNames = function() {
+    var flattened = c.flatten(c.groupedFields);
+    var fileNames = {};
+    flattened.forEach(function(item) {
+      if (item.attachmentData && item.attachmentData.file_name) {
+        fileNames[item.attachmentData.file_name] = true;
+      }
+    });
+    return Object.keys(fileNames).sort();
+  };
+  
+  c.getFilteredGroupedFields = function() {
+    var filtered = c.getFilteredByBoth();
+    var grouped = {};
+    var collapsed = {};
+    
+    filtered.forEach(function(field) {
+      var sectionName = field.new_section_name || 'Uncategorized';
+      if (!field.allCoordinates) {
+        if (field.coordinates) {
+          field.allCoordinates = [field.coordinates];
+        } else {
+          field.allCoordinates = [];
+        }
+      }
+      if (!grouped[sectionName]) {
+        grouped[sectionName] = [];
+        collapsed[sectionName] = c.collapsedSections[sectionName] || false;
+      }
+      grouped[sectionName].push(field);
+    });
+    
+    var sortedSections = {};
+    Object.keys(grouped).sort().forEach(function(key) {
+      sortedSections[key] = grouped[key];
+    });
+    return sortedSections;
+  };
+  
+  c.getFilteredSectionFields = function(sectionName) {
+    var filteredGroups = c.getFilteredGroupedFields();
+    return filteredGroups[sectionName] || [];
+  };
+  
+  c.getSectionAverageScore = function(sectionName) {
+    var fields = c.groupedFields[sectionName] || [];
+    if (fields.length === 0) return 0;
+    var sum = fields.reduce(function(total, item) {
+      return total + (item.confidence_indicator || 0);
+    }, 0);
+    return sum / fields.length;
+  };
+  
+  c.getSectionFilteredCount = function(sectionName) {
+    var fields = c.groupedFields[sectionName] || [];
+    var filtered = fields;
+    
+    if (c.fieldSearch) {
+      filtered = filtered.filter(function(item) {
+        return item.field_name && 
+          item.field_name.toLowerCase().indexOf(c.fieldSearch.toLowerCase()) !== -1;
+      });
+    }
+    
+    if (c.selectedDocument && c.selectedDocument.name) {
+      filtered = filtered.filter(function(item) {
+        return item.attachmentData && 
+          item.attachmentData.file_name && 
+          item.attachmentData.file_name === c.selectedDocument.name;
+      });
+    }
+    
+    return filtered.length;
+  };
   
   // Load PDF.js library
   function loadPdfJs() {
@@ -197,13 +547,16 @@ api.controller = function($scope, $location, $filter, $window, spUtil, $timeout)
   function initializeWidget() {
     c.loadingMessage = 'Initializing...';
     
-    // Setup canvases
     $timeout(function() {
       canvas = document.getElementById('pdfCanvas');
       annotationCanvas = document.getElementById('annotationCanvas');
       if (canvas && annotationCanvas) {
         ctx = canvas.getContext('2d');
         annotationCtx = annotationCanvas.getContext('2d');
+        
+        // NEW: Add click listener
+        annotationCanvas.addEventListener('click', handleCanvasClick);
+        annotationCanvas.style.pointerEvents = 'auto';
       }
     }, 100);
     loadSourceMapping();
@@ -222,72 +575,62 @@ api.controller = function($scope, $location, $filter, $window, spUtil, $timeout)
     loadPdfFromUrl(c.selectedDocument.url);
     filterCoordinatesBySelectedDocument(c.selectedDocument);
   };
-	
-	// Method to get filtered items by field name only
-	c.getFilteredByFieldName = function() {
-			var flattened = c.flatten(c.groupedFields);
-			if (!c.fieldSearch) {
-					return flattened;
-			}
-			return $filter('filter')(flattened, {field_name: c.fieldSearch});
-	};
-
-	// Method to get filtered items by file name only
-	c.getFilteredByFileName = function(fileName) {
-			var flattened = c.flatten(c.groupedFields);
-			if (!fileName) {
-					return flattened;
-			}
-
-			return flattened.filter(function(item) {
-					return item.attachmentData && 
-							item.attachmentData.file_name && 
-							item.attachmentData.file_name === fileName;
-			});
-	};
-	
-	// Enhanced filter method that works with both field_name and file_name
-	c.getFilteredByBoth = function() {
-			var flattened = c.flatten(c.groupedFields);
-			var result = flattened;
-
-			// Apply field_name filter
-			if (c.fieldSearch) {
-					result = result.filter(function(item) {
-							return item.field_name && 
-									item.field_name.toLowerCase().indexOf(c.fieldSearch.toLowerCase()) !== -1;
-					});
-			}
-
-			// Apply file_name filter based on selected document
-			if (c.selectedDocument && c.selectedDocument.name) {
-					result = result.filter(function(item) {
-							return item.attachmentData && 
-									item.attachmentData.file_name && 
-									item.attachmentData.file_name === c.selectedDocument.name;
-					});
-			}
-
-			return result;
-	};
   
-//WORKING: Update the existing filterCoordinatesBySelectedDocument function
-var filterCoordinatesBySelectedDocument = function(selectedDocument) {
+  c.getFilteredByFieldName = function() {
+    var flattened = c.flatten(c.groupedFields);
+    if (!c.fieldSearch) {
+      return flattened;
+    }
+    return $filter('filter')(flattened, {field_name: c.fieldSearch});
+  };
+  
+  c.getFilteredByFileName = function(fileName) {
+    var flattened = c.flatten(c.groupedFields);
+    if (!fileName) {
+      return flattened;
+    }
+    
+    return flattened.filter(function(item) {
+      return item.attachmentData && 
+        item.attachmentData.file_name && 
+        item.attachmentData.file_name === fileName;
+    });
+  };
+  
+  c.getFilteredByBoth = function() {
+    var flattened = c.flatten(c.groupedFields);
+    var result = flattened;
+    
+    if (c.fieldSearch) {
+      result = result.filter(function(item) {
+        return item.field_name && 
+          item.field_name.toLowerCase().indexOf(c.fieldSearch.toLowerCase()) !== -1;
+      });
+    }
+    
+    if (c.selectedDocument && c.selectedDocument.name) {
+      result = result.filter(function(item) {
+        return item.attachmentData && 
+          item.attachmentData.file_name && 
+          item.attachmentData.file_name === c.selectedDocument.name;
+      });
+    }
+    
+    return result;
+  };
+  
+  var filterCoordinatesBySelectedDocument = function(selectedDocument) {
     if (!selectedDocument || !selectedDocument.name) {
-        c.extractedFields = c.globalExtractedFields;
-        return;
+      c.extractedFields = c.globalExtractedFields;
+      return;
     }
     
     c.extractedFields = c.globalExtractedFields.filter(function(extractedField) {
-        return extractedField.attachmentData && 
-               extractedField.attachmentData.file_name === selectedDocument.name;
+      return extractedField.attachmentData && 
+        extractedField.attachmentData.file_name === selectedDocument.name;
     });
-    
-    // Trigger re-render of the fields table
-    //$scope.$apply();
-};
+  };
   
-  // Toggle section collapse/expand
   c.toggleSection = function(sectionName) {
     c.collapsedSections[sectionName] = !c.collapsedSections[sectionName];
   };
@@ -295,7 +638,7 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
   function extractAttachmentOptions(jsonResponse) {
     var options = [];
     
-    jsonResponse.forEach(record => {
+    jsonResponse.forEach(function(record) {
       if (record.attachmentData && record.attachmentData.file_name && record.attachmentData.file_url) {
         options.push({
           name: record.attachmentData.file_name,
@@ -304,11 +647,10 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
       }
     });
     
-    // remove duplicates by file_name
     var unique = [];
     var seen = new Set();
     
-    options.forEach(opt => {
+    options.forEach(function(opt) {
       if (!seen.has(opt.name)) {
         seen.add(opt.name);
         unique.push(opt);
@@ -318,7 +660,6 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
     return unique;
   }
   
-  // Load source mapping
   function loadSourceMapping() {
     if (!submissionSysId) {
       c.isLoading = false;
@@ -339,7 +680,6 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
       c.selectedDocument = documentList[0];
       if (c.selectedDocument) {
         c.loadDocument();
-				//loadPdfFromUrl(c.selectedDocument.url);
       }
       if (response.data.success) {
         processMappingData(response.data.mapping);
@@ -351,11 +691,9 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
     });
   }
   
-  // Load PDF from URL with optimization
   function loadPdfFromUrl(url) {
     c.loadingMessage = 'Loading PDF document...';
     
-    // Cancel any existing render task
     if (renderTask) {
       renderTask.cancel();
       renderTask = null;
@@ -372,15 +710,12 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
       c.pdfLoaded = true;
       c.totalPages = pdf.numPages;
       c.currentPage = 1;
-      
-      // Set initial zoom mode to fit-width
-      c.zoomMode = 'fit-width';
+      c.zoomMode = 'actual-size';
       
       $scope.$apply(function() {
         c.isLoading = false;
       });
       
-      // Wait for container to be ready, then render with fit-width
       $timeout(function() {
         renderPage(c.currentPage);
       }, 100);
@@ -391,7 +726,6 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
     });
   }
   
-  // Parse multiple coordinate strings
   function parseMultipleCoordinateStrings(source) {
     if (!source || typeof source !== 'string') return [];
     
@@ -407,8 +741,7 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
     
     return coordinates;
   }
-	
-	// Group fields by section name
+  
   function groupFieldsBySection(processedMappingData) {
     c.groupedFields = {};
     c.collapsedSections = {};
@@ -418,9 +751,8 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
     }
     
     processedMappingData.forEach(function(field) {
-      var sectionName = field.section_name || 'Uncategorized';
+      var sectionName = field.new_section_name || 'Uncategorized';
       
-      // Ensure allCoordinates exists
       if (!field.allCoordinates) {
         if (field.coordinates) {
           field.allCoordinates = [field.coordinates];
@@ -431,24 +763,20 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
       
       if (!c.groupedFields[sectionName]) {
         c.groupedFields[sectionName] = [];
-        c.collapsedSections[sectionName] = false; // Initialize as expanded
+        c.collapsedSections[sectionName] = false;
       }
       
       c.groupedFields[sectionName].push(field);
     });
     
-    // Sort sections alphabetically
     var sortedSections = {};
     Object.keys(c.groupedFields).sort().forEach(function(key) {
       sortedSections[key] = c.groupedFields[key];
     });
-		
-		
-		return sortedSections;
     
+    return sortedSections;
   }
   
-  // Process mapping data - process cordinates to canvas compatable
   function processMappingData(mappingData) {
     if (!mappingData || !Array.isArray(mappingData)) {
       c.mappingData = [];
@@ -456,28 +784,19 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
       return;
     }
     
-    processedMappingData = mappingData.map(function(mapping) {
-      // Parse multiple coordinate strings
+    var processedMappingData = mappingData.map(function(mapping) {
       var allCoordinates = parseMultipleCoordinateStrings(mapping.source);
-      
-      // Keep first coordinate as primary for backward compatibility
       mapping.coordinates = allCoordinates.length > 0 ? allCoordinates[0] : null;
       mapping.allCoordinates = allCoordinates;
-      
       return mapping;
     }).filter(function(mapping) {
       return mapping.allCoordinates.length > 0;
     });
     
-		
-    //c.extractedFields = c.mappingData;
-    //c.globalExtractedFields = JSON.parse(JSON.stringify(c.mappingData));
-		
-		c.groupedFields = groupFieldsBySection(processedMappingData);
+    c.groupedFields = groupFieldsBySection(processedMappingData);
     filterCoordinatesBySelectedDocument(c.selectedDocument);
   }
   
-  // Parse coordinate string with validation
   function parseCoordinateString(source) {
     if (!source || typeof source !== 'string') return null;
     
@@ -497,8 +816,7 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
     }
     return null;
   }
-
-  // Optimized page rendering with queue
+  
   function renderPage(pageNumber) {
     if (!pdfDoc || !canvas || !ctx) return;
     
@@ -510,7 +828,6 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
     pageRendering = true;
     c.loadingMessage = 'Rendering page ' + pageNumber + '...';
     
-    // Cancel previous render task if exists
     if (renderTask) {
       renderTask.cancel();
     }
@@ -518,11 +835,10 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
     pdfDoc.getPage(pageNumber).then(function(page) {
       currentPageInstance = page;
       
-      // Auto-adjust scale if in fit-width mode
       if (c.zoomMode === 'fit-width') {
         var container = document.getElementById('pdfContainer');
         if (container) {
-          c.containerWidth = container.clientWidth - 40; // Subtract padding
+          c.containerWidth = container.clientWidth - 40;
           var baseViewport = page.getViewport({ scale: 1.0 });
           c.scale = c.containerWidth / baseViewport.width;
         }
@@ -530,17 +846,14 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
       
       var viewport = page.getViewport({ scale: c.scale });
       
-      // Set canvas dimensions
       canvas.height = viewport.height;
       canvas.width = viewport.width;
       annotationCanvas.height = viewport.height;
       annotationCanvas.width = viewport.width;
       
-      // Clear canvases
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       clearAnnotations();
       
-      // Render PDF page
       renderTask = page.render({
         canvasContext: ctx,
         viewport: viewport
@@ -550,15 +863,16 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
         pageRendering = false;
         renderTask = null;
         
-        // Render pending page
         if (pageNumPending !== null) {
           var pending = pageNumPending;
           pageNumPending = null;
           renderPage(pending);
         }
         
-        // Re-highlight active field if on current page
-        if (c.activeField && c.activeField.allCoordinates) {
+        // Re-draw creation points or highlights
+        if (c.isCreatingField) {
+          drawTemporaryPoints();
+        } else if (c.activeField && c.activeField.allCoordinates) {
           var coordsOnPage = c.activeField.allCoordinates.filter(function(coord) {
             return coord.page === pageNumber;
           });
@@ -582,7 +896,6 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
     });
   }
   
-  // Clear annotation canvas
   function clearAnnotations() {
     if (annotationCtx && annotationCanvas) {
       annotationCtx.clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
@@ -594,21 +907,18 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
     currentHighlights = [];
   }
   
-  // Navigate to field with multiple coordinates support
   c.navigateToField = function(field) {
     if (!field || !field.allCoordinates || field.allCoordinates.length === 0 || !canvas) return;
     
     c.activeField = field;
     c.activeFieldCoordIndex = 0;
     
-    // Navigate to first coordinate's page
     var firstCoord = field.allCoordinates[0];
     
     if (firstCoord.page !== c.currentPage) {
       c.currentPage = firstCoord.page;
       renderPage(c.currentPage);
       
-      // Highlight after page loads
       $timeout(function() {
         var coordsOnPage = field.allCoordinates.filter(function(coord) {
           return coord.page === c.currentPage;
@@ -623,7 +933,6 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
     }
   };
   
-  // Navigate to a single coordinate from parsed list
   c.navigateToSingleCoordinate = function(coord) {
     if (!coord || !canvas) return;
     
@@ -641,7 +950,6 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
   
   var toPixels = function(value) { return value * 72 * c.scale; };
   
-  // Highlight multiple fields
   function highlightMultipleFields(coords, scrollToView) {
     if (!coords || coords.length === 0 || !annotationCtx) return;
     
@@ -659,13 +967,11 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
       var x4 = toPixels(coord.x4) || toPixels(coord.x1);
       var y4 = toPixels(coord.y4) || toPixels(coord.y1);
       
-      // Calculate center for first coordinate
       if (index === 0) {
         centerX = (x1 + x2 + x3 + x4) / 4;
         centerY = (y1 + y2 + y3 + y4) / 4;
       }
       
-      // Draw highlight with different opacity for multiple coords
       var opacity = coords.length > 1 ? 0.2 : 0.3;
       var strokeOpacity = coords.length > 1 ? 0.6 : 0.8;
       
@@ -680,13 +986,6 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
       annotationCtx.lineTo(x4, y4);
       annotationCtx.closePath();
       annotationCtx.stroke();
-      
-      // Add index label for multiple coordinates
-      if (coords.length > 1) {
-        annotationCtx.fillStyle = 'rgba(0, 120, 212, 0.9)';
-        annotationCtx.font = 'bold 12px Arial';
-        annotationCtx.fillText((index + 1).toString(), x1 + 5, y1 + 15);
-      }
     });
     
     if (scrollToView) {
@@ -694,13 +993,11 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
     }
   }
   
-  // Enhanced field highlighting with smooth animation
   function highlightField(coord, scrollToView) {
     if (!coord || !annotationCtx) return;
     
     clearAnnotations();
     
-    // Calculate pixel coordinates
     var x1 = toPixels(coord.x1);
     var y1 = toPixels(coord.y1);
     var x2 = toPixels(coord.x2);
@@ -710,11 +1007,9 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
     var x4 = toPixels(coord.x4) || toPixels(coord.x1);
     var y4 = toPixels(coord.y4) || toPixels(coord.y1);
     
-    // Calculate center point
     var centerX = (x1 + x2 + x3 + x4) / 4;
     var centerY = (y1 + y2 + y3 + y4) / 4;
     
-    // Animate highlight
     var opacity = 0;
     var animationId;
     
@@ -722,10 +1017,8 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
       if (opacity < 0.3) {
         opacity += 0.03;
         
-        // Clear and redraw
         annotationCtx.clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
         
-        // Draw filled area
         annotationCtx.fillStyle = 'rgba(249, 115, 22, ' + opacity + ')';
         annotationCtx.beginPath();
         annotationCtx.moveTo(x1, y1);
@@ -734,14 +1027,12 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
         annotationCtx.lineTo(x4, y4);
         annotationCtx.closePath();
         
-        // Draw border
         annotationCtx.strokeStyle = 'rgba(249, 115, 22, ' + (opacity * 2.5) + ')';
         annotationCtx.lineWidth = 2;
         annotationCtx.stroke();
         
         animationId = requestAnimationFrame(animateHighlight);
       } else {
-        // Final state
         annotationCtx.clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
         annotationCtx.fillStyle = 'rgba(249, 115, 22, 0.3)';
         annotationCtx.strokeStyle = 'rgba(249, 115, 22, 0.8)';
@@ -759,13 +1050,11 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
     
     animateHighlight();
     
-    // Smooth scroll to view
     if (scrollToView) {
       smoothScrollToCoordinate(centerX, centerY);
     }
   }
   
-  // Smooth scroll to coordinate
   function smoothScrollToCoordinate(x, y) {
     var container = document.getElementById('pdfContainer');
     if (!container) return;
@@ -773,11 +1062,9 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
     var targetX = x - container.clientWidth / 2;
     var targetY = y - container.clientHeight / 2;
     
-    // Ensure targets are within bounds
     targetX = Math.max(0, Math.min(targetX, container.scrollWidth - container.clientWidth));
     targetY = Math.max(0, Math.min(targetY, container.scrollHeight - container.clientHeight));
     
-    // Smooth scroll
     container.scrollTo({
       left: targetX,
       top: targetY,
@@ -804,7 +1091,7 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
     }
   };
   
-  // Zoom controls with debouncing
+  // Zoom controls
   c.zoomIn = debounce(function() {
     if (c.scale < 3) {
       c.scale = Math.min(3, c.scale * 1.2);
@@ -824,21 +1111,19 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
     renderPage(c.currentPage);
   };
   
-  // Fit to width function
   c.fitWidth = function() {
     if (!pdfDoc || !currentPageInstance) return;
     
     c.zoomMode = 'fit-width';
     var container = document.getElementById('pdfContainer');
     if (container) {
-      c.containerWidth = container.clientWidth - 40; // Subtract padding
+      c.containerWidth = container.clientWidth - 40;
       var viewport = currentPageInstance.getViewport({ scale: 1.0 });
       c.scale = c.containerWidth / viewport.width;
       renderPage(c.currentPage);
     }
   };
   
-  // Actual 100% size function
   c.actual100Percent = function() {
     if (!pdfDoc) return;
     
@@ -847,7 +1132,6 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
     renderPage(c.currentPage);
   };
   
-  // Get confidence class
   c.getConfidenceClass = function(confidence) {
     var value = parseFloat(confidence) || 0;
     if (value >= 0.75) return 'bg-green-100';
@@ -856,7 +1140,7 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
   };
   
   // Parse manual coordinate string(s)
-  $scope.$watch('manualCoordinate', function(newVal) {
+  $scope.$watch('c.manualCoordinate', function(newVal) {
     if (!newVal) {
       c.parsedManualCoordinates = [];
       c.parsedCoordinatesCount = 0;
@@ -872,7 +1156,6 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
     c.parsedCoordinatesCount = coords.length;
   });
   
-  // Navigate to manual coordinates (supports multiple)
   c.navigateToManualCoordinates = function() {
     if (!c.manualCoordinate) {
       spUtil.addErrorMessage('Please enter coordinate string(s)');
@@ -886,7 +1169,6 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
       return;
     }
     
-    // Create a temporary field object with all coordinates
     c.activeField = { 
       allCoordinates: coords, 
       coordinates: coords[0],
@@ -894,7 +1176,6 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
     };
     c.activeFieldCoordIndex = 0;
     
-    // Navigate to first coordinate's page
     var firstCoord = coords[0];
     
     if (firstCoord.page !== c.currentPage) {
@@ -916,7 +1197,6 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
     spUtil.addInfoMessage('Highlighting ' + coords.length + ' coordinate(s)');
   };
   
-  // Copy current coordinates (supports multiple)
   c.copyCurrentCoordinates = function() {
     if (!c.activeField || !c.activeField.allCoordinates) {
       spUtil.addInfoMessage('No active field selected');
@@ -924,19 +1204,12 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
     }
     
     var dStrings = c.activeField.allCoordinates.map(function(coord) {
-      return 'D(' + coord.page + ',' + 
-             coord.x1.toFixed(2) + ',' + coord.y1.toFixed(2) + ',' + 
-             coord.x2.toFixed(2) + ',' + coord.y2.toFixed(2) + ',' + 
-             (coord.x3 || coord.x2).toFixed(2) + ',' + (coord.y3 || coord.y2).toFixed(2) + ',' + 
-             (coord.x4 || coord.x1).toFixed(2) + ',' + (coord.y4 || coord.y1).toFixed(2) + ')';
+      return formatDString(coord);
     });
     
     var fullString = dStrings.join(';');
-    
-    // Update manual coordinate field
     c.manualCoordinate = fullString;
     
-    // Copy to clipboard if available
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(fullString).then(function() {
         spUtil.addInfoMessage('Coordinates copied to clipboard! (' + dStrings.length + ' coordinate(s))');
@@ -944,7 +1217,6 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
         spUtil.addInfoMessage('Coordinates updated in manual fields');
       });
     } else {
-      // Fallback for older browsers
       var tempInput = document.createElement('textarea');
       tempInput.value = fullString;
       document.body.appendChild(tempInput);
@@ -967,6 +1239,9 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
     if (pdfDoc) {
       pdfDoc.destroy();
     }
+    if (annotationCanvas) {
+      annotationCanvas.removeEventListener('click', handleCanvasClick);
+    }
   });
   
   // Window resize handler
@@ -976,7 +1251,6 @@ var filterCoordinatesBySelectedDocument = function(selectedDocument) {
     }
   }, 300);
   
-  // Add resize listener
   $window.addEventListener('resize', resizeHandler);
   
   // Initialize on load
