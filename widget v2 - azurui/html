@@ -12,14 +12,17 @@
     </div>
   </div>
   
-  <!-- Field Creation Dialog -->
+  <!-- Field Creation/Edit Dialog -->
   <div class="modal-overlay" ng-show="c.showFieldDialog">
     <div class="modal-dialog">
       <div class="modal-header">
-        <h3>Create New Field</h3>
-        <button class="modal-close" ng-click="c.showFieldDialog = false">
+        <h3 ng-if="c.creationMode === 'new'">Create New Field</h3>
+        <h3 ng-if="c.creationMode === 'edit'">Edit Field</h3>
+        <!-- 
+				<button class="modal-close" ng-click="c.showFieldDialog = false">
           <i class="fas fa-times"></i>
         </button>
+				-->
       </div>
       <div class="modal-body">
         <div class="form-group">
@@ -27,7 +30,7 @@
           <input type="text" ng-model="c.newFieldData.field_name" class="form-input" placeholder="Enter field name">
         </div>
         <div class="form-group">
-          <label class="form-label">Field Value <span style="font-size: 11px; color: #666;">(extracted from selection)</span></label>
+          <label class="form-label">Field Value <span class="text-xs-muted">(extracted from selection)</span></label>
           <textarea ng-model="c.newFieldData.field_value" class="form-textarea" placeholder="Field value will be extracted from selected area" rows="3"></textarea>
         </div>
         <div class="form-group">
@@ -53,7 +56,7 @@
   <!-- Main Layout -->
   <div class="main-layout">
     <!-- Left Sidebar -->
-    <div class="left-sidebar">
+    <aside class="left-sidebar">
       <!-- Header -->
       <div class="sidebar-header">
         <div class="brand">
@@ -63,7 +66,7 @@
       </div>
       
       <!-- Document Selector -->
-      <div class="section">
+      <section class="section">
         <label class="section-label">Select Document</label>
         <div class="select-wrapper">
           <select ng-model="c.selectedDocument" 
@@ -74,10 +77,10 @@
         	</select>
         	<i class="fas fa-chevron-down select-icon"></i>
       	</div>
-    	</div>
+    	</section>
     
       <!-- Advanced Mode Toggle -->
-      <div class="section" ng-if="c.showAdvancedButton">
+      <section class="section" ng-if="c.showAdvancedButton">
         <button ng-click="c.showAdvancedMode = !c.showAdvancedMode" 
         	class="advanced-toggle"
         	ng-class="{'active': c.showAdvancedMode}">
@@ -128,15 +131,15 @@
             </button>
           </div>
         </div>
-			</div>
+			</section>
 
       <!-- Fields Section -->
-      <div class="section">
+      <section class="section">
         <div class="section-header">
           <h3 class="section-title">Fields</h3>
           <span class="field-count">
             {{c.getFilteredCount()}} of {{c.getTotalCount()}}
-            <span ng-if="c.selectedDocument" class="text-xs text-gray-500">
+            <span ng-if="c.selectedDocument" class="text-xs-muted">
               ({{c.selectedDocument.name}})
             </span>
           </span>
@@ -151,16 +154,16 @@
             class="search-input">
     		</div>
   
-        <!-- Optional: Show document filter info -->
-        <div ng-if="c.selectedDocument" class="filter-info" style="padding: 8px; background: #f0f9ff; border-radius: 4px; margin-top: 8px; font-size: 12px;">
-          <i class="fas fa-filter" style="color: #3b82f6; margin-right: 4px;"></i>
+        <!-- Document Filter Info -->
+        <div ng-if="c.selectedDocument" class="filter-info">
+          <i class="fas fa-filter"></i>
           Showing fields from: <strong>{{c.selectedDocument.name}}</strong>
-          <span style="color: #64748b;">({{c.getDocumentFieldCount()}} fields)</span>
+          <span class="text-muted">({{c.getDocumentFieldCount()}} fields)</span>
         </div>
-			</div>
+			</section>
 
       <!-- Grouped Fields Table -->
-      <div class="section fields-table-container" ng-if="true || c.groupedFields && Object.keys(c.groupedFields).length > 0">
+      <section class="section fields-table-container" ng-if="true || c.groupedFields && Object.keys(c.groupedFields).length > 0">
     		<div ng-repeat="(sectionName, fields) in c.groupedFields" 
     			ng-show="c.getSectionFilteredCount(sectionName) > 0"
     			class="section-group">
@@ -193,8 +196,7 @@
                 <td class="field-name">
                   <span ng-if="field.isPending" class="pending-badge">Unsaved</span>
                   {{field.field_name}}
-                  <span ng-if="field.attachmentData && !c.selectedDocument" 
-                    style="display: block; font-size: 11px; color: #64748b;">
+                  <span ng-if="field.attachmentData && !c.selectedDocument" class="field-file-info">
                     {{field.attachmentData.file_name | limitTo:30}}{{field.attachmentData.file_name.length > 30 ? '...' : ''}}
                   </span>
                 </td>
@@ -212,16 +214,18 @@
                 </td>
                 <td class="page-num width-10per">
                   <span ng-if="!field.allCoordinates || field.allCoordinates.length === 0">-</span>
-                  <span ng-if="field.allCoordinates && field.allCoordinates.length === 1">
+                  <span ng-if="field.allCoordinates">
                     {{field.allCoordinates[0].page}}
                   </span>
+                  <!--
                   <span ng-if="field.allCoordinates && field.allCoordinates.length > 1" 
                     class="multi-page"
                     title="{{field.allCoordinates.length}} coordinates">
                     <i class="fas fa-layer-group"></i> {{field.allCoordinates.length}}
                   </span>
+									-->
                 </td>
-                <td ng-if="!c.selectedDocument" class="file-name" style="font-size: 11px; color: #64748b;">
+                <td ng-if="!c.selectedDocument" class="file-name-cell">
                   <span title="{{field.attachmentData.file_name}}">
                     {{field.attachmentData.file_name | limitTo:20}}{{field.attachmentData.file_name.length > 20 ? '...' : ''}}
                   </span>
@@ -242,24 +246,24 @@
         </div>
 
       <!-- No Results Message -->
-      <div ng-if="c.getFilteredCount() === 0 && c.fieldSearch" class="empty-state" style="padding: 20px; text-align: center;">
-        <i class="fas fa-search" style="font-size: 32px; color: #cbd5e1; margin-bottom: 10px;"></i>
-        <p style="color: #64748b;">No fields found matching "{{c.fieldSearch}}"</p>
-        <button ng-click="c.fieldSearch = ''" class="btn btn-sm" style="margin-top: 10px;">
+      <div ng-if="c.getFilteredCount() === 0 && c.fieldSearch" class="empty-state">
+        <i class="fas fa-search empty-icon"></i>
+        <p>No fields found matching "{{c.fieldSearch}}"</p>
+        <button ng-click="c.fieldSearch = ''" class="btn btn-sm">
           Clear Search
         </button>
       </div>
-     </div>
+     </section>
 
       <!-- No Data State -->
       <div class="empty-state" ng-if="(!c.groupedFields || Object.keys(c.groupedFields).length === 0) && c.selectedDocument && !c.isLoading">
         <i class="fas fa-inbox empty-icon"></i>
         <p>No field data available for this document</p>
       </div>
-    </div>
+    </aside>
 
     <!-- PDF Viewer Panel -->
-    <div class="pdf-panel">
+    <main class="pdf-panel">
       <!-- PDF Header -->
       <div class="pdf-header">
         <div class="pdf-title">
@@ -373,6 +377,7 @@
           </span>
         </div>
       </div>
-    </div>
+    </main>
   </div>
 </div>
+
