@@ -325,6 +325,10 @@
             if (update.hasOwnProperty('data_verification')) {
               lineItemGr.setValue('data_verification', update.data_verification || '');
             }
+            // Update commentary if provided
+            if (update.hasOwnProperty('commentary')) {
+              lineItemGr.setValue('commentary', update.commentary || '');
+            }
             lineItemGr.update();
             updatedCount++;
           } else {

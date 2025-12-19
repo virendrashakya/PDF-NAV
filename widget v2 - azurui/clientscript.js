@@ -150,6 +150,11 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     return field.attachmentData.file_name === c.selectedDocument.name;
   };
 
+  // Helper: Check if field can navigate (has source coordinates)
+  c.canNavigate = function (field) {
+    return field && field.source && field.source.length > 0;
+  };
+
   // Helper: Get fields filtered by both (search + document - but we want all for list)
   c.getFilteredByBoth = function () {
     // Return all fields
@@ -273,6 +278,9 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
       update.override_value = field.override_value || '';
       update.data_verification = field.data_verification || '';
     }
+
+    // Always include commentary (editable regardless of status)
+    update.commentary = field.commentary || '';
 
     // Show saving status
     c.saveStatus = 'saving';

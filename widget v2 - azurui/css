@@ -442,29 +442,37 @@
   opacity: 0.6;
 }
 
-/* Table Column Widths */
+.fields-table tbody tr.no-navigate {
+  cursor: default;
+}
+
+.fields-table tbody tr.no-navigate:hover {
+  background: transparent;
+}
+
+/* Table Column Widths - Fixed proportions to always show all headers */
 .col-field-name {
-  min-width: 140px;
+  width: 18%;
 }
 
 .col-ai-value {
-  min-width: 100px;
+  width: 14%;
 }
 
 .col-data-verification {
-  min-width: 100px;
+  width: 14%;
 }
 
 .col-qa-override {
-  width: 12%;
+  width: 14%;
 }
 
 .col-logic {
-  width: 12%;
+  width: 14%;
 }
 
 .col-commentary {
-  width: 10%;
+  width: 14%;
 }
 
 /* Field Name Cell */
@@ -540,7 +548,7 @@
   text-overflow: ellipsis;
   font-size: 11px;
   color: #605e5c;
-  cursor: default;
+  cursor: pointer;
 }
 
 .cell-with-popover.has-value .cell-text {
@@ -551,7 +559,7 @@
 .cell-popover {
   display: none;
   position: absolute;
-  bottom: 100%;
+  top: 100%;
   left: 0;
   background: #323130;
   color: #ffffff;
@@ -560,20 +568,20 @@
   font-size: 11px;
   white-space: normal;
   word-wrap: break-word;
-  max-width: 250px;
-  min-width: 150px;
-  z-index: 1000;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  margin-bottom: 4px;
+  max-width: 280px;
+  min-width: 120px;
+  z-index: 9999;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  margin-top: 4px;
 }
 
-.cell-popover::after {
+.cell-popover::before {
   content: '';
   position: absolute;
-  top: 100%;
+  bottom: 100%;
   left: 12px;
   border: 6px solid transparent;
-  border-top-color: #323130;
+  border-bottom-color: #323130;
 }
 
 .cell-with-popover:hover .cell-popover {
@@ -586,10 +594,12 @@
   font-size: 11px;
 }
 
-/* QA Override Input (Editable) */
+/* Input Fields */
 .override-input,
-.verification-input {
+.verification-input,
+.commentary-input {
   width: 100%;
+  height: 26px;
   padding: 4px 8px;
   border: 1px solid #e1dfdd;
   border-radius: 4px;
@@ -597,24 +607,28 @@
   background: #ffffff;
   color: #323130;
   transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
 }
 
 .override-input:focus,
-.verification-input:focus {
+.verification-input:focus,
+.commentary-input:focus {
   outline: none;
   border-color: #0078d4;
   box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.1);
 }
 
 .override-input:disabled,
-.verification-input:disabled {
+.verification-input:disabled,
+.commentary-input:disabled {
   background: #f3f2f1;
   cursor: not-allowed;
   color: #a19f9d;
 }
 
 .override-input.changed,
-.verification-input.changed {
+.verification-input.changed,
+.commentary-input.changed {
   border-color: #f9a825;
   background: #fffde7;
 }

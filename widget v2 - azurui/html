@@ -120,9 +120,10 @@
               <tbody>
                 <!-- Field Rows (filtered by shouldShowField when toggle is on) -->
                 <tr ng-repeat="field in fields | filter:{field_name: c.fieldSearch}" ng-if="c.shouldShowField(field)"
-                  ng-click="c.navigateToField(field)" ng-class="{
+                  ng-click="c.canNavigate(field) && c.navigateToField(field)" ng-class="{
                       'active-field': field === c.activeField,
-                      'inactive-field': !c.isFieldActive(field)
+                      'inactive-field': !c.isFieldActive(field),
+                      'no-navigate': !c.canNavigate(field)
                     }">
 
                   <!-- Field Name + Source Indicator + Confidence -->
@@ -190,14 +191,10 @@
                     </div>
                   </td>
 
-                  <!-- Commentary (Read-only with popover) -->
-                  <td class="col-commentary">
-                    <div class="cell-with-popover">
-                      <span class="cell-text">{{c.truncateText(field.commentary, 12) || '-'}}</span>
-                      <div class="cell-popover" ng-if="field.commentary && field.commentary.length > 12">
-                        {{field.commentary}}
-                      </div>
-                    </div>
+                  <!-- Commentary (Editable input field) -->
+                  <td class="col-commentary" ng-click="$event.stopPropagation()">
+                    <input type="text" class="commentary-input" ng-model="field.commentary"
+                      ng-change="c.markFieldAsChanged(field)" ng-blur="c.autoSaveField(field)" placeholder="Enter...">
                   </td>
                 </tr>
               </tbody>
