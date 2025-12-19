@@ -191,81 +191,112 @@
           <p class="empty-hint" ng-if="!c.isLoading">Select a document to view extracted fields</p>
         </div>
       </div>
-    </div>
+      </aside>
 
-    <!-- ============================================
+      <!-- ============================================
          RIGHT PANEL - PDF VIEWER
          Contains: Header, Canvas, Footer
          ============================================ -->
-    <div class="pdf-panel">
+      <div class="pdf-panel">
 
-      <!-- PDF Header -->
-      <div class="pdf-header">
-        <div class="pdf-title">
-          <i class="fas fa-file-pdf"></i>
-          <span ng-if="c.selectedDocument">{{c.selectedDocument.name}}</span>
-          <span ng-if="!c.selectedDocument">No document selected</span>
-        </div>
+        <!-- PDF Header -->
+        <div class="pdf-header">
+          <div class="pdf-title">
+            <i class="fas fa-file-pdf"></i>
+            <span ng-if="c.selectedDocument">{{c.selectedDocument.name}}</span>
+            <span ng-if="!c.selectedDocument">No document selected</span>
 
-        <div class="pdf-controls">
-          <!-- Zoom Controls -->
-          <div class="control-group">
-            <button ng-click="c.fitWidth()" ng-disabled="c.isLoading || !c.pdfLoaded" class="btn-icon"
-              ng-class="{'active': c.zoomMode === 'fit-width'}" title="Fit to Width">
-              <i class="fa-solid fa-arrows-left-right-to-line"></i>
-            </button>
-            <button ng-click="c.actual100Percent()" ng-disabled="c.isLoading || !c.pdfLoaded" class="btn-icon"
-              ng-class="{'active': c.zoomMode === 'actual-size'}" title="Actual Size (100%)">
-              <i class="fa-solid fa-text-height"></i>
-            </button>
-          </div>
-
-          <!-- Page Navigation -->
-          <div class="control-group">
-            <button ng-click="c.previousPage()" ng-disabled="c.currentPage <= 1 || c.isLoading" class="btn-icon"
-              title="Previous Page">
-              <i class="fas fa-chevron-left"></i>
-            </button>
-            <div class="page-info">
-              <span>Page {{c.currentPage}} of {{c.totalPages}}</span>
-            </div>
-            <button ng-click="c.nextPage()" ng-disabled="c.currentPage >= c.totalPages || c.isLoading" class="btn-icon"
-              title="Next Page">
-              <i class="fas fa-chevron-right"></i>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- PDF Content Area -->
-      <div class="pdf-content" id="pdfContainer">
-        <div class="pdf-canvas-wrapper">
-          <canvas id="pdfCanvas" class="pdf-canvas"></canvas>
-          <canvas id="annotationCanvas" class="annotation-canvas"></canvas>
-          <div id="pageMarker" class="page-marker"></div>
-        </div>
-      </div>
-
-      <!-- PDF Footer -->
-      <div class="pdf-footer">
-        <div class="footer-content">
-          <span class="footer-item">
-            <i class="fas fa-file"></i>
-            A4: 595 × 842 points
-          </span>
-          <span class="footer-item">
-            <i class="fas fa-expand"></i>
-            Scale: {{(c.scale * 100) | number:0}}%
-          </span>
-          <span class="footer-item" ng-if="c.activeField">
-            <i class="fas fa-crosshairs"></i>
-            Active: {{c.activeField.field_name}}
-            <span ng-if="c.activeField.allCoordinates && c.activeField.allCoordinates.length > 1">
-              ({{c.activeFieldCoordIndex + 1}}/{{c.activeField.allCoordinates.length}})
+            <!-- Creation Mode Indicator -->
+            <span ng-if="c.isCreatingField" class="creation-indicator">
+              <span class="creation-badge">
+                <i class="fas fa-crosshairs"></i>
+                <span ng-if="c.creationMode === 'new' && !c.isDragging">Click and drag to select</span>
+                <span ng-if="c.creationMode === 'new' && c.isDragging">Selecting area...</span>
+                <span ng-if="c.creationMode === 'add'">Adding area to field</span>
+                <span ng-if="c.creationMode === 'edit'">Editing selection</span>
+              </span>
             </span>
-          </span>
+          </div>
+
+          <div class="pdf-controls">
+            <!-- Field Creation Button -->
+            <div class="control-group">
+              <button ng-click="c.startFieldCreation()" ng-disabled="c.isLoading || !c.pdfLoaded || c.isCreatingField"
+                class="btn btn-primary btn-sm">
+                <i class="fas fa-plus"></i>
+                Create Field
+              </button>
+              <button ng-show="c.isCreatingField" ng-click="c.cancelFieldCreation()" class="btn btn-secondary btn-sm">
+                <i class="fas fa-times"></i>
+                Cancel
+              </button>
+              <button ng-show="c.pendingFields.length > 0 && !c.isCreatingField" ng-click="c.saveAllFields()"
+                ng-disabled="c.isSaving" class="btn btn-success btn-sm">
+                <i class="fas fa-save"></i>
+                Save ({{c.pendingFields.length}})
+              </button>
+            </div>
+
+            <div class="separator"></div>
+
+            <!-- Zoom Controls -->
+            <div class="control-group">
+              <button ng-click="c.fitWidth()" ng-disabled="c.isLoading || !c.pdfLoaded" class="btn-icon"
+                ng-class="{'active': c.zoomMode === 'fit-width'}" title="Fit to Width">
+                <i class="fa-solid fa-arrows-left-right-to-line"></i>
+              </button>
+              <button ng-click="c.actual100Percent()" ng-disabled="c.isLoading || !c.pdfLoaded" class="btn-icon"
+                ng-class="{'active': c.zoomMode === 'actual-size'}" title="Actual Size (100%)">
+                <i class="fa-solid fa-text-height"></i>
+              </button>
+            </div>
+
+            <!-- Page Navigation -->
+            <div class="control-group">
+              <button ng-click="c.previousPage()" ng-disabled="c.currentPage <= 1 || c.isLoading" class="btn-icon"
+                title="Previous Page">
+                <i class="fas fa-chevron-left"></i>
+              </button>
+              <div class="page-info">
+                <span>Page {{c.currentPage}} of {{c.totalPages}}</span>
+              </div>
+              <button ng-click="c.nextPage()" ng-disabled="c.currentPage >= c.totalPages || c.isLoading"
+                class="btn-icon" title="Next Page">
+                <i class="fas fa-chevron-right"></i>
+              </button>
+            </div>
+          </div>
         </div>
+
+        <!-- PDF Content Area -->
+        <div class="pdf-content" id="pdfContainer">
+          <div class="pdf-canvas-wrapper">
+            <canvas id="pdfCanvas" class="pdf-canvas"></canvas>
+            <canvas id="annotationCanvas" class="annotation-canvas"></canvas>
+            <div id="pageMarker" class="page-marker"></div>
+          </div>
+        </div>
+
+        <!-- PDF Footer -->
+        <div class="pdf-footer">
+          <div class="footer-content">
+            <span class="footer-item">
+              <i class="fas fa-file"></i>
+              A4: 595 × 842 points
+            </span>
+            <span class="footer-item">
+              <i class="fas fa-expand"></i>
+              Scale: {{(c.scale * 100) | number:0}}%
+            </span>
+            <span class="footer-item" ng-if="c.activeField">
+              <i class="fas fa-crosshairs"></i>
+              Active: {{c.activeField.field_name}}
+              <span ng-if="c.activeField.allCoordinates && c.activeField.allCoordinates.length > 1">
+                ({{c.activeFieldCoordIndex + 1}}/{{c.activeField.allCoordinates.length}})
+              </span>
+            </span>
+          </div>
+        </div>
+        </main>
       </div>
     </div>
-  </div>
-</div>
