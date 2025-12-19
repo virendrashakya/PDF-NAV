@@ -142,7 +142,8 @@
                     <!-- Editable input when submission_status_choice is 'a' -->
                     <input type="text" class="verification-input" ng-model="field.data_verification"
                       ng-if="c.submissionStatusChoice !== c.qaKey" ng-change="c.markFieldAsChanged(field)"
-                      ng-disabled="false && !c.isFieldActive(field)" placeholder="Enter verification...">
+                      ng-blur="c.autoSaveField(field)" ng-disabled="false && !c.isFieldActive(field)"
+                      placeholder="Enter verification...">
                     <!-- Read-only text when submission_status_choice is not 'a' -->
                     <span class="verification-text" ng-if="c.submissionStatusChoice === c.qaKey">
                       {{field.data_verification || '-'}}
@@ -154,7 +155,8 @@
                     <!-- Editable input when submission_status_choice is 'b' -->
                     <input type="text" class="override-input" ng-model="field.override_value"
                       ng-if="c.submissionStatusChoice === 'b'" ng-change="c.markFieldAsChanged(field)"
-                      ng-disabled="false && !c.isFieldActive(field)" placeholder="Enter override...">
+                      ng-blur="c.autoSaveField(field)" ng-disabled="false && !c.isFieldActive(field)"
+                      placeholder="Enter override...">
                     <!-- Read-only text when submission_status_choice is not 'b' -->
                     <span class="override-text" ng-if="c.submissionStatusChoice !== 'b'">
                       {{field.override_value || '-'}}
@@ -190,6 +192,16 @@
           <p>No fields available</p>
           <p class="empty-hint" ng-if="!c.isLoading">Select a document to view extracted fields</p>
         </div>
+      </div>
+
+      <!-- Save Status Bar -->
+      <div class="save-status-bar"
+        ng-class="{'saving': c.saveStatus === 'saving', 'saved': c.saveStatus === 'saved', 'error': c.saveStatus === 'error'}"
+        ng-show="c.saveStatus">
+        <i class="fas fa-spinner fa-spin" ng-show="c.saveStatus === 'saving'"></i>
+        <i class="fas fa-check-circle" ng-show="c.saveStatus === 'saved'"></i>
+        <i class="fas fa-exclamation-circle" ng-show="c.saveStatus === 'error'"></i>
+        <span>{{c.saveStatusMessage}}</span>
       </div>
     </div>
 

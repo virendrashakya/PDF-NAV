@@ -45,6 +45,11 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   c.hasChanges = false;
   c.changedFields = {};  // Tracks fields with unsaved changes: { sys_id: true }
 
+  // Auto-save status
+  c.saveStatus = '';  // '', 'saving', 'saved', 'error'
+  c.saveStatusMessage = '';
+  c.lastSavedTime = null;
+
   // Submission status choice: determines which fields are editable
   // 'a' = Data Verification editable, QA Override readonly
   // 'b' = Data Verification readonly, QA Override editable
@@ -198,6 +203,82 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
       c.changedFields[field.sys_id] = true;
       c.hasChanges = true;
     }
+  };
+
+  /**
+   * Auto-save a single field when input loses focus (blur)
+   * @param {object} field - The field object to save
+   */
+  c.autoSaveField = function (field) {
+    if (!field || !field.sys_id || !c.changedFields[field.sys_id]) {
+      return; // No changes to save for this field
+    }
+
+    // Build update object
+    var update = { sys_id: field.sys_id };
+
+    // Include the appropriate editable field based on submission status
+    if (c.submissionStatusChoice === c.dataReview) {
+      update.data_verification = field.data_verification || '';
+    } else if (c.submissionStatusChoice === c.qaKey) {
+      update.override_value = field.override_value || '';
+    } else {
+      update.override_value = field.override_value || '';
+      update.data_verification = field.data_verification || '';
+    }
+
+    // Show saving status
+    c.saveStatus = 'saving';
+    c.saveStatusMessage = 'Saving...';
+
+    // Call server to save
+    c.server.get({
+      action: 'saveMapping',
+      updates: [update]
+    }).then(function (response) {
+      if (response.data.success) {
+        // Remove from changed fields tracking
+        delete c.changedFields[field.sys_id];
+        c.hasChanges = Object.keys(c.changedFields).length > 0;
+
+        // Update status
+        c.saveStatus = 'saved';
+        c.lastSavedTime = new Date();
+        c.saveStatusMessage = 'Saved at ' + c.formatTime(c.lastSavedTime);
+
+        // Clear status after 3 seconds
+        $timeout(function () {
+          if (c.saveStatus === 'saved') {
+            c.saveStatus = '';
+          }
+        }, 3000);
+      } else {
+        c.saveStatus = 'error';
+        c.saveStatusMessage = 'Save failed: ' + (response.data.error || 'Unknown error');
+      }
+    }).catch(function (error) {
+      console.error('Auto-save error:', error);
+      c.saveStatus = 'error';
+      c.saveStatusMessage = 'Save failed';
+    });
+  };
+
+  /**
+   * Format time for display
+   * @param {Date} date - Date object
+   * @returns {string} Formatted time string
+   */
+  c.formatTime = function (date) {
+    if (!date) return '';
+    var hours = date.getHours();
+    var minutes = date.getMinutes();
+    var seconds = date.getSeconds();
+    var ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    minutes = minutes < 10 ? '0' + minutes : minutes;
+    seconds = seconds < 10 ? '0' + seconds : seconds;
+    return hours + ':' + minutes + ':' + seconds + ' ' + ampm;
   };
 
   /**

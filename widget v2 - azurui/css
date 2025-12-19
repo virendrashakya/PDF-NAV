@@ -651,6 +651,56 @@
 }
 
 /* ============================================
+   SAVE STATUS BAR
+   Shows auto-save status below the sidebar
+   ============================================ */
+.save-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-size: 12px;
+  font-weight: 500;
+  border-top: 1px solid #e1dfdd;
+  background: #faf9f8;
+  transition: all 0.2s ease;
+}
+
+.save-status-bar i {
+  font-size: 14px;
+}
+
+.save-status-bar.saving {
+  background: #fff4ce;
+  color: #797673;
+  border-top-color: #f9a825;
+}
+
+.save-status-bar.saving i {
+  color: #f9a825;
+}
+
+.save-status-bar.saved {
+  background: #dff6dd;
+  color: #107c10;
+  border-top-color: #107c10;
+}
+
+.save-status-bar.saved i {
+  color: #107c10;
+}
+
+.save-status-bar.error {
+  background: #fde7e9;
+  color: #d13438;
+  border-top-color: #d13438;
+}
+
+.save-status-bar.error i {
+  color: #d13438;
+}
+
+/* ============================================
    PDF PANEL
    Right side - PDF viewer
    ============================================ */
