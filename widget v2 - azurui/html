@@ -64,12 +64,17 @@
           </div>
         </div>
 
-        <!-- Document Selector Dropdown -->
-        <div class="document-selector">
+        <!-- Document Selector Dropdown with Filter Toggle -->
+        <div class="document-selector-row">
           <select ng-model="c.selectedDocument" ng-change="c.loadDocument()" ng-disabled="c.isLoading"
-            ng-options="doc as (c.getDocumentFieldCount() + ' of ' + c.getTotalCount() + ' (' + doc.name + ')') for doc in c.documents track by doc.url"
-            class="document-dropdown">
+            ng-options="doc as doc.name for doc in c.documents track by doc.url" class="document-dropdown">
           </select>
+          <button class="btn-filter-toggle" ng-click="c.toggleDocumentFilter()"
+            ng-class="{'active': c.filterDocumentOnly}"
+            title="{{c.filterDocumentOnly ? 'Showing fields with source only - Click to show all' : 'Showing all fields - Click to filter by document & source'}}">
+            <i class="fas" ng-class="c.filterDocumentOnly ? 'fa-filter' : 'fa-filter'"></i>
+            <span class="filter-count" ng-show="c.filterDocumentOnly">{{c.getVisibleFieldCount()}}</span>
+          </button>
         </div>
 
         <!-- Search Input -->
@@ -113,28 +118,33 @@
                 </tr>
               </thead>
               <tbody>
-                <!-- Field Rows -->
-                <tr ng-repeat="field in fields | filter:{field_name: c.fieldSearch}" ng-click="c.navigateToField(field)"
-                  ng-class="{
+                <!-- Field Rows (filtered by shouldShowField when toggle is on) -->
+                <tr ng-repeat="field in fields | filter:{field_name: c.fieldSearch}" ng-if="c.shouldShowField(field)"
+                  ng-click="c.navigateToField(field)" ng-class="{
                       'active-field': field === c.activeField,
                       'inactive-field': !c.isFieldActive(field)
                     }">
 
-                  <!-- Field Name + Confidence -->
+                  <!-- Field Name + Source Indicator + Confidence -->
                   <td class="col-field-name">
                     <div class="field-name-cell">
-                      <span class="field-name">{{field.field_name}}</span>
+                      <i class="fas fa-crosshairs source-indicator" ng-if="field.source && field.source.length > 0"
+                        title="Has source coordinates"></i>
+                      <span class="field-name" title="{{field.field_name}}">{{field.field_name}}</span>
                       <span class="confidence-pill" ng-class="c.getConfidencePillClass(field.confidence_indicator)">
                         {{field.confidence_indicator * 100 | number:0}}%
                       </span>
                     </div>
                   </td>
 
-                  <!-- AI Value (Read-only) -->
+                  <!-- AI Value (Read-only with popover) -->
                   <td class="col-ai-value">
-                    <span class="ai-value-text" ng-class="{'has-value': field.field_value}">
-                      {{field.field_value || '-'}}
-                    </span>
+                    <div class="cell-with-popover" ng-class="{'has-value': field.field_value}">
+                      <span class="cell-text">{{c.truncateText(field.field_value, 15) || '-'}}</span>
+                      <div class="cell-popover" ng-if="field.field_value && field.field_value.length > 15">
+                        {{field.field_value}}
+                      </div>
+                    </div>
                   </td>
 
                   <!-- Data Verification (Editable when status = 'a', otherwise read-only) -->
@@ -143,11 +153,14 @@
                     <input type="text" class="verification-input" ng-model="field.data_verification"
                       ng-if="c.submissionStatusChoice !== c.qaKey" ng-change="c.markFieldAsChanged(field)"
                       ng-blur="c.autoSaveField(field)" ng-disabled="false && !c.isFieldActive(field)"
-                      placeholder="Enter verification...">
+                      placeholder="Enter...">
                     <!-- Read-only text when submission_status_choice is not 'a' -->
-                    <span class="verification-text" ng-if="c.submissionStatusChoice === c.qaKey">
-                      {{field.data_verification || '-'}}
-                    </span>
+                    <div class="cell-with-popover" ng-if="c.submissionStatusChoice === c.qaKey">
+                      <span class="cell-text">{{c.truncateText(field.data_verification, 12) || '-'}}</span>
+                      <div class="cell-popover" ng-if="field.data_verification && field.data_verification.length > 12">
+                        {{field.data_verification}}
+                      </div>
+                    </div>
                   </td>
 
                   <!-- QA Override Value (Editable when status = 'b', otherwise read-only) -->
@@ -156,29 +169,35 @@
                     <input type="text" class="override-input" ng-model="field.override_value"
                       ng-if="c.submissionStatusChoice === 'b'" ng-change="c.markFieldAsChanged(field)"
                       ng-blur="c.autoSaveField(field)" ng-disabled="false && !c.isFieldActive(field)"
-                      placeholder="Enter override...">
+                      placeholder="Enter...">
                     <!-- Read-only text when submission_status_choice is not 'b' -->
-                    <span class="override-text" ng-if="c.submissionStatusChoice !== 'b'">
-                      {{field.override_value || '-'}}
-                    </span>
-                  </td>
-
-                  <!-- Logic Transparency (Always truncated with popover) -->
-                  <td class="col-logic">
-                    <div class="logic-cell" ng-class="{'has-value': field.logic_transparency}">
-                      <span class="logic-text-truncated">{{c.truncateText(field.logic_transparency, 25) || 'Extracted
-                        from...'}}</span>
-                      <div class="logic-popover"
-                        ng-if="field.logic_transparency && field.logic_transparency.length > 25">
-                        <i class="fas fa-info-circle logic-info-icon"></i>
-                        <div class="logic-popover-content">{{field.logic_transparency}}</div>
+                    <div class="cell-with-popover" ng-if="c.submissionStatusChoice !== 'b'">
+                      <span class="cell-text">{{c.truncateText(field.override_value, 12) || '-'}}</span>
+                      <div class="cell-popover" ng-if="field.override_value && field.override_value.length > 12">
+                        {{field.override_value}}
                       </div>
                     </div>
                   </td>
 
-                  <!-- Commentary (Read-only) -->
+                  <!-- Logic Transparency (Always truncated with popover) -->
+                  <td class="col-logic">
+                    <div class="cell-with-popover" ng-class="{'has-value': field.logic_transparency}">
+                      <span class="cell-text">{{c.truncateText(field.logic_transparency, 15) || '-'}}</span>
+                      <div class="cell-popover"
+                        ng-if="field.logic_transparency && field.logic_transparency.length > 15">
+                        {{field.logic_transparency}}
+                      </div>
+                    </div>
+                  </td>
+
+                  <!-- Commentary (Read-only with popover) -->
                   <td class="col-commentary">
-                    <span class="commentary-text">{{field.commentary || '-'}}</span>
+                    <div class="cell-with-popover">
+                      <span class="cell-text">{{c.truncateText(field.commentary, 12) || '-'}}</span>
+                      <div class="cell-popover" ng-if="field.commentary && field.commentary.length > 12">
+                        {{field.commentary}}
+                      </div>
+                    </div>
                   </td>
                 </tr>
               </tbody>

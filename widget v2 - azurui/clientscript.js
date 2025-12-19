@@ -35,6 +35,9 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   c.documents = [];
   c.selectedDocument = '';
 
+  // Filter toggle: show only fields with current document and source
+  c.filterDocumentOnly = false;
+
   // Loading states
   c.isLoading = false;
   c.isSaving = false;
@@ -151,6 +154,50 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   c.getFilteredByBoth = function () {
     // Return all fields
     return c.flatten(c.groupedFields);
+  };
+
+  /**
+   * Toggle filter for document/source fields only
+   */
+  c.toggleDocumentFilter = function () {
+    c.filterDocumentOnly = !c.filterDocumentOnly;
+  };
+
+  /**
+   * Check if a field should be shown based on the filter toggle
+   * When toggle is ON: only show fields with current document and source
+   * When toggle is OFF: show all fields
+   * @param {object} field - The field to check
+   * @returns {boolean} Whether the field should be shown
+   */
+  c.shouldShowField = function (field) {
+    if (!c.filterDocumentOnly) {
+      return true; // Show all fields when filter is off
+    }
+
+    // When filter is on, only show fields that:
+    // 1. Have attachment data matching the selected document
+    // 2. Have source coordinates
+    var hasMatchingDocument = field.attachmentData &&
+      c.selectedDocument &&
+      field.attachmentData.file_name === c.selectedDocument.name;
+    var hasSource = field.source && field.source.length > 0;
+
+    return hasMatchingDocument && hasSource;
+  };
+
+  /**
+   * Get filtered fields count for display
+   * @returns {number} Count of visible fields based on filter
+   */
+  c.getVisibleFieldCount = function () {
+    if (!c.filterDocumentOnly) {
+      return c.getTotalCount();
+    }
+    var allFields = c.flatten(c.groupedFields);
+    return allFields.filter(function (field) {
+      return c.shouldShowField(field);
+    }).length;
   };
 
   // Helper: Get fields by filename
