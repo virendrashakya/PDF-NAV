@@ -5,7 +5,7 @@
      Features: Document selection, searchable fields table, save functionality
      ============================================ -->
 
-<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<!-- External CSS Libraries -->
 <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
 <link rel="stylesheet"
   href="https://fonts.googleapis.com/css2?display=swap&family=Segoe+UI:wght@300;400;600;700&family=Inter:wght@400;500;600;700" />
@@ -39,7 +39,7 @@
       <!-- Header with Title and Action Buttons -->
       <div class="fields-header">
         <div class="header-row">
-          <h2 class="fields-title">Fields</h2>
+          <h2 class="fields-title">Audit - #{{c.submissionNumber}}</h2>
 
           <!-- Action Buttons: Refer, Save, Done -->
           <div class="header-actions">
@@ -57,10 +57,6 @@
               <i class="fas fa-spinner fa-spin" ng-show="c.isCompleting"></i>
               <span ng-hide="c.isCompleting">Complete</span>
               <span ng-show="c.isCompleting">Completing...</span>
-            </button>
-            <!-- <button class="btn-more" title="More options">
-              <i class="fas fa-ellipsis-v"></i>
-            </button> -->
           </div>
         </div>
 
@@ -256,6 +252,13 @@
 
       <!-- PDF Content Area -->
       <div class="pdf-content" id="pdfContainer">
+        <!-- PDF Loading Overlay -->
+        <div class="pdf-loading-overlay" ng-show="c.isPdfLoading">
+          <div class="pdf-loader">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>Loading PDF...</span>
+          </div>
+        </div>
         <div class="pdf-canvas-wrapper">
           <canvas id="pdfCanvas" class="pdf-canvas"></canvas>
           <canvas id="annotationCanvas" class="annotation-canvas"></canvas>

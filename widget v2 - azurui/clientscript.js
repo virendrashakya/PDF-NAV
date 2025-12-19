@@ -41,6 +41,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   // Loading states
   c.isLoading = false;
   c.isSaving = false;
+  c.isPdfLoading = false;  // PDF area only loader
   c.loadingMessage = 'Loading...';
   c.isCompleting = false;
 
@@ -54,27 +55,12 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   c.lastSavedTime = null;
 
   // Submission status choice: determines which fields are editable
-  // 'a' = Data Verification editable, QA Override readonly
-  // 'b' = Data Verification readonly, QA Override editable
+  // CONFIRM_DATA_REVIEW = Data Verification editable, QA Override readonly
+  // QUALITY_ASSURANCE = Data Verification readonly, QA Override editable
   c.dataReview = 'CONFIRM_DATA_REVIEW';
   c.qaKey = 'QUALITY_ASSURANCE';
-
   c.submissionNumber = '';
   c.submissionStatusChoice = '';
-
-  // Advanced mode (optional)
-  c.showAdvancedButton = false;
-  c.showAdvancedMode = false;
-  c.manualCoordinate = '';
-  c.manualFields = { page: 1, x1: 0, y1: 0, x2: 0, y2: 0, x3: 0, y3: 0, x4: 0, y4: 0 };
-  c.calculatedPixels = '';
-  c.parsedManualCoordinates = [];
-  c.parsedCoordinatesCount = 0;
-
-  // File upload (if enabled)
-  c.pdfFile = null;
-  c.jsonFile = null;
-  c.canUpload = c.data.canUpload || false;
 
   // Set page title
   $('head title').text("Genpact Insurance Policy Suite");
@@ -562,6 +548,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
 
   // Load PDF from URL with optimization
   function loadPdfFromUrl(url) {
+    c.isPdfLoading = true;  // Show PDF area loader
     c.loadingMessage = 'Loading PDF document...';
 
     // Cancel any existing render task
@@ -587,6 +574,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
 
       $scope.$apply(function () {
         c.isLoading = false;
+        c.isPdfLoading = false;  // Hide PDF area loader
       });
 
       // Wait for container to be ready, then render with fit-width
@@ -596,6 +584,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     }).catch(function (error) {
       console.error('Error loading PDF:', error);
       c.isLoading = false;
+      c.isPdfLoading = false;  // Hide PDF area loader on error
       spUtil.addErrorMessage('Failed to load PDF: ' + error.message);
     });
   }
@@ -1092,110 +1081,6 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     if (accuracy >= 75) return 'high';
     if (accuracy >= 50) return 'medium';
     return 'low';
-  };
-
-  // Parse manual coordinate string(s)
-  $scope.$watch('manualCoordinate', function (newVal) {
-    if (!newVal) {
-      c.parsedManualCoordinates = [];
-      c.parsedCoordinatesCount = 0;
-      return;
-    }
-
-    var coords = parseMultipleCoordinateStrings(newVal);
-    c.parsedManualCoordinates = coords.map(function (coord) {
-      coord.displayText = 'x1:' + coord.x1.toFixed(1) + ', y1:' + coord.y1.toFixed(1) +
-        ', x2:' + coord.x2.toFixed(1) + ', y2:' + coord.y2.toFixed(1);
-      return coord;
-    });
-    c.parsedCoordinatesCount = coords.length;
-  });
-
-  // Navigate to manual coordinates (supports multiple)
-  c.navigateToManualCoordinates = function () {
-    if (!c.manualCoordinate) {
-      spUtil.addErrorMessage('Please enter coordinate string(s)');
-      return;
-    }
-
-    var coords = parseMultipleCoordinateStrings(c.manualCoordinate);
-
-    if (coords.length === 0) {
-      spUtil.addErrorMessage('Invalid coordinates');
-      return;
-    }
-
-    // Create a temporary field object with all coordinates
-    c.activeField = {
-      allCoordinates: coords,
-      coordinates: coords[0],
-      field_name: 'Manual Coordinates (' + coords.length + ')'
-    };
-    c.activeFieldCoordIndex = 0;
-
-    // Navigate to first coordinate's page
-    var firstCoord = coords[0];
-
-    if (firstCoord.page !== c.currentPage) {
-      c.currentPage = firstCoord.page;
-      renderPage(c.currentPage);
-      $timeout(function () {
-        var coordsOnPage = coords.filter(function (coord) {
-          return coord.page === c.currentPage;
-        });
-        highlightMultipleFields(coordsOnPage, true);
-      }, 500);
-    } else {
-      var coordsOnPage = coords.filter(function (coord) {
-        return coord.page === c.currentPage;
-      });
-      highlightMultipleFields(coordsOnPage, true);
-    }
-
-    spUtil.addInfoMessage('Highlighting ' + coords.length + ' coordinate(s)');
-  };
-
-  // Copy current coordinates (supports multiple)
-  c.copyCurrentCoordinates = function () {
-    if (!c.activeField || !c.activeField.allCoordinates) {
-      spUtil.addInfoMessage('No active field selected');
-      return;
-    }
-
-    var dStrings = c.activeField.allCoordinates.map(function (coord) {
-      return 'D(' + coord.page + ',' +
-        coord.x1.toFixed(2) + ',' + coord.y1.toFixed(2) + ',' +
-        coord.x2.toFixed(2) + ',' + coord.y2.toFixed(2) + ',' +
-        (coord.x3 || coord.x2).toFixed(2) + ',' + (coord.y3 || coord.y2).toFixed(2) + ',' +
-        (coord.x4 || coord.x1).toFixed(2) + ',' + (coord.y4 || coord.y1).toFixed(2) + ')';
-    });
-
-    var fullString = dStrings.join(';');
-
-    // Update manual coordinate field
-    c.manualCoordinate = fullString;
-
-    // Copy to clipboard if available
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(fullString).then(function () {
-        spUtil.addInfoMessage('Coordinates copied to clipboard! (' + dStrings.length + ' coordinate(s))');
-      }).catch(function () {
-        spUtil.addInfoMessage('Coordinates updated in manual fields');
-      });
-    } else {
-      // Fallback for older browsers
-      var tempInput = document.createElement('textarea');
-      tempInput.value = fullString;
-      document.body.appendChild(tempInput);
-      tempInput.select();
-      try {
-        document.execCommand('copy');
-        spUtil.addInfoMessage('Coordinates copied to clipboard! (' + dStrings.length + ' coordinate(s))');
-      } catch (err) {
-        spUtil.addInfoMessage('Coordinates updated in manual fields');
-      }
-      document.body.removeChild(tempInput);
-    }
   };
 
   // Cleanup on destroy

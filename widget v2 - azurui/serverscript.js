@@ -13,9 +13,6 @@
    * - logic_transparency -> Logic Transparency
    * ============================================ */
 
-  // User permissions
-  data.canUpload = gs.hasRole('admin') || gs.hasRole('pdf_uploader');
-
   // Table names
   var lineItemTableName = 'x_gegis_uwm_dashbo_data_extraction_lineitem';
   var submissionTableName = 'x_gegis_uwm_dashbo_submission';
@@ -164,12 +161,9 @@
     try {
       var extractUtils = new ExtractionUtils();
       var flatData = extractUtils.bulildJsonFromDataExtracLineItem("SR0002740");
-      //gs.info(JSON.stringify(flatData, null, 2));
       var payloadBuilder = new SubmissionPayloadBuilder();
       var paylodModelStructure = payloadBuilder.buildSubmissionModel(flatData, "SR0002740", false);
-      //gs.info(JSON.stringify(paylodModelStructure, null, 2));
       var updateddata = extractUtils.processSubmissionExtractionAndInsertData(paylodModelStructure, false);
-      //gs.info(JSON.stringify(updateddata, null, 2));
       data.success = true;
     } catch (e) {
       data.error = 'Failed to update data to system';

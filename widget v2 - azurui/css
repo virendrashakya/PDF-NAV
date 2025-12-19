@@ -548,13 +548,7 @@
   font-weight: 500;
 }
 
-/* Cell with Popover - Generic for all text cells */
-.cell-with-popover {
-  position: relative;
-  display: block;
-  overflow: visible;
-}
-
+/* Cell Text - Truncated text display */
 .cell-text {
   display: block;
   white-space: nowrap;
@@ -562,34 +556,12 @@
   text-overflow: ellipsis;
   font-size: 11px;
   color: #605e5c;
-  cursor: pointer;
+  cursor: default;
 }
 
-.cell-with-popover.has-value .cell-text {
+.cell-text.has-value {
   color: #0078d4;
   font-weight: 500;
-}
-
-.cell-popover {
-  display: none;
-  position: fixed;
-  background: #323130;
-  color: #ffffff;
-  padding: 10px 14px;
-  border-radius: 6px;
-  font-size: 12px;
-  line-height: 1.4;
-  white-space: normal;
-  word-wrap: break-word;
-  max-width: 300px;
-  min-width: 150px;
-  z-index: 99999;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
-  pointer-events: none;
-}
-
-.cell-with-popover:hover .cell-popover {
-  display: block;
 }
 
 /* Data Verification */
@@ -940,12 +912,45 @@
   text-align: center;
 }
 
+/* PDF Loading Overlay - shows during document loading */
+.pdf-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(248, 249, 250, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.pdf-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: #605e5c;
+}
+
+.pdf-loader i {
+  font-size: 32px;
+  color: #0078d4;
+}
+
+.pdf-loader span {
+  font-size: 14px;
+  font-weight: 500;
+}
+
 /* PDF Content */
 .pdf-content {
   flex: 1;
   overflow: auto;
   background: #f8f9fa;
   padding: 2rem;
+  position: relative;
   display: flex;
   align-items: flex-start;
   justify-content: center;
