@@ -138,14 +138,11 @@
                     </div>
                   </td>
 
-                  <!-- AI Value (Read-only with popover) -->
+                  <!-- AI Value (Read-only with title tooltip) -->
                   <td class="col-ai-value">
-                    <div class="cell-with-popover" ng-class="{'has-value': field.field_value}">
-                      <span class="cell-text">{{c.truncateText(field.field_value, 15) || '-'}}</span>
-                      <div class="cell-popover" ng-if="field.field_value && field.field_value.length > 15">
-                        {{field.field_value}}
-                      </div>
-                    </div>
+                    <span class="cell-text" ng-class="{'has-value': field.field_value}" title="{{field.field_value}}">
+                      {{c.truncateText(field.field_value, 15) || '-'}}
+                    </span>
                   </td>
 
                   <!-- Data Verification (Editable when status = 'a', otherwise read-only) -->
@@ -156,12 +153,10 @@
                       ng-blur="c.autoSaveField(field)" ng-disabled="false && !c.isFieldActive(field)"
                       placeholder="Enter...">
                     <!-- Read-only text when submission_status_choice is not 'a' -->
-                    <div class="cell-with-popover" ng-if="c.submissionStatusChoice === c.qaKey">
-                      <span class="cell-text">{{c.truncateText(field.data_verification, 12) || '-'}}</span>
-                      <div class="cell-popover" ng-if="field.data_verification && field.data_verification.length > 12">
-                        {{field.data_verification}}
-                      </div>
-                    </div>
+                    <span class="cell-text" ng-if="c.submissionStatusChoice === c.qaKey"
+                      title="{{field.data_verification}}">
+                      {{c.truncateText(field.data_verification, 12) || '-'}}
+                    </span>
                   </td>
 
                   <!-- QA Override Value (Editable when status = 'b', otherwise read-only) -->
@@ -172,23 +167,17 @@
                       ng-blur="c.autoSaveField(field)" ng-disabled="false && !c.isFieldActive(field)"
                       placeholder="Enter...">
                     <!-- Read-only text when submission_status_choice is not 'b' -->
-                    <div class="cell-with-popover" ng-if="c.submissionStatusChoice !== 'b'">
-                      <span class="cell-text">{{c.truncateText(field.override_value, 12) || '-'}}</span>
-                      <div class="cell-popover" ng-if="field.override_value && field.override_value.length > 12">
-                        {{field.override_value}}
-                      </div>
-                    </div>
+                    <span class="cell-text" ng-if="c.submissionStatusChoice !== 'b'" title="{{field.override_value}}">
+                      {{c.truncateText(field.override_value, 12) || '-'}}
+                    </span>
                   </td>
 
-                  <!-- Logic Transparency (Always truncated with popover) -->
+                  <!-- Logic Transparency (Always truncated with title tooltip) -->
                   <td class="col-logic">
-                    <div class="cell-with-popover" ng-class="{'has-value': field.logic_transparency}">
-                      <span class="cell-text">{{c.truncateText(field.logic_transparency, 15) || '-'}}</span>
-                      <div class="cell-popover"
-                        ng-if="field.logic_transparency && field.logic_transparency.length > 15">
-                        {{field.logic_transparency}}
-                      </div>
-                    </div>
+                    <span class="cell-text" ng-class="{'has-value': field.logic_transparency}"
+                      title="{{field.logic_transparency}}">
+                      {{c.truncateText(field.logic_transparency, 15) || '-'}}
+                    </span>
                   </td>
 
                   <!-- Commentary (Editable input field) -->

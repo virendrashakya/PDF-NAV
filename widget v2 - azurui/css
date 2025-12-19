@@ -422,7 +422,7 @@
   padding: 6px 8px;
   border-bottom: 1px solid #edebe9;
   vertical-align: middle;
-  overflow: hidden;
+  position: relative;
 }
 
 .fields-table tbody tr {
@@ -539,6 +539,7 @@
 .cell-with-popover {
   position: relative;
   display: block;
+  overflow: visible;
 }
 
 .cell-text {
@@ -558,30 +559,20 @@
 
 .cell-popover {
   display: none;
-  position: absolute;
-  top: 100%;
-  left: 0;
+  position: fixed;
   background: #323130;
   color: #ffffff;
-  padding: 8px 12px;
-  border-radius: 4px;
-  font-size: 11px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.4;
   white-space: normal;
   word-wrap: break-word;
-  max-width: 280px;
-  min-width: 120px;
-  z-index: 9999;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-  margin-top: 4px;
-}
-
-.cell-popover::before {
-  content: '';
-  position: absolute;
-  bottom: 100%;
-  left: 12px;
-  border: 6px solid transparent;
-  border-bottom-color: #323130;
+  max-width: 300px;
+  min-width: 150px;
+  z-index: 99999;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
 }
 
 .cell-with-popover:hover .cell-popover {
