@@ -378,10 +378,23 @@
 .section-accuracy {
   font-size: 12px;
   font-weight: 600;
-  color: #107c10;
-  background: #dff6dd;
   padding: 2px 8px;
   border-radius: 4px;
+}
+
+.section-accuracy.high {
+  color: #107c10;
+  background: #dff6dd;
+}
+
+.section-accuracy.medium {
+  color: #797673;
+  background: #fff4ce;
+}
+
+.section-accuracy.low {
+  color: #d13438;
+  background: #fde7e9;
 }
 
 /* ============================================

@@ -1086,6 +1086,14 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     return count > 0 ? (totalConfidence / count) * 100 : 0;
   };
 
+  // Get section accuracy class for styling (high/medium/low)
+  c.getSectionAccuracyClass = function (fields) {
+    var accuracy = c.calculateSectionAccuracy(fields);
+    if (accuracy >= 75) return 'high';
+    if (accuracy >= 50) return 'medium';
+    return 'low';
+  };
+
   // Parse manual coordinate string(s)
   $scope.$watch('manualCoordinate', function (newVal) {
     if (!newVal) {

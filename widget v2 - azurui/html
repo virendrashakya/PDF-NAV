@@ -99,8 +99,8 @@
               <i class="fas" ng-class="c.collapsedSections[sectionName] ? 'fa-chevron-right' : 'fa-chevron-down'"></i>
               <span class="section-title">{{c.trimInitialNumberAdvanced(sectionName)}} ({{fields.length}})</span>
             </div>
-            <div class="section-accuracy" ng-if="fields.length > 0">
-              {{c.calculateSectionAccuracy(fields) | number:2}}%
+            <div class="section-accuracy" ng-if="fields.length > 0" ng-class="c.getSectionAccuracyClass(fields)">
+              {{c.calculateSectionAccuracy(fields) | number:0}}%
             </div>
           </div>
 
