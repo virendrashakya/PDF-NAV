@@ -36,7 +36,6 @@
     var k = 1024;
     var sizes = ['Bytes', 'KB', 'MB', 'GB'];
     var i = Math.floor(Math.log(bytes) / Math.log(k));
-
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 
@@ -50,7 +49,6 @@
     try {
       return gr.getValue(field) || '';
     } catch (e) {
-      gs.error('Error getting field "' + field + '": ' + e.message);
       return '';
     }
   }
@@ -358,4 +356,3 @@
   data.serverTime = new Date().getTime();
 
 })();
-

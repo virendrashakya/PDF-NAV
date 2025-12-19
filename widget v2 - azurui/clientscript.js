@@ -74,11 +74,12 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   // PDF.js variables
   var pdfDoc = null;
   var canvas = null;
-  var pdfContext = null;
+  var ctx = null;
   var annotationCanvas = null;
-  var annotationContext = null;
+  var annotationCtx = null;
   var pageRendering = false;
   var pageNumPending = null;
+  var currentHighlights = [];
   var renderTask = null;
   var currentPageInstance = null;
 
@@ -686,7 +687,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
           return coord.page === c.currentPage;
         });
         highlightMultipleFields(coordsOnPage, true);
-      }, CONSTANTS.SCROLL_DELAY);
+      }, 500);
     } else {
       var coordsOnPage = field.allCoordinates.filter(function (coord) {
         return coord.page === c.currentPage;
@@ -705,7 +706,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
 
       $timeout(function () {
         highlightField(coord, true);
-      }, CONSTANTS.SCROLL_DELAY);
+      }, 500);
     } else {
       highlightField(coord, true);
     }
@@ -862,6 +863,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     if (c.currentPage < c.totalPages && !pageRendering) {
       c.currentPage++;
       c.activeField = null;
+      c.activeFieldCoordIndex = 0;
       renderPage(c.currentPage);
     }
   };
@@ -870,6 +872,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     if (c.currentPage > 1 && !pageRendering) {
       c.currentPage--;
       c.activeField = null;
+      c.activeFieldCoordIndex = 0;
       renderPage(c.currentPage);
     }
   };
@@ -901,7 +904,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     c.zoomMode = 'fit-width';
     var container = document.getElementById('pdfContainer');
     if (container) {
-      c.containerWidth = container.clientWidth - 40;
+      c.containerWidth = container.clientWidth - 40; // Subtract padding
       var viewport = currentPageInstance.getViewport({ scale: 1.0 });
       c.scale = c.containerWidth / viewport.width;
       renderPage(c.currentPage);
@@ -997,7 +1000,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
           return coord.page === c.currentPage;
         });
         highlightMultipleFields(coordsOnPage, true);
-      }, CONSTANTS.SCROLL_DELAY);
+      }, 500);
     } else {
       var coordsOnPage = coords.filter(function (coord) {
         return coord.page === c.currentPage;
@@ -1036,6 +1039,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
         spUtil.addInfoMessage('Coordinates updated in manual fields');
       });
     } else {
+      // Fallback for older browsers
       var tempInput = document.createElement('textarea');
       tempInput.value = fullString;
       document.body.appendChild(tempInput);
@@ -1058,11 +1062,6 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     if (pdfDoc) {
       pdfDoc.destroy();
     }
-    if (annotationCanvas) {
-      annotationCanvas.removeEventListener('mousedown', handleMouseDown);
-      annotationCanvas.removeEventListener('mousemove', handleMouseMove);
-      annotationCanvas.removeEventListener('mouseup', handleMouseUp);
-    }
   });
 
   // Window resize handler
@@ -1078,6 +1077,5 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   // Initialize on load
   $timeout(function () {
     loadPdfJs();
-  }, CONSTANTS.RENDER_DELAY);
+  }, 100);
 };
-
