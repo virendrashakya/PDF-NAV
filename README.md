@@ -1,6 +1,6 @@
 # PDF Navigator Application
 
-A comprehensive AngularJS application for navigating PDF documents with JSON annotation data. This application allows users to upload PDF files and JSON data containing field coordinates, then navigate to specific fields by clicking on them in the sidebar.
+A comprehensive AngularJS application in service now widget for navigating PDF documents with JSON annotation data. This application allows users to upload PDF files and JSON data containing field coordinates, then navigate to specific fields by clicking on them in the sidebar.
 
 ## 🚀 Features
 
