@@ -227,7 +227,7 @@
 
       lineItemGr.addQuery('parent', dataExtractSysId);
       lineItemGr.orderBy('new_section_name');
-      lineItemGr.orderBy('field_name');
+      lineItemGr.orderBy('internal_field_seq');
       lineItemGr.setLimit(500);
       lineItemGr.query();
 
@@ -260,7 +260,10 @@
 
           // Coordinate and attachment data (may be empty)
           source: source,
-          attachmentData: documentSysId ? _getAttachmentData(documentSysId) : null
+          attachmentData: documentSysId ? _getAttachmentData(documentSysId) : null,
+
+          // Sequence field for ordering within sections
+          internal_field_seq: parseInt(_getValue(lineItemGr, 'internal_field_seq')) || 0
         };
 
         data.mapping.push(mapping);
