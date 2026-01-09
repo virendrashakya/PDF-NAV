@@ -8,7 +8,7 @@
    * - field_name         -> Field Name
    * - field_value        -> AI Value
    * - commentary         -> Commentary
-   * - override_value     -> QA Override Value (editable)
+   * - qa_override_value     -> QA Override Value (editable)
    * - data_verification  -> Data Verification
    * - logic_transparency -> Logic Transparency
    * ============================================ */
@@ -160,9 +160,9 @@
 
     try {
       var extractUtils = new ExtractionUtils();
-      var flatData = extractUtils.bulildJsonFromDataExtracLineItem("SR0002740");
+      var flatData = extractUtils.bulildJsonFromDataExtracLineItem(submissionNumber);
       var payloadBuilder = new SubmissionPayloadBuilder();
-      var paylodModelStructure = payloadBuilder.buildSubmissionModel(flatData, "SR0002740", false);
+      var paylodModelStructure = payloadBuilder.buildSubmissionModel(flatData, submissionNumber, false);
       var updateddata = extractUtils.processSubmissionExtractionAndInsertData(paylodModelStructure, false);
       data.success = true;
     } catch (e) {
@@ -249,10 +249,10 @@
           field_value: _getValue(lineItemGr, 'field_value'),         // AI Value
 
           // Editable fields
-          override_value: _getValue(lineItemGr, 'override_value'),   // QA Override Value
+          qa_override_value: _getValue(lineItemGr, 'qa_override_value'),   // QA Override Value
           data_verification: _getValue(lineItemGr, 'data_verification'), // Data Verification
           commentary: _getValue(lineItemGr, 'commentary'),           // Commentary
-          logic_transparency: _getValue(lineItemGr, 'logic_transparency'), // Logic Transparency
+          logic_transparency: _getValue(lineItemGr, 'reason'), // Logic Transparency
 
           // Confidence data
           confidence_indicator: _parseConfidence(_getValue(lineItemGr, 'confidence_indicator')),
@@ -281,7 +281,7 @@
    * SAVE MAPPING DATA
    * ============================================
    * Updates the QA Override Value for line items
-   * Expects input.updates as array of {sys_id, override_value}
+   * Expects input.updates as array of {sys_id, qa_override_value}
    */
   function saveMapping() {
     data.success = false;
@@ -311,9 +311,9 @@
         try {
           var lineItemGr = new GlideRecord(lineItemTableName);
           if (lineItemGr.get(update.sys_id)) {
-            // Update override_value if provided
-            if (update.hasOwnProperty('override_value')) {
-              lineItemGr.setValue('override_value', update.override_value || '');
+            // Update qa_override_value if provided
+            if (update.hasOwnProperty('qa_override_value')) {
+              lineItemGr.setValue('qa_override_value', update.qa_override_value || '');
             }
             // Update data_verification if provided
             if (update.hasOwnProperty('data_verification')) {

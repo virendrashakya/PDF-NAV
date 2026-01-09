@@ -233,7 +233,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   };
 
   /**
-   * Mark a field as changed (called on ng-change of override_value input)
+   * Mark a field as changed (called on ng-change of qa_override_value input)
    * @param {object} field - The field object that was modified
    */
   c.markFieldAsChanged = function (field) {
@@ -259,9 +259,9 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     if (c.submissionStatusChoice === c.dataReview) {
       update.data_verification = field.data_verification || '';
     } else if (c.submissionStatusChoice === c.qaKey) {
-      update.override_value = field.override_value || '';
+      update.qa_override_value = field.qa_override_value || '';
     } else {
-      update.override_value = field.override_value || '';
+      update.qa_override_value = field.qa_override_value || '';
       update.data_verification = field.data_verification || '';
     }
 
@@ -341,10 +341,10 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
         if (c.submissionStatusChoice === c.dataReview) {
           update.data_verification = field.data_verification || '';
         } else if (c.submissionStatusChoice === c.qaKey) {
-          update.override_value = field.override_value || '';
+          update.qa_override_value = field.qa_override_value || '';
         } else {
           // Default: include both if status is unknown
-          update.override_value = field.override_value || '';
+          update.qa_override_value = field.qa_override_value || '';
           update.data_verification = field.data_verification || '';
         }
 
