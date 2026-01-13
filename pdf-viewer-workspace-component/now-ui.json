@@ -1,0 +1,153 @@
+{
+  "name": "pdf-viewer-component",
+  "label": "PDF Viewer",
+  "description": "A configurable PDF viewer component for displaying and navigating PDF documents with coordinate-based highlighting",
+  "version": "1.0.0",
+  "category": "primitives",
+  "icon": "document-pdf-outline",
+  "properties": [
+    {
+      "name": "documentUrl",
+      "label": "Document URL",
+      "description": "URL of the PDF document to display (e.g., /sys_attachment.do?sys_id=xxx)",
+      "fieldType": "string",
+      "defaultValue": "",
+      "mandatory": false
+    },
+    {
+      "name": "coordinates",
+      "label": "Coordinates (D String)",
+      "description": "Coordinate string for highlighting. Format: D(page,x1,y1,x2,y2,x3,y3,x4,y4). Multiple coordinates separated by semicolon.",
+      "fieldType": "string",
+      "defaultValue": "",
+      "mandatory": false
+    },
+    {
+      "name": "pageNumber",
+      "label": "Initial Page",
+      "description": "Page number to display initially (1-indexed)",
+      "fieldType": "integer",
+      "defaultValue": 1,
+      "mandatory": false
+    },
+    {
+      "name": "scale",
+      "label": "Initial Scale",
+      "description": "Initial zoom scale (e.g., 1.0 = 100%)",
+      "fieldType": "number",
+      "defaultValue": 1.0,
+      "mandatory": false
+    },
+    {
+      "name": "zoomMode",
+      "label": "Zoom Mode",
+      "description": "How to handle zoom on load",
+      "fieldType": "choice",
+      "defaultValue": "actual-size",
+      "choices": [
+        { "value": "actual-size", "label": "Actual Size" },
+        { "value": "fit-width", "label": "Fit to Width" },
+        { "value": "fit-page", "label": "Fit Page" }
+      ],
+      "mandatory": false
+    },
+    {
+      "name": "showControls",
+      "label": "Show Controls",
+      "description": "Whether to show the navigation and zoom controls",
+      "fieldType": "boolean",
+      "defaultValue": true,
+      "mandatory": false
+    },
+    {
+      "name": "showPageNav",
+      "label": "Show Page Navigation",
+      "description": "Whether to show page navigation controls",
+      "fieldType": "boolean",
+      "defaultValue": true,
+      "mandatory": false
+    },
+    {
+      "name": "highlightColor",
+      "label": "Highlight Color",
+      "description": "Color for coordinate highlights (hex or rgba)",
+      "fieldType": "string",
+      "defaultValue": "rgba(255, 235, 59, 0.4)",
+      "mandatory": false
+    },
+    {
+      "name": "height",
+      "label": "Component Height",
+      "description": "Height of the component (CSS value, e.g., 100%, 600px)",
+      "fieldType": "string",
+      "defaultValue": "100%",
+      "mandatory": false
+    }
+  ],
+  "actions": [
+    {
+      "name": "PDF_VIEWER_LOAD_DOCUMENT",
+      "label": "Load Document",
+      "description": "Load a PDF document from URL",
+      "payload": {
+        "url": "string"
+      }
+    },
+    {
+      "name": "PDF_VIEWER_NAVIGATE_TO_COORDINATES",
+      "label": "Navigate to Coordinates",
+      "description": "Navigate to and highlight coordinates in the PDF",
+      "payload": {
+        "coordinates": "string",
+        "page": "number"
+      }
+    },
+    {
+      "name": "PDF_VIEWER_GO_TO_PAGE",
+      "label": "Go to Page",
+      "description": "Navigate to a specific page",
+      "payload": {
+        "page": "number"
+      }
+    },
+    {
+      "name": "PDF_VIEWER_SET_ZOOM",
+      "label": "Set Zoom",
+      "description": "Set the zoom level",
+      "payload": {
+        "scale": "number",
+        "mode": "string"
+      }
+    }
+  ],
+  "dispatches": [
+    {
+      "name": "PDF_VIEWER#DOCUMENT_LOADED",
+      "label": "Document Loaded",
+      "description": "Dispatched when a PDF document finishes loading",
+      "payload": {
+        "success": "boolean",
+        "pageCount": "number",
+        "documentUrl": "string"
+      }
+    },
+    {
+      "name": "PDF_VIEWER#PAGE_CHANGED",
+      "label": "Page Changed",
+      "description": "Dispatched when the current page changes",
+      "payload": {
+        "page": "number",
+        "totalPages": "number"
+      }
+    },
+    {
+      "name": "PDF_VIEWER#ERROR",
+      "label": "Error",
+      "description": "Dispatched when an error occurs",
+      "payload": {
+        "message": "string",
+        "type": "string"
+      }
+    }
+  ]
+}

@@ -1,0 +1,157 @@
+<!-- Field Listing Widget HTML Template -->
+<div class="field-listing-widget">
+  
+  <!-- Loading Overlay -->
+  <div class="field-loading-overlay" ng-if="c.isLoading || c.isSaving || c.isCompleting">
+    <div class="field-loading-spinner">
+      <div class="spinner"></div>
+      <span>{{c.loadingMessage}}</span>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <div class="field-header">
+    <div class="header-top">
+      <h2 class="header-title">
+        <i class="fa fa-list-alt"></i>
+        Field Extraction
+      </h2>
+      <div class="header-actions">
+        <button class="btn btn-primary btn-sm" 
+                ng-click="c.saveAllChanges()" 
+                ng-disabled="!c.hasChanges || c.isSaving">
+          <i class="fa fa-save"></i> Save
+        </button>
+        <button class="btn btn-success btn-sm" 
+                ng-click="c.markAsComplete()" 
+                ng-disabled="c.isCompleting">
+          <i class="fa fa-check"></i> Complete
+        </button>
+      </div>
+    </div>
+
+    <!-- Document Selector -->
+    <div class="document-selector" ng-if="c.documents.length > 0">
+      <label>Document:</label>
+      <select ng-model="c.selectedDocument" 
+              ng-options="doc.name for doc in c.documents"
+              ng-change="c.onDocumentChange()"
+              class="form-control">
+      </select>
+    </div>
+
+    <!-- Stats Bar -->
+    <div class="stats-bar">
+      <span class="stat-item">
+        <i class="fa fa-file-text-o"></i>
+        {{c.getVisibleFieldCount()}} / {{c.getTotalCount()}} fields
+      </span>
+      <span class="stat-item" ng-if="c.selectedDocument">
+        <i class="fa fa-paperclip"></i>
+        {{c.getDocumentFieldCount()}} in document
+      </span>
+      <span class="save-status" ng-if="c.saveStatus">
+        <i class="fa" ng-class="{'fa-spinner fa-spin': c.saveStatus === 'saving', 'fa-check': c.saveStatus === 'saved', 'fa-exclamation-circle': c.saveStatus === 'error'}"></i>
+        {{c.saveStatusMessage}}
+      </span>
+    </div>
+
+    <!-- Filter Toggle -->
+    <div class="filter-toggle">
+      <label class="toggle-label">
+        <input type="checkbox" ng-model="c.filterDocumentOnly" ng-change="c.toggleDocumentFilter()">
+        <span>Show only fields with coordinates</span>
+      </label>
+    </div>
+  </div>
+
+  <!-- Field List -->
+  <div class="field-list-container">
+    <!-- Empty State -->
+    <div class="empty-state" ng-if="c.getObjectKeys(c.groupedFields).length === 0 && !c.isLoading">
+      <i class="fa fa-inbox"></i>
+      <p>No fields found</p>
+    </div>
+
+    <!-- Sections -->
+    <div class="section-group" ng-repeat="sectionName in c.getObjectKeys(c.groupedFields)">
+      <!-- Section Header -->
+      <div class="section-header" ng-click="c.toggleSection(sectionName)">
+        <div class="section-title">
+          <i class="fa" ng-class="{'fa-chevron-right': c.isSectionCollapsed(sectionName), 'fa-chevron-down': !c.isSectionCollapsed(sectionName)}"></i>
+          <span>{{c.trimInitialNumberAdvanced(sectionName)}}</span>
+        </div>
+        <span class="section-count">{{c.groupedFields[sectionName].length}}</span>
+      </div>
+
+      <!-- Section Fields -->
+      <div class="section-fields" ng-hide="c.isSectionCollapsed(sectionName)">
+        <div class="field-item" 
+             ng-repeat="field in c.groupedFields[sectionName]"
+             ng-if="c.shouldShowField(field)"
+             ng-class="{'active': c.activeField === field, 'has-source': c.canNavigate(field), 'document-match': c.isFieldActive(field)}"
+             ng-click="c.navigateToField(field)">
+          
+          <!-- Field Name -->
+          <div class="field-name">
+            <span class="field-label">{{field.field_name}}</span>
+            <span class="confidence-badge" 
+                  ng-if="field.confidence_indicator"
+                  ng-class="{'high': field.confidence_indicator >= 0.8, 'medium': field.confidence_indicator >= 0.5 && field.confidence_indicator < 0.8, 'low': field.confidence_indicator < 0.5}">
+              {{(field.confidence_indicator * 100) | number:0}}%
+            </span>
+          </div>
+
+          <!-- AI Value -->
+          <div class="field-value">
+            <span class="value-label">AI Value:</span>
+            <span class="value-text">{{c.truncateText(field.field_value, 50) || '-'}}</span>
+          </div>
+
+          <!-- Editable Fields -->
+          <div class="field-editable" ng-click="$event.stopPropagation()">
+            <!-- Data Verification (editable in CONFIRM_DATA_REVIEW) -->
+            <div class="edit-field" ng-if="c.submissionStatusChoice === c.dataReview">
+              <label>Data Verification:</label>
+              <input type="text" 
+                     ng-model="field.data_verification" 
+                     ng-change="c.markFieldAsChanged(field)"
+                     ng-blur="c.autoSaveField(field)"
+                     class="form-control input-sm"
+                     placeholder="Enter verification...">
+            </div>
+
+            <!-- QA Override (editable in QUALITY_ASSURANCE) -->
+            <div class="edit-field" ng-if="c.submissionStatusChoice === c.qaKey">
+              <label>QA Override:</label>
+              <input type="text" 
+                     ng-model="field.qa_override_value" 
+                     ng-change="c.markFieldAsChanged(field)"
+                     ng-blur="c.autoSaveField(field)"
+                     class="form-control input-sm"
+                     placeholder="Enter override...">
+            </div>
+
+            <!-- Commentary (always editable) -->
+            <div class="edit-field">
+              <label>Commentary:</label>
+              <input type="text" 
+                     ng-model="field.commentary" 
+                     ng-change="c.markFieldAsChanged(field)"
+                     ng-blur="c.autoSaveField(field)"
+                     class="form-control input-sm"
+                     placeholder="Add comment...">
+            </div>
+          </div>
+
+          <!-- Navigation Indicator -->
+          <div class="field-nav-indicator" ng-if="c.canNavigate(field)">
+            <i class="fa fa-map-marker"></i>
+            <span ng-if="field.allCoordinates.length > 1">{{field.allCoordinates.length}} locations</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>

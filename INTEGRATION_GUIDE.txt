@@ -1,0 +1,159 @@
+================================================================================
+Widget Integration Guide
+PDF Viewer + Field Listing + Single Field Detail Widgets
+================================================================================
+
+THREE WIDGETS AVAILABLE:
+1. pdf-viewer-widget       - Standalone PDF viewer (right panel)
+2. field-listing-widget    - Field table with groups (left panel for Audit page)
+3. single-field-detail     - Single field detail view (left panel for detail page)
+
+Both left-panel widgets communicate via AngularJS $rootScope events, so they work 
+seamlessly when placed on the same Service Portal page with the PDF viewer.
+
+================================================================================
+OPTION 1: TWO-COLUMN PAGE LAYOUT (Recommended)
+================================================================================
+
+In ServiceNow Service Portal Designer:
+
+1. Create a new Page or edit existing page
+2. Add a Container with "Two Column" layout (or custom Bootstrap grid)
+3. Left column (col-md-5): Add "Field Listing Widget"
+4. Right column (col-md-7): Add "PDF Viewer Widget"
+
+Page Structure:
+┌────────────────────────────────┬────────────────────────────────────┐
+│     Field Listing Widget       │        PDF Viewer Widget           │
+│     (col-md-5 or col-md-4)     │       (col-md-7 or col-md-8)       │
+│                                │                                    │
+│  ┌──────────────────────────┐  │   ┌──────────────────────────────┐ │
+│  │ Document: [dropdown]     │  │   │ Page 1 of 9      [+] [-]    │ │
+│  ├──────────────────────────┤  │   ├──────────────────────────────┤ │
+│  │ ▼ General Information    │  │   │                              │ │
+│  │   • Policy Territory     │  │   │       [PDF CONTENT]          │ │
+│  │   • Policy Period From   │  │   │                              │ │
+│  │   • Submission Date      │  │ ◄─┼── Click navigates here       │ │
+│  ├──────────────────────────┤  │   │                              │ │
+│  │ ▼ Client Information     │  │   │                              │ │
+│  │   • Industry Code        │  │   │                              │ │
+│  │   • Name                 │  │   └──────────────────────────────┘ │
+│  └──────────────────────────┘  │                                    │
+└────────────────────────────────┴────────────────────────────────────┘
+
+================================================================================
+OPTION 2: CUSTOM CONTAINER LAYOUT
+================================================================================
+
+If you need custom sizing, create a custom container with Bootstrap classes:
+
+<div class="row">
+  <div class="col-md-4 col-lg-3">
+    <sp-widget widget="data.fieldListingWidget"></sp-widget>
+  </div>
+  <div class="col-md-8 col-lg-9">
+    <sp-widget widget="data.pdfViewerWidget"></sp-widget>
+  </div>
+</div>
+
+================================================================================
+STEP-BY-STEP SERVICE PORTAL SETUP
+================================================================================
+
+Step 1: Create the Widgets
+--------------------------
+1. Go to: Service Portal > Widgets
+2. Click "New"
+3. Create "PDF Viewer Widget":
+   - Name: PDF Viewer
+   - ID: pdf-viewer-widget
+   - Copy contents from pdf-viewer-widget/ folder files
+4. Create "Field Listing Widget":
+   - Name: Field Listing
+   - ID: field-listing-widget
+   - Copy contents from field-listing-widget/ folder files
+
+Step 2: Create the Page
+-----------------------
+1. Go to: Service Portal > Pages
+2. Click "New" or edit existing page
+3. Set Page ID (e.g., "audit-review")
+4. Open in Service Portal Designer
+
+Step 3: Add Container
+---------------------
+1. In Designer, add a Container
+2. Set width to "12" (full width)
+3. Choose "Two Column (5-7)" or "Two Column (4-8)" layout
+
+Step 4: Add Widgets to Columns
+------------------------------
+1. Drag "Field Listing" widget to LEFT column
+2. Drag "PDF Viewer" widget to RIGHT column
+3. Save the page
+
+Step 5: Access the Page
+-----------------------
+URL: /sp?id=audit-review&submissionSysId=<your_submission_sys_id>
+
+================================================================================
+HOW THE WIDGETS COMMUNICATE
+================================================================================
+
+When page loads:
+1. Field Listing widget fetches data from server
+2. Field Listing broadcasts: pdf-viewer:loadDocument with first PDF URL
+3. PDF Viewer receives event and loads the document
+
+When user clicks a field:
+1. Field Listing broadcasts: pdf-viewer:navigateToField with coordinates
+2. PDF Viewer receives event, navigates to page, and highlights area
+
+When user changes document dropdown:
+1. Field Listing broadcasts: pdf-viewer:loadDocument with new URL
+2. PDF Viewer loads the new document
+
+================================================================================
+CSS ADJUSTMENTS FOR LAYOUT
+================================================================================
+
+Add this CSS to your page or theme to ensure proper height:
+
+/* Full height container */
+.field-listing-widget,
+.pdf-viewer-widget {
+  height: calc(100vh - 100px); /* Adjust 100px based on your header height */
+  min-height: 600px;
+}
+
+/* Or if using a wrapper */
+.widget-wrapper-row {
+  display: flex;
+  height: calc(100vh - 100px);
+}
+
+.widget-wrapper-row > div {
+  height: 100%;
+  overflow: hidden;
+}
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+Widgets not communicating:
+- Ensure both widgets are on the SAME page
+- Check browser console for errors
+- Verify $rootScope is accessible (should be by default)
+
+PDF not loading:
+- Check attachment sys_id is valid
+- Verify content_type is 'application/pdf'
+- Check CORS settings if using external PDFs
+
+Fields not appearing:
+- Verify submissionSysId URL parameter is correct
+- Check server script for query errors
+- Verify line items exist with non-null section_name
+
+================================================================================

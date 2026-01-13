@@ -1,0 +1,103 @@
+<!-- Single Field Detail Widget HTML Template -->
+<div class="single-field-detail-widget">
+  
+  <!-- Loading State -->
+  <div class="detail-loading" ng-if="c.isLoading">
+    <div class="loading-spinner">
+      <div class="spinner"></div>
+      <span>{{c.loadingMessage}}</span>
+    </div>
+  </div>
+
+  <!-- Error State -->
+  <div class="detail-error" ng-if="c.errorMessage && !c.isLoading">
+    <i class="fa fa-exclamation-triangle"></i>
+    <p>{{c.errorMessage}}</p>
+  </div>
+
+  <!-- Content -->
+  <div class="detail-content" ng-if="c.field && !c.isLoading">
+    
+    <!-- Back Button -->
+    <div class="back-nav">
+      <button class="btn-back" ng-click="c.goBack()">
+        <i class="fa fa-arrow-left"></i>
+        <span>Back</span>
+      </button>
+    </div>
+
+    <!-- Field Title -->
+    <div class="field-title-section">
+      <h1 class="field-title">{{c.field.field_name}}</h1>
+      <span class="status-badge" ng-class="c.getScoreClass()">
+        <i class="fa fa-flag"></i>
+        {{c.getStatusText()}}
+      </span>
+    </div>
+
+    <!-- Score Section -->
+    <div class="score-section">
+      <label>Score</label>
+      <span class="score-value" ng-class="c.getScoreClass()">
+        {{c.field.score || 'N/A'}}
+      </span>
+    </div>
+
+    <!-- Why This Failed / Reason Section -->
+    <div class="reason-section" ng-if="c.field.reason || c.field.logic_transparency">
+      <label>Why this failed:</label>
+      <div class="reason-box" ng-class="{'reason-error': c.field.score === 'Failed'}">
+        <p>{{c.field.reason || c.field.logic_transparency}}</p>
+      </div>
+    </div>
+
+    <!-- Source Evidence Section -->
+    <div class="source-section" ng-if="c.hasSource()">
+      <label>Source Evidence</label>
+      
+      <div class="source-card">
+        <!-- Document Info -->
+        <div class="source-document" ng-if="c.field.attachmentData">
+          <i class="fa fa-file-pdf-o"></i>
+          <div class="document-info">
+            <span class="document-name">{{c.field.attachmentData.file_name}}</span>
+            <span class="document-location">
+              Page {{c.field.page_number}}
+              <span ng-if="c.field.section_name"> • {{c.field.section_name}}</span>
+            </span>
+          </div>
+        </div>
+
+        <!-- Extracted Text -->
+        <div class="extracted-text" ng-if="c.field.extracted_text">
+          <label>Extracted Text:</label>
+          <p>"{{c.field.extracted_text}}"</p>
+        </div>
+
+        <!-- View in Document Button -->
+        <button class="btn-view-document" ng-click="c.viewInDocument()" ng-if="c.hasSource()">
+          <i class="fa fa-file-text-o"></i>
+          View in Document
+        </button>
+      </div>
+    </div>
+
+    <!-- No Source Available -->
+    <div class="no-source-section" ng-if="!c.hasSource()">
+      <div class="no-source-message">
+        <i class="fa fa-info-circle"></i>
+        <p>No source evidence available for this field</p>
+      </div>
+    </div>
+
+    <!-- Commentary Section -->
+    <div class="commentary-section" ng-if="c.field.commentary">
+      <label>Commentary</label>
+      <div class="commentary-box">
+        <p>{{c.field.commentary}}</p>
+      </div>
+    </div>
+
+  </div>
+
+</div>

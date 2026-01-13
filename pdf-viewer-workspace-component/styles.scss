@@ -1,0 +1,156 @@
+/* ============================================
+ * PDF Viewer Workspace Component Styles
+ * ============================================ */
+
+@import '@servicenow/sass-kit/host';
+@import '@servicenow/sass-kit/typography';
+
+:host {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.pdf-viewer-component {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    background: var(--now-color--neutral-2, #1e1e1e);
+    color: var(--now-color--text-primary, #ffffff);
+    font-family: var(--now-font-family, 'Segoe UI', sans-serif);
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--now-border-radius--md, 8px);
+}
+
+/* Loading State */
+.pdf-loading {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(30, 30, 30, 0.9);
+    z-index: 100;
+    gap: 12px;
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--now-color--neutral-5, rgba(0, 120, 212, 0.3));
+    border-top-color: var(--now-color--primary-2, #0078d4);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Error State */
+.pdf-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    color: var(--now-color--alert-critical-2, #f44336);
+    text-align: center;
+    gap: 12px;
+}
+
+/* Controls Bar */
+.pdf-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--now-color--neutral-3, #2d2d2d);
+    border-bottom: 1px solid var(--now-color--neutral-4, #3d3d3d);
+    flex-shrink: 0;
+    gap: 16px;
+}
+
+.page-nav,
+.zoom-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.page-info,
+.zoom-level {
+    font-size: var(--now-font-size--sm, 13px);
+    color: var(--now-color--text-secondary, #cccccc);
+    min-width: 60px;
+    text-align: center;
+}
+
+/* PDF Container */
+.pdf-container {
+    flex: 1;
+    overflow: auto;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 20px;
+    background: var(--now-color--neutral-2, #252525);
+    position: relative;
+}
+
+/* Empty State */
+.pdf-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--now-color--text-tertiary, #666666);
+    text-align: center;
+    padding: 40px;
+    gap: 12px;
+}
+
+.pdf-empty p {
+    margin: 0;
+    font-size: var(--now-font-size--md, 14px);
+}
+
+/* Canvas */
+.pdf-canvas {
+    display: block;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    background: #ffffff;
+}
+
+.annotation-canvas {
+    position: absolute;
+    top: 20px;
+    pointer-events: none;
+}
+
+/* Scrollbar */
+.pdf-container::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+.pdf-container::-webkit-scrollbar-track {
+    background: var(--now-color--neutral-2, #1e1e1e);
+}
+
+.pdf-container::-webkit-scrollbar-thumb {
+    background: var(--now-color--neutral-5, #4d4d4d);
+    border-radius: 5px;
+}
+
+.pdf-container::-webkit-scrollbar-thumb:hover {
+    background: var(--now-color--neutral-6, #5d5d5d);
+}

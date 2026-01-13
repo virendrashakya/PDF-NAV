@@ -1,0 +1,115 @@
+<!-- Combined Field Detail + PDF Viewer Widget -->
+<!-- Matches screenshot design: Single field detail on left, PDF viewer on right -->
+<div class="combined-field-pdf-widget">
+
+  <!-- Left Panel: Single Field Detail -->
+  <div class="left-panel">
+
+    <!-- Field Detail Content -->
+    <div class="field-detail-content" ng-if="c.field">
+      <!-- Field Title -->
+      <h1 class="field-title">{{c.field.field_name}}</h1>
+
+      <!-- Status Label -->
+      <div class="status-label">
+        <i class="fa fa-warning"></i>
+        <span>{{c.field.status}}</span>
+      </div>
+
+      <!-- Score Section -->
+      <div class="score-section">
+        <label class="section-label">Score</label>
+        <span class="score-badge" ng-class="c.getScoreClass()">{{c.field.score}}</span>
+      </div>
+
+      <!-- Why this failed -->
+      <div class="reason-section" ng-if="c.field.reason">
+        <label class="section-label">Why this failed:</label>
+        <div class="reason-box">
+          {{c.field.reason}}
+        </div>
+      </div>
+
+      <!-- Source Evidence -->
+      <div class="source-section" ng-if="c.field.source">
+        <label class="section-label">Source Evidence</label>
+
+        <div class="source-card">
+          <!-- Document Info -->
+          <div class="doc-row">
+            <i class="fa fa-file-pdf-o doc-icon"></i>
+            <div class="doc-info">
+              <span class="doc-name">{{c.field.document_name}}</span>
+              <span class="doc-location">Page {{c.field.page_number}} • {{c.field.section_name}}</span>
+            </div>
+          </div>
+
+          <!-- Extracted Text -->
+          <div class="extracted-section">
+            <label class="extracted-label">Extracted Text:</label>
+            <div class="extracted-box">
+              "{{c.field.field_value}}"
+            </div>
+          </div>
+        </div>
+
+        <!-- View in Document Button -->
+        <button class="view-doc-btn" ng-click="c.viewInDocument()">
+          <i class="fa fa-file-text-o"></i>
+          View in Document
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Panel: PDF Viewer -->
+  <div class="right-panel">
+    <!-- PDF Header -->
+    <div class="pdf-header">
+      <div class="pdf-title">
+        <i class="fa fa-file-pdf-o"></i>
+        <span>{{c.field.document_name || 'Document'}}</span>
+      </div>
+      <div class="pdf-controls">
+        <button class="ctrl-btn" ng-click="c.previousPage()" ng-disabled="c.currentPage <= 1">
+          <i class="fa fa-chevron-left"></i>
+        </button>
+        <span class="page-info">Page {{c.currentPage}} of {{c.totalPages}}</span>
+        <button class="ctrl-btn" ng-click="c.nextPage()" ng-disabled="c.currentPage >= c.totalPages">
+          <i class="fa fa-chevron-right"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- PDF Container -->
+    <div class="pdf-container" id="pdfContainer">
+      <!-- Loading -->
+      <div class="pdf-loading" ng-if="c.isLoading">
+        <div class="spinner"></div>
+        <span>Loading PDF...</span>
+      </div>
+
+      <!-- Error -->
+      <div class="pdf-error" ng-if="c.pdfError">
+        <i class="fa fa-exclamation-triangle"></i>
+        <span>{{c.pdfError}}</span>
+      </div>
+
+      <!-- Canvas -->
+      <div class="canvas-wrapper" ng-hide="c.isLoading || c.pdfError">
+        <canvas id="pdfCanvas"></canvas>
+        <canvas id="annotationCanvas"></canvas>
+      </div>
+    </div>
+
+    <!-- PDF Footer -->
+    <div class="pdf-footer">
+      <span class="footer-info">
+        <span class="page-size">A4: {{c.pageWidth}} × {{c.pageHeight}} points</span>
+        <span class="scale-info">Scale: {{c.scalePercent}}%</span>
+        <span class="active-layer">Active: Occupancy</span>
+      </span>
+    </div>
+  </div>
+
+</div>

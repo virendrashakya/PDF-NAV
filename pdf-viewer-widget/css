@@ -1,0 +1,243 @@
+/* ============================================
+ * PDF Viewer Widget - Styles
+ * ============================================ */
+
+/* Main Container */
+.pdf-viewer-widget {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background: #1e1e1e;
+  color: #ffffff;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Loading Overlay */
+.pdf-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(30, 30, 30, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.pdf-loading-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: #0078d4;
+}
+
+.pdf-loading-spinner .spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(0, 120, 212, 0.3);
+  border-top-color: #0078d4;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Error Message */
+.pdf-error-message {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: #f44336;
+  text-align: center;
+  padding: 20px;
+}
+
+.pdf-error-message i {
+  font-size: 32px;
+}
+
+/* Controls Bar */
+.pdf-controls-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #2d2d2d;
+  border-bottom: 1px solid #3d3d3d;
+  flex-shrink: 0;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.pdf-page-controls,
+.pdf-zoom-controls,
+.pdf-coord-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pdf-page-info,
+.zoom-level,
+.coord-info {
+  font-size: 13px;
+  color: #cccccc;
+  min-width: 60px;
+  text-align: center;
+}
+
+.page-input {
+  width: 50px;
+  padding: 4px 8px;
+  border: 1px solid #3d3d3d;
+  border-radius: 4px;
+  background: #1e1e1e;
+  color: #ffffff;
+  text-align: center;
+  font-size: 13px;
+}
+
+.page-input:focus {
+  outline: none;
+  border-color: #0078d4;
+}
+
+/* Override default button styles */
+.pdf-controls-bar .btn {
+  background: #3d3d3d;
+  border: 1px solid #4d4d4d;
+  color: #ffffff;
+  padding: 6px 10px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.pdf-controls-bar .btn:hover:not(:disabled) {
+  background: #4d4d4d;
+  border-color: #5d5d5d;
+}
+
+.pdf-controls-bar .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pdf-controls-bar .btn-primary {
+  background: #0078d4;
+  border-color: #0078d4;
+}
+
+.pdf-controls-bar .btn-primary:hover {
+  background: #106ebe;
+}
+
+/* PDF Container */
+.pdf-container {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+  background: #252525;
+}
+
+/* Empty State */
+.pdf-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #666666;
+  text-align: center;
+  padding: 40px;
+}
+
+.pdf-empty-state i {
+  font-size: 64px;
+  margin-bottom: 16px;
+  color: #444444;
+}
+
+.pdf-empty-state p {
+  font-size: 18px;
+  margin: 0 0 8px 0;
+}
+
+.pdf-empty-state small {
+  font-size: 13px;
+  color: #555555;
+}
+
+/* Canvas Wrapper */
+.pdf-canvas-wrapper {
+  position: relative;
+  display: inline-block;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  background: #ffffff;
+}
+
+#pdfViewerCanvas {
+  display: block;
+}
+
+.annotation-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+/* Page Marker for navigation */
+.page-marker {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #ff9800, transparent);
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Scrollbar Styling */
+.pdf-container::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.pdf-container::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+
+.pdf-container::-webkit-scrollbar-thumb {
+  background: #4d4d4d;
+  border-radius: 5px;
+}
+
+.pdf-container::-webkit-scrollbar-thumb:hover {
+  background: #5d5d5d;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .pdf-controls-bar {
+    justify-content: center;
+    padding: 6px 8px;
+  }
+  
+  .pdf-container {
+    padding: 10px;
+  }
+}
