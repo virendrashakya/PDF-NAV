@@ -1,107 +1,58 @@
 <!-- PDF Viewer Widget HTML Template -->
+<!-- Updated to match combined widget design -->
 <div class="pdf-viewer-widget">
   
-  <!-- Loading Overlay -->
-  <div class="pdf-loading-overlay" ng-if="c.isPdfLoading">
-    <div class="pdf-loading-spinner">
-      <div class="spinner"></div>
-      <span>{{c.loadingMessage}}</span>
+  <!-- PDF Header -->
+  <div class="pdf-header" ng-if="c.pdfLoaded">
+    <div class="pdf-title">
+      <i class="fa fa-file-pdf-o"></i>
+      <span>{{c.documentName || 'Document'}}</span>
     </div>
-  </div>
-
-  <!-- Error Message -->
-  <div class="pdf-error-message" ng-if="c.errorMessage">
-    <i class="fa fa-exclamation-triangle"></i>
-    <span>{{c.errorMessage}}</span>
-  </div>
-
-  <!-- Controls Bar (optional) -->
-  <div class="pdf-controls-bar" ng-if="c.data.options.showControls && c.pdfLoaded">
-    <!-- Page Navigation -->
-    <div class="pdf-page-controls">
-      <button class="btn btn-sm btn-default" 
-              ng-click="c.previousPage()" 
-              ng-disabled="c.currentPage <= 1"
-              title="Previous Page">
+    <div class="pdf-controls" ng-if="c.data.options.showControls">
+      <button class="ctrl-btn" ng-click="c.previousPage()" ng-disabled="c.currentPage <= 1">
         <i class="fa fa-chevron-left"></i>
       </button>
-      <span class="pdf-page-info">
-        <input type="number" 
-               class="page-input" 
-               ng-model="c.currentPage" 
-               ng-change="c.goToPage(c.currentPage)"
-               min="1" 
-               max="{{c.totalPages}}">
-        <span>/ {{c.totalPages}}</span>
-      </span>
-      <button class="btn btn-sm btn-default" 
-              ng-click="c.nextPage()" 
-              ng-disabled="c.currentPage >= c.totalPages"
-              title="Next Page">
+      <span class="page-info">Page {{c.currentPage}} of {{c.totalPages}}</span>
+      <button class="ctrl-btn" ng-click="c.nextPage()" ng-disabled="c.currentPage >= c.totalPages">
         <i class="fa fa-chevron-right"></i>
-      </button>
-    </div>
-
-    <!-- Zoom Controls -->
-    <div class="pdf-zoom-controls">
-      <button class="btn btn-sm btn-default" 
-              ng-click="c.zoomOut()" 
-              title="Zoom Out">
-        <i class="fa fa-search-minus"></i>
-      </button>
-      <span class="zoom-level">{{(c.scale * 100) | number:0}}%</span>
-      <button class="btn btn-sm btn-default" 
-              ng-click="c.zoomIn()" 
-              title="Zoom In">
-        <i class="fa fa-search-plus"></i>
-      </button>
-      <button class="btn btn-sm" 
-              ng-class="{'btn-primary': c.zoomMode === 'fit-width', 'btn-default': c.zoomMode !== 'fit-width'}"
-              ng-click="c.setZoom('fit-width')" 
-              title="Fit Width">
-        <i class="fa fa-arrows-h"></i>
-      </button>
-      <button class="btn btn-sm" 
-              ng-class="{'btn-primary': c.zoomMode === 'actual-size', 'btn-default': c.zoomMode !== 'actual-size'}"
-              ng-click="c.setZoom('actual-size')" 
-              title="Actual Size">
-        <i class="fa fa-expand"></i>
-      </button>
-    </div>
-
-    <!-- Coordinate Navigation (when multiple coordinates active) -->
-    <div class="pdf-coord-controls" ng-if="c.activeCoordinates.length > 1">
-      <button class="btn btn-sm btn-default" 
-              ng-click="c.previousCoordinate()" 
-              title="Previous Location">
-        <i class="fa fa-arrow-left"></i>
-      </button>
-      <span class="coord-info">
-        {{c.activeCoordIndex + 1}} / {{c.activeCoordinates.length}}
-      </span>
-      <button class="btn btn-sm btn-default" 
-              ng-click="c.nextCoordinate()" 
-              title="Next Location">
-        <i class="fa fa-arrow-right"></i>
       </button>
     </div>
   </div>
 
   <!-- PDF Container -->
   <div id="pdfViewerContainer" class="pdf-container">
+    
+    <!-- Loading Overlay -->
+    <div class="pdf-loading" ng-if="c.isPdfLoading">
+      <div class="spinner"></div>
+      <span>{{c.loadingMessage}}</span>
+    </div>
+
+    <!-- Error Message -->
+    <div class="pdf-error" ng-if="c.errorMessage">
+      <i class="fa fa-exclamation-triangle"></i>
+      <span>{{c.errorMessage}}</span>
+    </div>
+
     <!-- Empty State -->
-    <div class="pdf-empty-state" ng-if="!c.pdfLoaded && !c.isPdfLoading && !c.errorMessage">
+    <div class="pdf-empty" ng-if="!c.pdfLoaded && !c.isPdfLoading && !c.errorMessage">
       <i class="fa fa-file-pdf-o"></i>
       <p>No document loaded</p>
-      <small>Select a document or wait for navigation</small>
     </div>
 
     <!-- PDF Canvas -->
-    <div class="pdf-canvas-wrapper" ng-show="c.pdfLoaded">
+    <div class="canvas-wrapper" ng-show="c.pdfLoaded">
       <canvas id="pdfViewerCanvas"></canvas>
-      <canvas id="pdfAnnotationCanvas" class="annotation-layer"></canvas>
-      <div id="pdfPageMarker" class="page-marker" style="display:none;"></div>
+      <canvas id="pdfAnnotationCanvas"></canvas>
     </div>
+  </div>
+
+  <!-- PDF Footer -->
+  <div class="pdf-footer" ng-if="c.pdfLoaded">
+    <span class="footer-info">
+      <span class="page-size">{{c.pageWidth}} × {{c.pageHeight}} points</span>
+      <span class="scale-info">Scale: {{c.scalePercent}}%</span>
+    </span>
   </div>
 
 </div>

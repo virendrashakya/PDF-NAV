@@ -2,8 +2,7 @@
     /* ============================================
      * PDF Viewer Widget - Server Script
      * ============================================
-     * Minimal server script - PDF viewer receives
-     * document URL from client-side events
+     * Updated to match combined widget design
      * ============================================ */
 
     // Initialize data object
@@ -12,10 +11,13 @@
 
     // Widget options (can be set in widget instance)
     data.options = {
-        documentUrl: options.documentUrl || '',
+        documentUrl: options.documentUrl || '/sys_attachment.do?sys_id=882e3693fb92f650b70efc647befdc63&view=true',
         initialPage: parseInt(options.initialPage) || 1,
         initialScale: parseFloat(options.initialScale) || 1.0,
         showControls: options.showControls !== 'false'
     };
+
+    // Demo document name
+    data.documentName = 'Final_Slip_PT_Kolon.pdf';
 
 })();

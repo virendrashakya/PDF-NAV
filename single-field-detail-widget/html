@@ -1,4 +1,5 @@
 <!-- Single Field Detail Widget HTML Template -->
+<!-- Updated to match combined widget design -->
 <div class="single-field-detail-widget">
   
   <!-- Loading State -->
@@ -18,50 +19,42 @@
   <!-- Content -->
   <div class="detail-content" ng-if="c.field && !c.isLoading">
     
-    <!-- Back Button -->
-    <div class="back-nav">
-      <button class="btn-back" ng-click="c.goBack()">
-        <i class="fa fa-arrow-left"></i>
-        <span>Back</span>
-      </button>
-    </div>
-
     <!-- Field Title -->
-    <div class="field-title-section">
-      <h1 class="field-title">{{c.field.field_name}}</h1>
-      <span class="status-badge" ng-class="c.getScoreClass()">
-        <i class="fa fa-flag"></i>
-        {{c.getStatusText()}}
-      </span>
+    <h1 class="field-title">{{c.field.field_name}}</h1>
+    
+    <!-- Status Label -->
+    <div class="status-label">
+      <i class="fa fa-warning"></i>
+      <span>{{c.getStatusText()}}</span>
     </div>
 
     <!-- Score Section -->
     <div class="score-section">
-      <label>Score</label>
-      <span class="score-value" ng-class="c.getScoreClass()">
+      <label class="section-label">Score</label>
+      <span class="score-badge" ng-class="c.getScoreClass()">
         {{c.field.score || 'N/A'}}
       </span>
     </div>
 
     <!-- Why This Failed / Reason Section -->
     <div class="reason-section" ng-if="c.field.reason || c.field.logic_transparency">
-      <label>Why this failed:</label>
-      <div class="reason-box" ng-class="{'reason-error': c.field.score === 'Failed'}">
-        <p>{{c.field.reason || c.field.logic_transparency}}</p>
+      <label class="section-label">Why this failed:</label>
+      <div class="reason-box">
+        {{c.field.reason || c.field.logic_transparency}}
       </div>
     </div>
 
     <!-- Source Evidence Section -->
     <div class="source-section" ng-if="c.hasSource()">
-      <label>Source Evidence</label>
+      <label class="section-label">Source Evidence</label>
       
       <div class="source-card">
         <!-- Document Info -->
-        <div class="source-document" ng-if="c.field.attachmentData">
-          <i class="fa fa-file-pdf-o"></i>
-          <div class="document-info">
-            <span class="document-name">{{c.field.attachmentData.file_name}}</span>
-            <span class="document-location">
+        <div class="doc-row" ng-if="c.field.attachmentData">
+          <i class="fa fa-file-pdf-o doc-icon"></i>
+          <div class="doc-info">
+            <span class="doc-name">{{c.field.attachmentData.file_name}}</span>
+            <span class="doc-location">
               Page {{c.field.page_number}}
               <span ng-if="c.field.section_name"> • {{c.field.section_name}}</span>
             </span>
@@ -69,17 +62,19 @@
         </div>
 
         <!-- Extracted Text -->
-        <div class="extracted-text" ng-if="c.field.extracted_text">
-          <label>Extracted Text:</label>
-          <p>"{{c.field.extracted_text}}"</p>
+        <div class="extracted-section" ng-if="c.field.extracted_text">
+          <label class="extracted-label">Extracted Text:</label>
+          <div class="extracted-box">
+            "{{c.field.extracted_text}}"
+          </div>
         </div>
-
-        <!-- View in Document Button -->
-        <button class="btn-view-document" ng-click="c.viewInDocument()" ng-if="c.hasSource()">
-          <i class="fa fa-file-text-o"></i>
-          View in Document
-        </button>
       </div>
+
+      <!-- View in Document Button -->
+      <button class="view-doc-btn" ng-click="c.viewInDocument()" ng-if="c.hasSource()">
+        <i class="fa fa-file-text-o"></i>
+        View in Document
+      </button>
     </div>
 
     <!-- No Source Available -->
@@ -92,9 +87,9 @@
 
     <!-- Commentary Section -->
     <div class="commentary-section" ng-if="c.field.commentary">
-      <label>Commentary</label>
+      <label class="section-label">Commentary</label>
       <div class="commentary-box">
-        <p>{{c.field.commentary}}</p>
+        {{c.field.commentary}}
       </div>
     </div>
 
