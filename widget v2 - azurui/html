@@ -146,8 +146,8 @@
                     <!-- Editable input when submission_status_choice is 'a' -->
                     <input type="text" class="verification-input" ng-model="field.data_verification"
                       ng-if="c.submissionStatusChoice !== c.qaKey" ng-change="c.markFieldAsChanged(field)"
-                      ng-blur="c.autoSaveField(field)" ng-disabled="false && !c.isFieldActive(field)"
-                      placeholder="Enter...">
+                      ng-blur="c.validateCommentary(field); c.autoSaveField(field)"
+                      ng-disabled="false && !c.isFieldActive(field)" placeholder="Enter...">
                     <!-- Read-only text when submission_status_choice is not 'a' -->
                     <span class="cell-text" ng-if="c.submissionStatusChoice === c.qaKey"
                       title="{{field.data_verification}}">
@@ -160,8 +160,8 @@
                     <!-- Editable input when submission_status_choice is 'b' -->
                     <input type="text" class="override-input" ng-model="field.qa_override_value"
                       ng-if="c.submissionStatusChoice === c.qaKey" ng-change="c.markFieldAsChanged(field)"
-                      ng-blur="c.autoSaveField(field)" ng-disabled="false && !c.isFieldActive(field)"
-                      placeholder="Enter...">
+                      ng-blur="c.validateCommentary(field); c.autoSaveField(field)"
+                      ng-disabled="false && !c.isFieldActive(field)" placeholder="Enter...">
                     <!-- Read-only text when submission_status_choice is not 'b' -->
                     <span class="cell-text" ng-if="c.submissionStatusChoice !== c.qaKey"
                       title="{{field.qa_override_value}}">
@@ -180,7 +180,9 @@
                   <!-- Commentary (Editable input field) -->
                   <td class="col-commentary" ng-click="$event.stopPropagation()">
                     <input type="text" class="commentary-input" ng-model="field.commentary"
-                      ng-change="c.markFieldAsChanged(field)" ng-blur="c.autoSaveField(field)" placeholder="Enter...">
+                      ng-class="{'validation-error': field.commentaryRequired}"
+                      ng-change="c.markFieldAsChanged(field); field.commentaryRequired = false;"
+                      ng-blur="c.autoSaveField(field)" placeholder="Enter...">
                   </td>
                 </tr>
               </tbody>

@@ -244,11 +244,91 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   };
 
   /**
+   * Validate if commentary is required for a field
+   * Sets commentaryRequired flag to highlight the field
+   * @param {object} field - The field to validate
+   * @returns {boolean} true if validation passed, false if commentary is required
+   */
+  c.validateCommentary = function (field) {
+    if (!field) return true;
+
+    // Check if QA Override has value but commentary is empty
+    if (field.qa_override_value && field.qa_override_value.trim() !== '') {
+      if (!field.commentary || field.commentary.trim() === '') {
+        field.commentaryRequired = true;
+        return false;
+      }
+    }
+
+    // Check if Data Verification has value but commentary is empty
+    if (field.data_verification && field.data_verification.trim() !== '') {
+      if (!field.commentary || field.commentary.trim() === '') {
+        field.commentaryRequired = true;
+        return false;
+      }
+    }
+
+    // Validation passed
+    field.commentaryRequired = false;
+    return true;
+  };
+
+  /**
    * Auto-save a single field when input loses focus (blur)
    * @param {object} field - The field object to save
    */
   c.autoSaveField = function (field) {
-    if (!field || !field.sys_id || !c.changedFields[field.sys_id]) {
+    if (!field || !field.sys_id) {
+      return;
+    }
+
+    // VALIDATION: QA Override Value requires Commentary (always validate when field has value)
+    if (field.qa_override_value && field.qa_override_value.trim() !== '') {
+      if (!field.commentary || field.commentary.trim() === '') {
+        // Highlight commentary field
+        field.commentaryRequired = true;
+
+        // Show error - commentary is required
+        c.saveStatus = 'error';
+        c.saveStatusMessage = 'Commentary is required when filling QA Override Value';
+
+        // Clear error after 4 seconds
+        $timeout(function () {
+          if (c.saveStatus === 'error') {
+            c.saveStatus = '';
+          }
+        }, 4000);
+
+        return; // Don't save without commentary
+      }
+    }
+
+    // VALIDATION: Data Verification requires Commentary (always validate when field has value)
+    if (field.data_verification && field.data_verification.trim() !== '') {
+      if (!field.commentary || field.commentary.trim() === '') {
+        // Highlight commentary field
+        field.commentaryRequired = true;
+
+        // Show error - commentary is required
+        c.saveStatus = 'error';
+        c.saveStatusMessage = 'Commentary is required when filling Data Verification';
+
+        // Clear error after 4 seconds
+        $timeout(function () {
+          if (c.saveStatus === 'error') {
+            c.saveStatus = '';
+          }
+        }, 4000);
+
+        return; // Don't save without commentary
+      }
+    }
+
+    // Clear validation error if commentary is now filled
+    field.commentaryRequired = false;
+
+    // Check if there are changes to save
+    if (!c.changedFields[field.sys_id]) {
       return; // No changes to save for this field
     }
 
@@ -332,9 +412,28 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     // Collect all changed fields with their updated values
     var updates = [];
     var allFields = c.flatten(c.groupedFields);
+    var validationErrors = [];
 
     allFields.forEach(function (field) {
       if (c.changedFields[field.sys_id]) {
+
+        // VALIDATION: QA Override Value requires Commentary (always check)
+        if (field.qa_override_value && field.qa_override_value.trim() !== '') {
+          if (!field.commentary || field.commentary.trim() === '') {
+            validationErrors.push(field.field_name + ' (QA Override)');
+            return; // Skip this field
+          }
+        }
+
+        // VALIDATION: Data Verification requires Commentary (always check)
+        if (field.data_verification && field.data_verification.trim() !== '') {
+          if (!field.commentary || field.commentary.trim() === '') {
+            validationErrors.push(field.field_name + ' (Data Verification)');
+            return; // Skip this field
+          }
+        }
+
+
         var update = { sys_id: field.sys_id };
 
         // Include the appropriate editable field based on submission status
@@ -348,9 +447,18 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
           update.data_verification = field.data_verification || '';
         }
 
+        // Include commentary
+        update.commentary = field.commentary || '';
+
         updates.push(update);
       }
     });
+
+    // Show validation errors if any
+    if (validationErrors.length > 0) {
+      spUtil.addErrorMessage('Commentary is required for: ' + validationErrors.join(', '));
+      return;
+    }
 
     if (updates.length === 0) {
       spUtil.addInfoMessage('No changes to save');

@@ -609,6 +609,21 @@
   background: #fffde7;
 }
 
+/* Validation Error - Highlight when commentary is required */
+.commentary-input.validation-error {
+  border-color: #d13438 !important;
+  background: #fde7e9 !important;
+  box-shadow: 0 0 0 2px rgba(209, 52, 56, 0.2) !important;
+  animation: shake 0.4s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  50% { transform: translateX(4px); }
+  75% { transform: translateX(-4px); }
+}
+
 /* Logic Text */
 .logic-text {
   color: #605e5c;
