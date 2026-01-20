@@ -265,7 +265,14 @@
 .pdf-controls {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 16px;
+}
+
+.zoom-controls,
+.page-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .ctrl-btn {
@@ -291,6 +298,12 @@
 .ctrl-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.ctrl-btn.active {
+  background: #0078d4;
+  border-color: #0078d4;
+  color: #fff;
 }
 
 .ctrl-btn.highlight-btn {

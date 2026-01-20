@@ -38,6 +38,16 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   // Filter toggle: show only fields with current document and source
   c.filterDocumentOnly = false;
 
+  // Sidebar collapse state
+  c.sidebarCollapsed = false;
+
+  /**
+   * Toggle sidebar collapsed state
+   */
+  c.toggleSidebar = function () {
+    c.sidebarCollapsed = !c.sidebarCollapsed;
+  };
+
   // Loading states
   c.isLoading = false;
   c.isSaving = false;

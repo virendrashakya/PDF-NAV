@@ -27,6 +27,7 @@ api.controller = function ($scope, $timeout) {
     c.isLoading = false;
     c.pdfError = null;
     c.activeCoordinates = [];
+    c.zoomMode = 'fit-width';  // 'fit-width', 'fit-page', 'actual-size'
 
     /* ============================================
      * INITIALIZATION
@@ -124,10 +125,27 @@ api.controller = function ($scope, $timeout) {
             c.pageWidth = Math.round(baseViewport.width);
             c.pageHeight = Math.round(baseViewport.height);
 
-            // Fit to container width
+            // Get container dimensions
             var container = document.getElementById('pdfContainer');
             var containerWidth = container ? container.clientWidth - 40 : 600;
-            c.scale = containerWidth / baseViewport.width;
+            var containerHeight = container ? container.clientHeight - 40 : 800;
+
+            // Calculate scale based on zoom mode
+            switch (c.zoomMode) {
+                case 'fit-width':
+                    c.scale = containerWidth / baseViewport.width;
+                    break;
+                case 'fit-page':
+                    var scaleX = containerWidth / baseViewport.width;
+                    var scaleY = containerHeight / baseViewport.height;
+                    c.scale = Math.min(scaleX, scaleY);
+                    break;
+                case 'actual-size':
+                    c.scale = 1.0;
+                    break;
+                default:
+                    c.scale = containerWidth / baseViewport.width;
+            }
             c.scalePercent = Math.round(c.scale * 100);
 
             var viewport = page.getViewport({ scale: c.scale });
@@ -216,6 +234,25 @@ api.controller = function ($scope, $timeout) {
             var targetPage = c.activeCoordinates[0].page || 1;
             goToPage(targetPage);
         }
+    };
+
+    /* ============================================
+     * ZOOM CONTROLS
+     * ============================================ */
+
+    c.fitWidth = function () {
+        c.zoomMode = 'fit-width';
+        renderPage(c.currentPage);
+    };
+
+    c.fitPage = function () {
+        c.zoomMode = 'fit-page';
+        renderPage(c.currentPage);
+    };
+
+    c.actualSize = function () {
+        c.zoomMode = 'actual-size';
+        renderPage(c.currentPage);
     };
 
     /* ============================================

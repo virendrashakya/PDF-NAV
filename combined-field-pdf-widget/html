@@ -71,13 +71,31 @@
         <span>{{c.field.document_name || 'Document'}}</span>
       </div>
       <div class="pdf-controls">
-        <button class="ctrl-btn" ng-click="c.previousPage()" ng-disabled="c.currentPage <= 1">
-          <i class="fa fa-chevron-left"></i>
-        </button>
-        <span class="page-info">Page {{c.currentPage}} of {{c.totalPages}}</span>
-        <button class="ctrl-btn" ng-click="c.nextPage()" ng-disabled="c.currentPage >= c.totalPages">
-          <i class="fa fa-chevron-right"></i>
-        </button>
+        <!-- Zoom Controls -->
+        <div class="zoom-controls">
+          <button class="ctrl-btn" ng-click="c.fitWidth()" ng-class="{'active': c.zoomMode === 'fit-width'}"
+            title="Fit to Width">
+            <i class="fa fa-arrows-h"></i>
+          </button>
+          <button class="ctrl-btn" ng-click="c.fitPage()" ng-class="{'active': c.zoomMode === 'fit-page'}"
+            title="Fit Complete Page">
+            <i class="fa fa-expand"></i>
+          </button>
+          <button class="ctrl-btn" ng-click="c.actualSize()" ng-class="{'active': c.zoomMode === 'actual-size'}"
+            title="Actual Size (100%)">
+            <i class="fa fa-search"></i>
+          </button>
+        </div>
+        <!-- Page Navigation -->
+        <div class="page-controls">
+          <button class="ctrl-btn" ng-click="c.previousPage()" ng-disabled="c.currentPage <= 1">
+            <i class="fa fa-chevron-left"></i>
+          </button>
+          <span class="page-info">Page {{c.currentPage}} of {{c.totalPages}}</span>
+          <button class="ctrl-btn" ng-click="c.nextPage()" ng-disabled="c.currentPage >= c.totalPages">
+            <i class="fa fa-chevron-right"></i>
+          </button>
+        </div>
       </div>
     </div>
 

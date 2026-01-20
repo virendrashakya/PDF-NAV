@@ -34,12 +34,16 @@
          LEFT SIDEBAR - FIELDS PANEL
          Contains: Header, Document selector, Search, Fields table
          ============================================ -->
-    <div class="left-sidebar">
+    <div class="left-sidebar" ng-class="{'collapsed': c.sidebarCollapsed}">
 
       <!-- Header with Title and Action Buttons -->
       <div class="fields-header">
         <div class="header-row">
-          <h2 class="fields-title">Audit - #{{c.submissionNumber}}</h2>
+          <button class="btn-collapse-toggle" ng-click="c.toggleSidebar()" 
+            title="{{c.sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}}">
+            <i class="fas" ng-class="c.sidebarCollapsed ? 'fa-chevron-right' : 'fa-chevron-left'"></i>
+          </button>
+          <h2 class="fields-title" ng-hide="c.sidebarCollapsed">Audit - #{{c.submissionNumber}}</h2>
 
           <!-- Action Buttons: Refer, Save, Done -->
           <div class="header-actions">
