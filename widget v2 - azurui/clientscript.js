@@ -565,7 +565,11 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   function extractAttachmentOptions(jsonResponse) {
     var options = [];
 
-    jsonResponse.forEach(record => {
+    if (!jsonResponse || !Array.isArray(jsonResponse)) {
+      return options;
+    }
+
+    jsonResponse.forEach(function (record) {
       if (record.attachmentData && record.attachmentData.file_name && record.attachmentData.file_url) {
         options.push({
           name: record.attachmentData.file_name,
@@ -578,7 +582,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     var unique = [];
     var seen = new Set();
 
-    options.forEach(opt => {
+    options.forEach(function (opt) {
       if (!seen.has(opt.name)) {
         seen.add(opt.name);
         unique.push(opt);
@@ -639,6 +643,11 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
       action: 'fetchMapping',
       submissionSysId: submissionSysId
     }).then(function (response) {
+      if (response.data.error) {
+        spUtil.addErrorMessage('Server error: ' + response.data.error);
+        c.isLoading = false;
+        return;
+      }
 
       // Capture submission status choice for conditional field editing
       c.submissionNumber = response.data.submissionNumber;
@@ -652,7 +661,6 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
       c.selectedDocument = documentList[0];
       if (c.selectedDocument) {
         c.loadDocument();
-        //loadPdfFromUrl(c.selectedDocument.url);
       }
       if (response.data.success) {
         processMappingData(response.data.mapping);
@@ -661,6 +669,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     }).catch(function (error) {
       c.isLoading = false;
       console.error('Failed to load mapping:', error);
+      spUtil.addErrorMessage('Failed to load mapping');
     });
   }
 

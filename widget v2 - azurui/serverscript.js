@@ -2,19 +2,24 @@
   /* ============================================
    * PDF-NAV Widget Server Script
    * ============================================
-   * Table: x_gegis_uwm_dashbo_data_extraction_lineitem
+   * Tables:
+   * - x_gegis_uwm_dashbo_data_extraction_lineitem (editable data)
+   * - x_gegis_uwm_dashbo_data_extraction_metadata (field definitions, read-only)
    * 
    * Column Mappings:
-   * - field_name         -> Field Name
-   * - field_value        -> AI Value
-   * - commentary         -> Commentary
-   * - qa_override_value     -> QA Override Value (editable)
-   * - data_verification  -> Data Verification
-   * - logic_transparency -> Logic Transparency
+   * - metadata.model_label     -> Field Name
+   * - lineitem.field_value     -> AI Value
+   * - lineitem.data_verification -> Data Verification (editable)
+   * - lineitem.qa_override_value -> QA Override Value (editable)
+   * - lineitem.commentary      -> Commentary (editable)
+   * 
+   * Ordering: metadata.order
+   * Grouping: metadata.section_name
    * ============================================ */
 
   // Table names
   var lineItemTableName = 'x_gegis_uwm_dashbo_data_extraction_lineitem';
+  var metadataTableName = 'x_gegis_uwm_dashbo_data_extraction_metadata';
   var submissionTableName = 'x_gegis_uwm_dashbo_submission';
   var sysAttachmentTable = 'sys_attachment';
   var supportedContentType = 'application/pdf';
@@ -175,7 +180,17 @@
    * FETCH MAPPING DATA
    * ============================================
    * Retrieves all line items for the given submission
-   * including all editable and display fields
+   * joined with metadata table for field definitions.
+   * 
+   * Data sources:
+   * - field_name: metadata.model_label
+   * - field_value (AI value): lineitem.field_value
+   * - data_verification: lineitem.data_verification
+   * - qa_override_value: lineitem.qa_override_value
+   * - commentary: lineitem.commentary
+   * 
+   * Ordering: metadata.order (or internal_field_seq for legacy records)
+   * Grouping: metadata.section_name (or lineitem.new_section_name for legacy)
    */
   function fetchMapping() {
     data.success = false;
@@ -199,8 +214,6 @@
       // 'QUALITY_ASSURANCE' = Data Verification readonly, QA Override editable
 
       if (submissionGr.next()) {
-        //data.submissionNumber = _getValue(submissionGr, 'number');
-        //data.submissionStatusChoice = _getValue(submissionGr, 'submission_status_choice') || 'CONFIRM_DATA_REVIEW';	
         data.submissionNumber = submissionGr.getValue('number');
         data.submissionStatusChoice = submissionGr.getValue('submission_status_choice') || 'CONFIRM_DATA_REVIEW';
       } else {
@@ -215,64 +228,82 @@
       }
 
       // Query line items from x_gegis_uwm_dashbo_data_extraction_lineitem
-      // Include all records regardless of source or attachment data
+      // Supports both new architecture (with metadata_id) and legacy records
       var lineItemGr = new GlideRecord(lineItemTableName);
-
-      //lineItemGr.addNotNullQuery('source');
-      //lineItemGr.addNotNullQuery('documentname_attachment_sysid');
-      //lineItemGr.addQuery('documentname_attachment_sysid', '!=', '');
-      //lineItemGr.addQuery('source', '!=', '');
-
-      lineItemGr.addNotNullQuery('section_name');
-
       lineItemGr.addQuery('parent', dataExtractSysId);
-      lineItemGr.orderBy('new_section_name');
-      lineItemGr.orderBy('internal_field_seq');
       lineItemGr.setLimit(500);
       lineItemGr.query();
 
-      var count = 0;
+      // Collect all line items with their metadata
+      var lineItems = [];
       while (lineItemGr.next()) {
+        var metadataId = _getValue(lineItemGr, 'metadata_id');
         var source = _getValue(lineItemGr, 'source');
         var documentSysId = _getValue(lineItemGr, 'documentname_attachment_sysid');
 
-        // Include all records, even those without coordinates or attachments
-        var mapping = {
-          // Record identifier
+        // Initialize field values with defaults from lineitem (for legacy compatibility)
+        var sectionName = _getValue(lineItemGr, 'new_section_name') || _getValue(lineItemGr, 'section_name') || 'Uncategorized';
+        var fieldName = _getValue(lineItemGr, 'field_name');
+        var columnLabel = '';
+        var orderValue = '0';
+        var orderNumeric = parseInt(_getValue(lineItemGr, 'internal_field_seq')) || 0;
+
+        // If metadata_id exists, try to get values from metadata table (new architecture)
+        if (metadataId) {
+          var metadataGr = new GlideRecord(metadataTableName);
+          if (metadataGr.get(metadataId)) {
+            // Override with metadata values
+            sectionName = _getValue(metadataGr, 'section_name') || sectionName;
+            fieldName = _getValue(metadataGr, 'model_label') || fieldName;
+            columnLabel = _getValue(metadataGr, 'column_label') || '';
+            orderValue = _getValue(metadataGr, 'order') || '0';
+            // Parse order value (format: "1,010,101" - remove commas for numeric comparison)
+            orderNumeric = parseFloat(orderValue.replace(/,/g, '')) || orderNumeric;
+          }
+        }
+
+        lineItems.push({
+          // Record identifier (from lineitem - used for updates)
           sys_id: lineItemGr.getUniqueValue(),
           parent: _getValue(lineItemGr, 'parent'),
+          metadata_id: metadataId,
 
-          // Display fields
-          section_name: _getValue(lineItemGr, 'section_name'),
-          new_section_name: _getValue(lineItemGr, 'new_section_name'),
-          field_name: _getValue(lineItemGr, 'field_name'),           // Field Name
-          field_value: _getValue(lineItemGr, 'field_value'),         // AI Value
+          // Display fields (from metadata if available, otherwise from lineitem)
+          section_name: sectionName,
+          new_section_name: sectionName,  // Alias for client script compatibility
+          field_name: fieldName,
+          column_label: columnLabel,
+          order: orderValue,
+          order_numeric: orderNumeric,
 
-          // Editable fields
-          qa_override_value: _getValue(lineItemGr, 'qa_override_value'),   // QA Override Value
-          data_verification: _getValue(lineItemGr, 'data_verification'), // Data Verification
-          commentary: _getValue(lineItemGr, 'commentary'),           // Commentary
-          logic_transparency: _getValue(lineItemGr, 'reason'), // Logic Transparency
+          // Data fields from lineitem table
+          field_value: _getValue(lineItemGr, 'field_value'),        // AI Value
 
-          // Confidence data
+          // Editable fields from lineitem table
+          qa_override_value: _getValue(lineItemGr, 'qa_override_value'),
+          data_verification: _getValue(lineItemGr, 'data_verification'),
+          commentary: _getValue(lineItemGr, 'commentary'),
+          logic_transparency: _getValue(lineItemGr, 'reason'),
+
+          // Confidence data from lineitem
           confidence_indicator: _parseConfidence(_getValue(lineItemGr, 'confidence_indicator')),
           section_confidence_avg: _getValue(lineItemGr, 'section_confidence_avg'),
 
           // Coordinate and attachment data (may be empty)
           source: source,
-          attachmentData: documentSysId ? _getAttachmentData(documentSysId) : null,
-
-          // Sequence field for ordering within sections
-          internal_field_seq: parseInt(_getValue(lineItemGr, 'internal_field_seq')) || 0
-        };
-
-        data.mapping.push(mapping);
-        count++;
+          attachmentData: documentSysId ? _getAttachmentData(documentSysId) : null
+        });
       }
 
+      // Sort by order (numeric comparison)
+      lineItems.sort(function (a, b) {
+        return a.order_numeric - b.order_numeric;
+      });
+
+      // Add sorted items to mapping
+      data.mapping = lineItems;
       data.success = true;
-      data.totalMappings = count;
-      gs.info('PDF Widget: Loaded ' + count + ' field mappings');
+      data.totalMappings = lineItems.length;
 
     } catch (e) {
       data.error = 'Error loading mapping: ' + e.message;
