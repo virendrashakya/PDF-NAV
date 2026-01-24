@@ -88,7 +88,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   var currentPageInstance = null;
 
   // URL parameters
-  var submissionSysId = $location.search().submissionSysId || '4047569b9375f290ce18b5d97bba1044';
+  var submissionSysId = $location.search().submissionSysId || '2726125693a63210ce18b5d97bba106c';
 
   // Performance optimization: Debounce functions
   var debounce = function (func, wait) {
@@ -270,14 +270,6 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
       }
     }
 
-    // Check if Data Verification has value but commentary is empty
-    if (field.data_verification && field.data_verification.trim() !== '') {
-      if (!field.commentary || field.commentary.trim() === '') {
-        field.commentaryRequired = true;
-        return false;
-      }
-    }
-
     // Validation passed
     field.commentaryRequired = false;
     return true;
@@ -313,26 +305,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
       }
     }
 
-    // VALIDATION: Data Verification requires Commentary (always validate when field has value)
-    if (field.data_verification && field.data_verification.trim() !== '') {
-      if (!field.commentary || field.commentary.trim() === '') {
-        // Highlight commentary field
-        field.commentaryRequired = true;
 
-        // Show error - commentary is required
-        c.saveStatus = 'error';
-        c.saveStatusMessage = 'Commentary is required when filling Data Verification';
-
-        // Clear error after 4 seconds
-        $timeout(function () {
-          if (c.saveStatus === 'error') {
-            c.saveStatus = '';
-          }
-        }, 4000);
-
-        return; // Don't save without commentary
-      }
-    }
 
     // Clear validation error if commentary is now filled
     field.commentaryRequired = false;
@@ -435,13 +408,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
           }
         }
 
-        // VALIDATION: Data Verification requires Commentary (always check)
-        if (field.data_verification && field.data_verification.trim() !== '') {
-          if (!field.commentary || field.commentary.trim() === '') {
-            validationErrors.push(field.field_name + ' (Data Verification)');
-            return; // Skip this field
-          }
-        }
+
 
 
         var update = { sys_id: field.sys_id };
@@ -516,32 +483,40 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     spUtil.addInfoMessage('Refer action - to be implemented');
   };
 
+  // Confirmation modal state
+  c.showConfirmModal = false;
+
   /**
-   * Mark as done action
-   * Placeholder for done functionality
+   * Mark as complete - shows confirmation modal first
    */
   c.markAsComplete = function () {
+    c.showConfirmModal = true;
+  };
 
-    // Show saving state
+  /**
+   * Cancel the complete action - close modal
+   */
+  c.cancelComplete = function () {
+    c.showConfirmModal = false;
+  };
+
+  /**
+   * Confirm and execute the complete action
+   */
+  c.confirmComplete = function () {
     c.isCompleting = true;
-    c.loadingMessage = 'Completing... ';
+    c.loadingMessage = 'Completing...';
 
-    console.log('--------', c.submissionNumber);
-
-    // Call server to save
     c.server.get({
       action: 'markComplete',
       submissionNumber: c.submissionNumber
     }).then(function (response) {
       c.isCompleting = false;
+      c.showConfirmModal = false;
 
       if (response.data.success) {
-        // Clear change tracking
+        spUtil.addInfoMessage(response.data.message || 'Submission completed successfully');
 
-
-        spUtil.addInfoMessage(response.data.message || 'Mark Complete successfully');
-
-        // Log any partial errors
         if (response.data.errors && response.data.errors.length > 0) {
           console.warn('Mark completed with errors:', response.data.errors);
         }
@@ -550,8 +525,9 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
       }
     }).catch(function (error) {
       c.isCompleting = false;
+      c.showConfirmModal = false;
       console.error('Mark Complete error:', error);
-      spUtil.addErrorMessage('Failed to mark complete changes');
+      spUtil.addErrorMessage('Failed to complete submission');
     });
   };
 
@@ -743,7 +719,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     }
 
     processedMappingData.forEach(function (field) {
-      var sectionName = field.new_section_name || 'Uncategorized';
+      var sectionName = field.section_name || 'Uncategorized';
 
       // Ensure allCoordinates exists
       if (!field.allCoordinates) {

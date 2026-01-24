@@ -5,24 +5,62 @@
    * Tables:
    * - x_gegis_uwm_dashbo_data_extraction_lineitem (editable data)
    * - x_gegis_uwm_dashbo_data_extraction_metadata (field definitions, read-only)
-   * 
-   * Column Mappings:
-   * - metadata.model_label     -> Field Name
-   * - lineitem.field_value     -> AI Value
-   * - lineitem.data_verification -> Data Verification (editable)
-   * - lineitem.qa_override_value -> QA Override Value (editable)
-   * - lineitem.commentary      -> Commentary (editable)
-   * 
-   * Ordering: metadata.order
-   * Grouping: metadata.section_name
    * ============================================ */
 
-  // Table names
-  var lineItemTableName = 'x_gegis_uwm_dashbo_data_extraction_lineitem';
-  var metadataTableName = 'x_gegis_uwm_dashbo_data_extraction_metadata';
-  var submissionTableName = 'x_gegis_uwm_dashbo_submission';
-  var sysAttachmentTable = 'sys_attachment';
-  var supportedContentType = 'application/pdf';
+  /* ============================================
+   * CONFIGURATION - Table and Column Names
+   * ============================================
+   * Modify these variables to adapt to schema changes
+   */
+  var CONFIG = {
+    // Table names
+    tables: {
+      lineItem: 'x_gegis_uwm_dashbo_data_extraction_lineitem',
+      metadata: 'x_gegis_uwm_dashbo_data_extraction_metadata',
+      submission: 'x_gegis_uwm_dashbo_submission',
+      attachment: 'sys_attachment'
+    },
+
+    // Lineitem table columns
+    lineItemColumns: {
+      parent: 'parent',
+      metadataRef: 'metadata_id',
+      source: 'source',
+      attachmentRef: 'documentname_attachment_sysid',
+      fieldValue: 'field_value',
+      qaOverrideValue: 'qa_override_value',
+      dataVerification: 'data_verification',
+      commentary: 'commentary',
+      reason: 'reason',
+      confidenceIndicator: 'confidence_indicator',
+      sectionConfidenceAvg: 'section_confidence_avg'
+    },
+
+    // Metadata table columns
+    metadataColumns: {
+      sectionName: 'section_name',
+      modelLabel: 'model_label',
+      columnLabel: 'column_label',
+      order: 'order'
+    },
+
+    // Submission table columns
+    submissionColumns: {
+      number: 'number',
+      statusChoice: 'submission_status_choice',
+      dataExtract: 'data_extract'
+    },
+
+    // Attachment settings
+    attachment: {
+      supportedContentType: 'application/pdf'
+    },
+
+    // Query limits
+    limits: {
+      maxLineItems: 500
+    }
+  };
 
   /* ============================================
    * HELPER FUNCTIONS
@@ -65,9 +103,9 @@
 
     var attachmentData = null;
     try {
-      var attachmentGr = new GlideRecord(sysAttachmentTable);
+      var attachmentGr = new GlideRecord(CONFIG.tables.attachment);
       attachmentGr.addQuery('sys_id', attachmentSysId);
-      attachmentGr.addQuery('content_type', supportedContentType);
+      attachmentGr.addQuery('content_type', CONFIG.attachment.supportedContentType);
       attachmentGr.orderByDesc('sys_created_on');
       attachmentGr.setLimit(1);
       attachmentGr.query();
@@ -98,7 +136,6 @@
   function _parseConfidence(confidenceValue) {
     try {
       var confidence = parseFloat(confidenceValue) || 0;
-      // Normalize if value is percentage (greater than 1)
       if (confidence > 1) {
         confidence = confidence / 100;
       }
@@ -108,13 +145,21 @@
     }
   }
 
+  /**
+   * Parse order value (handles comma-formatted numbers like "1,010,101")
+   * @param {string} orderStr - Order string value
+   * @returns {number} Numeric order value
+   */
+  function _parseOrder(orderStr) {
+    if (!orderStr) return 0;
+    return parseFloat(orderStr.replace(/,/g, '')) || 0;
+  }
+
   /* ============================================
    * INITIALIZE DATA OBJECT
    * ============================================ */
   data.success = false;
   data.error = '';
-  data.documents = [];
-  data.files = [];
   data.mapping = [];
 
   /* ============================================
@@ -181,16 +226,6 @@
    * ============================================
    * Retrieves all line items for the given submission
    * joined with metadata table for field definitions.
-   * 
-   * Data sources:
-   * - field_name: metadata.model_label
-   * - field_value (AI value): lineitem.field_value
-   * - data_verification: lineitem.data_verification
-   * - qa_override_value: lineitem.qa_override_value
-   * - commentary: lineitem.commentary
-   * 
-   * Ordering: metadata.order (or internal_field_seq for legacy records)
-   * Grouping: metadata.section_name (or lineitem.new_section_name for legacy)
    */
   function fetchMapping() {
     data.success = false;
@@ -204,103 +239,88 @@
       }
 
       // Get data_extract sys_id from submission
-      var submissionGr = new GlideRecord(submissionTableName);
+      var submissionGr = new GlideRecord(CONFIG.tables.submission);
       submissionGr.addQuery('sys_id', submissionSysId);
       submissionGr.setLimit(1);
       submissionGr.query();
 
-      // Get submission_status_choice to determine editable fields
-      // 'CONFIRM_DATA_REVIEW' = Data Verification editable, QA Override readonly
-      // 'QUALITY_ASSURANCE' = Data Verification readonly, QA Override editable
-
       if (submissionGr.next()) {
-        data.submissionNumber = submissionGr.getValue('number');
-        data.submissionStatusChoice = submissionGr.getValue('submission_status_choice') || 'CONFIRM_DATA_REVIEW';
+        data.submissionNumber = _getValue(submissionGr, CONFIG.submissionColumns.number);
+        data.submissionStatusChoice = _getValue(submissionGr, CONFIG.submissionColumns.statusChoice) || 'CONFIRM_DATA_REVIEW';
       } else {
         data.error = 'Submission not found';
         return;
       }
 
-      var dataExtractSysId = submissionGr.getValue('data_extract');
+      var dataExtractSysId = _getValue(submissionGr, CONFIG.submissionColumns.dataExtract);
       if (!dataExtractSysId) {
         data.error = 'No data extract linked to submission';
         return;
       }
 
-      // Query line items from x_gegis_uwm_dashbo_data_extraction_lineitem
-      // Supports both new architecture (with metadata_id) and legacy records
-      var lineItemGr = new GlideRecord(lineItemTableName);
-      lineItemGr.addQuery('parent', dataExtractSysId);
-      lineItemGr.setLimit(500);
+      // Query line items
+      var lineItemGr = new GlideRecord(CONFIG.tables.lineItem);
+      lineItemGr.addQuery(CONFIG.lineItemColumns.parent, dataExtractSysId);
+      lineItemGr.setLimit(CONFIG.limits.maxLineItems);
       lineItemGr.query();
 
       // Collect all line items with their metadata
       var lineItems = [];
       while (lineItemGr.next()) {
-        var metadataId = _getValue(lineItemGr, 'metadata_id');
-        var source = _getValue(lineItemGr, 'source');
-        var documentSysId = _getValue(lineItemGr, 'documentname_attachment_sysid');
+        var metadataId = _getValue(lineItemGr, CONFIG.lineItemColumns.metadataRef);
+        var source = _getValue(lineItemGr, CONFIG.lineItemColumns.source);
+        var documentSysId = _getValue(lineItemGr, CONFIG.lineItemColumns.attachmentRef);
 
-        // Initialize field values with defaults from lineitem (for legacy compatibility)
-        var sectionName = _getValue(lineItemGr, 'new_section_name') || _getValue(lineItemGr, 'section_name') || 'Uncategorized';
-        var fieldName = _getValue(lineItemGr, 'field_name');
-        var columnLabel = '';
-        var orderValue = '0';
-        var orderNumeric = parseInt(_getValue(lineItemGr, 'internal_field_seq')) || 0;
+        // Initialize with defaults
+        var sectionName = 'Uncategorized';
+        var fieldName = '';
+        var orderNumeric = 0;
 
-        // If metadata_id exists, try to get values from metadata table (new architecture)
+        // Get values from metadata table (new architecture)
         if (metadataId) {
-          var metadataGr = new GlideRecord(metadataTableName);
+          var metadataGr = new GlideRecord(CONFIG.tables.metadata);
           if (metadataGr.get(metadataId)) {
-            // Override with metadata values
-            sectionName = _getValue(metadataGr, 'section_name') || sectionName;
-            fieldName = _getValue(metadataGr, 'model_label') || fieldName;
-            columnLabel = _getValue(metadataGr, 'column_label') || '';
-            orderValue = _getValue(metadataGr, 'order') || '0';
-            // Parse order value (format: "1,010,101" - remove commas for numeric comparison)
-            orderNumeric = parseFloat(orderValue.replace(/,/g, '')) || orderNumeric;
+            sectionName = _getValue(metadataGr, CONFIG.metadataColumns.sectionName) || sectionName;
+            fieldName = _getValue(metadataGr, CONFIG.metadataColumns.modelLabel) || fieldName;
+            orderNumeric = _parseOrder(_getValue(metadataGr, CONFIG.metadataColumns.order));
           }
         }
 
         lineItems.push({
           // Record identifier (from lineitem - used for updates)
           sys_id: lineItemGr.getUniqueValue(),
-          parent: _getValue(lineItemGr, 'parent'),
-          metadata_id: metadataId,
+          _order: orderNumeric, // Internal use only for sorting
 
-          // Display fields (from metadata if available, otherwise from lineitem)
+          // Display fields
           section_name: sectionName,
-          new_section_name: sectionName,  // Alias for client script compatibility
           field_name: fieldName,
-          column_label: columnLabel,
-          order: orderValue,
-          order_numeric: orderNumeric,
+          field_value: _getValue(lineItemGr, CONFIG.lineItemColumns.fieldValue),
 
-          // Data fields from lineitem table
-          field_value: _getValue(lineItemGr, 'field_value'),        // AI Value
+          // Editable fields
+          qa_override_value: _getValue(lineItemGr, CONFIG.lineItemColumns.qaOverrideValue),
+          data_verification: _getValue(lineItemGr, CONFIG.lineItemColumns.dataVerification),
+          commentary: _getValue(lineItemGr, CONFIG.lineItemColumns.commentary),
+          logic_transparency: _getValue(lineItemGr, CONFIG.lineItemColumns.reason),
 
-          // Editable fields from lineitem table
-          qa_override_value: _getValue(lineItemGr, 'qa_override_value'),
-          data_verification: _getValue(lineItemGr, 'data_verification'),
-          commentary: _getValue(lineItemGr, 'commentary'),
-          logic_transparency: _getValue(lineItemGr, 'reason'),
+          // Confidence data
+          confidence_indicator: _parseConfidence(_getValue(lineItemGr, CONFIG.lineItemColumns.confidenceIndicator)),
 
-          // Confidence data from lineitem
-          confidence_indicator: _parseConfidence(_getValue(lineItemGr, 'confidence_indicator')),
-          section_confidence_avg: _getValue(lineItemGr, 'section_confidence_avg'),
-
-          // Coordinate and attachment data (may be empty)
+          // Coordinate and attachment data
           source: source,
           attachmentData: documentSysId ? _getAttachmentData(documentSysId) : null
         });
       }
 
-      // Sort by order (numeric comparison)
+      // Sort by order
       lineItems.sort(function (a, b) {
-        return a.order_numeric - b.order_numeric;
+        return a._order - b._order;
       });
 
-      // Add sorted items to mapping
+      // Remove internal _order field before returning
+      lineItems.forEach(function (item) {
+        delete item._order;
+      });
+
       data.mapping = lineItems;
       data.success = true;
       data.totalMappings = lineItems.length;
@@ -314,8 +334,7 @@
   /* ============================================
    * SAVE MAPPING DATA
    * ============================================
-   * Updates the QA Override Value for line items
-   * Expects input.updates as array of {sys_id, qa_override_value}
+   * Updates editable fields in lineitem table
    */
   function saveMapping() {
     data.success = false;
@@ -333,7 +352,6 @@
       var updatedCount = 0;
       var errors = [];
 
-      // Process each update
       for (var i = 0; i < updates.length; i++) {
         var update = updates[i];
 
@@ -343,19 +361,16 @@
         }
 
         try {
-          var lineItemGr = new GlideRecord(lineItemTableName);
+          var lineItemGr = new GlideRecord(CONFIG.tables.lineItem);
           if (lineItemGr.get(update.sys_id)) {
-            // Update qa_override_value if provided
             if (update.hasOwnProperty('qa_override_value')) {
-              lineItemGr.setValue('qa_override_value', update.qa_override_value || '');
+              lineItemGr.setValue(CONFIG.lineItemColumns.qaOverrideValue, update.qa_override_value || '');
             }
-            // Update data_verification if provided
             if (update.hasOwnProperty('data_verification')) {
-              lineItemGr.setValue('data_verification', update.data_verification || '');
+              lineItemGr.setValue(CONFIG.lineItemColumns.dataVerification, update.data_verification || '');
             }
-            // Update commentary if provided
             if (update.hasOwnProperty('commentary')) {
-              lineItemGr.setValue('commentary', update.commentary || '');
+              lineItemGr.setValue(CONFIG.lineItemColumns.commentary, update.commentary || '');
             }
             lineItemGr.update();
             updatedCount++;
@@ -375,8 +390,6 @@
       if (errors.length > 0) {
         data.message += ' with ' + errors.length + ' error(s)';
       }
-
-      gs.info('PDF Widget: Saved ' + updatedCount + ' updates');
 
     } catch (e) {
       data.error = 'Error saving mapping: ' + e.message;

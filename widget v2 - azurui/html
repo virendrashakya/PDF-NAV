@@ -295,4 +295,35 @@
       </div>
     </div>
   </div>
+
+  <!-- ============================================
+       CONFIRMATION MODAL
+       Shows before completing/committing submission
+       ============================================ -->
+  <div class="confirmation-modal-overlay" ng-show="c.showConfirmModal" ng-click="c.cancelComplete()">
+    <div class="confirmation-modal" ng-click="$event.stopPropagation()">
+      <div class="modal-header">
+        <i class="fas fa-exclamation-triangle modal-icon"></i>
+        <h3>Confirm Completion</h3>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to <strong>complete</strong> this submission?</p>
+        <p class="modal-warning">This action will commit all changes and cannot be undone.</p>
+        <div class="modal-info">
+          <span><i class="fas fa-hashtag"></i> Submission: <strong>{{c.submissionNumber}}</strong></span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-modal-cancel" ng-click="c.cancelComplete()">
+          <i class="fas fa-times"></i> Cancel
+        </button>
+        <button class="btn-modal-confirm" ng-click="c.confirmComplete()" ng-disabled="c.isCompleting">
+          <i class="fas fa-spinner fa-spin" ng-show="c.isCompleting"></i>
+          <i class="fas fa-check" ng-hide="c.isCompleting"></i>
+          <span ng-hide="c.isCompleting">Confirm & Complete</span>
+          <span ng-show="c.isCompleting">Processing...</span>
+        </button>
+      </div>
+    </div>
+  </div>
 </div>
