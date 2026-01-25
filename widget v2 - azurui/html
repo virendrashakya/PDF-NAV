@@ -39,11 +39,13 @@
       <!-- Header with Title and Action Buttons -->
       <div class="fields-header">
         <div class="header-row">
-          <button class="btn-collapse-toggle" ng-click="c.toggleSidebar()" 
-            title="{{c.sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}}">
-            <i class="fas" ng-class="c.sidebarCollapsed ? 'fa-chevron-right' : 'fa-chevron-left'"></i>
-          </button>
-          <h2 class="fields-title" ng-hide="c.sidebarCollapsed">Audit - #{{c.submissionNumber}}</h2>
+          <div class="header-title-group">
+            <button class="btn-collapse-toggle" ng-click="c.toggleSidebar()"
+              title="{{c.sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}}">
+              <i class="fas" ng-class="c.sidebarCollapsed ? 'fa-chevron-right' : 'fa-chevron-left'"></i>
+            </button>
+            <h2 class="fields-title" ng-hide="c.sidebarCollapsed">Audit - #{{c.submissionNumber}}</h2>
+          </div>
 
           <!-- Action Buttons: Refer, Save, Done -->
           <div class="header-actions">

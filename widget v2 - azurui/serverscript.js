@@ -41,14 +41,25 @@
       sectionName: 'section_name',
       modelLabel: 'model_label',
       columnLabel: 'column_label',
-      order: 'order'
+      order: 'order',
+      lob: 'lob',
+      version: 'version'
+    },
+
+    // Line of Business to Metadata LOB mapping
+    // Maps submission.line_of_business value to metadata lob filter and version
+    lobMapping: {
+      'Auto': { lobContains: '(AU)', version: '1.1-DM' },
+      'Property': { lobContains: '(PR)', version: null },
+      'General Liability': { lobContains: '(GL)', version: null }
     },
 
     // Submission table columns
     submissionColumns: {
       number: 'number',
       statusChoice: 'submission_status_choice',
-      dataExtract: 'data_extract'
+      dataExtract: 'data_extract',
+      lineOfBusiness: 'line_of_business'
     },
 
     // Attachment settings
@@ -209,15 +220,51 @@
     }
 
     try {
+      // Get line_of_business from submission to determine which method to use
+      var lineOfBusiness = _getSubmissionLineOfBusiness(submissionNumber);
+
       var extractUtils = new ExtractionUtils();
       var flatData = extractUtils.bulildJsonFromDataExtracLineItem(submissionNumber);
       var payloadBuilder = new SubmissionPayloadBuilder();
-      var paylodModelStructure = payloadBuilder.buildSubmissionModel(flatData, submissionNumber, false);
+
+      // Use different method based on line_of_business
+      var paylodModelStructure;
+      if (lineOfBusiness === 'Auto') {
+        // Use Auto submission model for Auto line of business
+        paylodModelStructure = payloadBuilder.buildAutoSubmissionModel(flatData, submissionNumber, false);
+      } else {
+        // Use standard submission model for Property, General Liability, or other
+        paylodModelStructure = payloadBuilder.buildSubmissionModel(flatData, submissionNumber, false);
+      }
+
       var updateddata = extractUtils.processSubmissionExtractionAndInsertData(paylodModelStructure, false);
       data.success = true;
     } catch (e) {
       data.error = 'Failed to update data to system';
       return;
+    }
+  }
+
+  /**
+   * Get line_of_business value from submission by submission number
+   * @param {string} submissionNumber - Submission number
+   * @returns {string} line_of_business value or empty string
+   */
+  function _getSubmissionLineOfBusiness(submissionNumber) {
+    try {
+      var submissionGr = new GlideRecord(CONFIG.tables.submission);
+      submissionGr.addQuery(CONFIG.submissionColumns.number, submissionNumber);
+      submissionGr.setLimit(1);
+      submissionGr.query();
+
+      if (submissionGr.next()) {
+        return _getValue(submissionGr, CONFIG.submissionColumns.lineOfBusiness);
+      }
+
+      return '';
+    } catch (e) {
+      gs.error('Error getting line_of_business: ' + e.message);
+      return '';
     }
   }
 
@@ -258,6 +305,13 @@
         return;
       }
 
+      // Get line_of_business from submission to determine filter
+      var lineOfBusiness = _getValue(submissionGr, CONFIG.submissionColumns.lineOfBusiness);
+      var lobFilter = CONFIG.lobMapping[lineOfBusiness] || null;
+
+      // DEBUG: Log LOB filter being used
+      gs.info('PDF-NAV: line_of_business="' + lineOfBusiness + '", filter=' + JSON.stringify(lobFilter));
+
       // Query line items
       var lineItemGr = new GlideRecord(CONFIG.tables.lineItem);
       lineItemGr.addQuery(CONFIG.lineItemColumns.parent, dataExtractSysId);
@@ -276,14 +330,41 @@
         var fieldName = '';
         var orderNumeric = 0;
 
-        // Get values from metadata table (new architecture)
+        // Get values from metadata table and apply LOB-based filter
+        var includeField = false;
         if (metadataId) {
           var metadataGr = new GlideRecord(CONFIG.tables.metadata);
           if (metadataGr.get(metadataId)) {
-            sectionName = _getValue(metadataGr, CONFIG.metadataColumns.sectionName) || sectionName;
-            fieldName = _getValue(metadataGr, CONFIG.metadataColumns.modelLabel) || fieldName;
-            orderNumeric = _parseOrder(_getValue(metadataGr, CONFIG.metadataColumns.order));
+            // Get lob and version values for filtering
+            var dbLob = _getValue(metadataGr, CONFIG.metadataColumns.lob);
+            var dbVersion = _getValue(metadataGr, CONFIG.metadataColumns.version);
+
+            // Apply filter based on line_of_business
+            if (lobFilter) {
+              // Check if metadata lob contains the required LOB code
+              var lobMatches = dbLob && dbLob.indexOf(lobFilter.lobContains) !== -1;
+              // Check version if specified in filter
+              var versionMatches = !lobFilter.version || dbVersion === lobFilter.version;
+
+              if (lobMatches && versionMatches) {
+                includeField = true;
+              }
+            } else {
+              // No line_of_business or unknown value - include all fields with metadata
+              includeField = true;
+            }
+
+            if (includeField) {
+              sectionName = _getValue(metadataGr, CONFIG.metadataColumns.sectionName) || sectionName;
+              fieldName = _getValue(metadataGr, CONFIG.metadataColumns.modelLabel) || fieldName;
+              orderNumeric = _parseOrder(_getValue(metadataGr, CONFIG.metadataColumns.order));
+            }
           }
+        }
+
+        // Skip this line item if it doesn't match the filter criteria
+        if (!includeField) {
+          continue;
         }
 
         lineItems.push({
