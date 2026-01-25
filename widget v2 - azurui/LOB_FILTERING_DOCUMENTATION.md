@@ -174,7 +174,76 @@ if (lineOfBusiness === 'Auto') {
 2. Verify the `lobMapping` key matches exactly (case-sensitive)
 3. Check if metadata records have the correct `lob` values
 
-### Debug Script
+### "No Document Returned From Submission" Error
+
+This error appears when fields are displayed but the PDF document doesn't load. This happens when the filtered line items don't have the `documentname_attachment_sysid` column populated.
+
+**Cause:** The line items that pass the LOB filter have empty/null `documentname_attachment_sysid` values, so no PDF attachment can be loaded.
+
+**How to Debug (Manual Testing):**
+
+1. **Open the Submission record** in ServiceNow
+2. **Copy the `data_extract` sys_id** from the submission
+3. **Open the Line Item table** (`x_gegis_uwm_dashbo_data_extraction_lineitem`)
+4. **Filter by parent column** = the data_extract sys_id you copied
+5. **Check the `documentname_attachment_sysid` column** - if it's empty for all filtered records, that's the issue
+
+**Quick Fix for Testing:**
+
+To test the widget, you can manually update the line items with an attachment sys_id:
+
+1. Go to `sys_attachment` table
+2. Find a PDF attachment from your submission
+3. Copy its `sys_id`
+4. On the Line Item records, update `documentname_attachment_sysid` with this sys_id
+
+> **Note:** This is only for testing. Production data should already have this mapping populated by the extraction process.
+
+**Debug Script:**
+
+Run this in Background Scripts to check attachment mappings for filtered fields:
+
+```javascript
+var submissionSysId = 'YOUR_SUBMISSION_SYS_ID';
+
+var subGr = new GlideRecord('x_gegis_uwm_dashbo_submission');
+if (subGr.get(submissionSysId)) {
+  var dataExtract = subGr.getValue('data_extract');
+  var lob = subGr.getValue('line_of_business');
+  
+  gs.info('line_of_business = "' + lob + '"');
+  
+  var liGr = new GlideRecord('x_gegis_uwm_dashbo_data_extraction_lineitem');
+  liGr.addQuery('parent', dataExtract);
+  liGr.setLimit(50);
+  liGr.query();
+  
+  var withAttachment = 0;
+  var withoutAttachment = 0;
+  
+  while (liGr.next()) {
+    var metaId = liGr.getValue('metadata_id');
+    var docSysId = liGr.getValue('documentname_attachment_sysid');
+    
+    if (metaId) {
+      var metaGr = new GlideRecord('x_gegis_uwm_dashbo_data_extraction_metadata');
+      if (metaGr.get(metaId)) {
+        var metaLob = metaGr.getValue('lob');
+        // Log each field's attachment status
+        gs.info('Field lob="' + metaLob + '", has_attachment=' + (docSysId ? 'YES' : 'NO'));
+        if (docSysId) withAttachment++;
+        else withoutAttachment++;
+      }
+    }
+  }
+  
+  gs.info('=== SUMMARY ===');
+  gs.info('Fields WITH attachment: ' + withAttachment);
+  gs.info('Fields WITHOUT attachment: ' + withoutAttachment);
+}
+```
+
+### Debug Script - Check LOB Values
 
 Run this in ServiceNow Background Scripts to see what values exist:
 
