@@ -68,6 +68,128 @@
 }
 
 /* ============================================
+   TOAST NOTIFICATIONS
+   Inline notification system (replaces spUtil)
+   ============================================ */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 400px;
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-left: 4px solid #0078d4;
+  animation: toastSlideIn 0.3s ease-out;
+  min-width: 300px;
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.toast.toast-removing {
+  animation: toastSlideOut 0.3s ease-in forwards;
+}
+
+@keyframes toastSlideOut {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+.toast-success {
+  border-left-color: #107c10;
+}
+
+.toast-success .toast-icon {
+  color: #107c10;
+}
+
+.toast-error {
+  border-left-color: #d13438;
+}
+
+.toast-error .toast-icon {
+  color: #d13438;
+}
+
+.toast-info {
+  border-left-color: #0078d4;
+}
+
+.toast-info .toast-icon {
+  color: #0078d4;
+}
+
+.toast-warning {
+  border-left-color: #f9a825;
+}
+
+.toast-warning .toast-icon {
+  color: #f9a825;
+}
+
+.toast-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.toast-content {
+  flex: 1;
+}
+
+.toast-message {
+  font-size: 13px;
+  font-weight: 500;
+  color: #323130;
+  line-height: 1.4;
+}
+
+.toast-close {
+  background: transparent;
+  border: none;
+  color: #a19f9d;
+  cursor: pointer;
+  padding: 4px;
+  margin: -4px -4px -4px 0;
+  font-size: 12px;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.toast-close:hover {
+  background: #f3f2f1;
+  color: #605e5c;
+}
+
+/* ============================================
    MAIN LAYOUT
    Two-column flexbox layout
    ============================================ */

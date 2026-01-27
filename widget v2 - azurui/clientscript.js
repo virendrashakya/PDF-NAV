@@ -72,6 +72,53 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   c.submissionNumber = '';
   c.submissionStatusChoice = '';
 
+  // Toast notification state
+  c.toasts = [];
+  var toastIdCounter = 0;
+
+  /**
+   * Show a toast notification
+   * @param {string} message - The message to display
+   * @param {string} type - Type of toast: 'success', 'error', 'info', 'warning'
+   * @param {number} duration - Auto-dismiss duration in ms (default: 5000, use 0 for no auto-dismiss)
+   */
+  c.showToast = function (message, type, duration) {
+    var id = ++toastIdCounter;
+    var toast = {
+      id: id,
+      message: message,
+      type: type || 'info'
+    };
+    c.toasts.push(toast);
+
+    // Auto-dismiss after duration (default 5 seconds)
+    var dismissTime = duration !== undefined ? duration : 5000;
+    if (dismissTime > 0) {
+      $timeout(function () {
+        c.dismissToast(id);
+      }, dismissTime);
+    }
+
+    return id;
+  };
+
+  /**
+   * Dismiss a specific toast by ID
+   * @param {number} toastId - ID of the toast to dismiss
+   */
+  c.dismissToast = function (toastId) {
+    var index = c.toasts.findIndex(function (t) { return t.id === toastId; });
+    if (index !== -1) {
+      c.toasts.splice(index, 1);
+    }
+  };
+
+  // Convenience methods for different toast types
+  c.showSuccess = function (message, duration) { return c.showToast(message, 'success', duration); };
+  c.showError = function (message, duration) { return c.showToast(message, 'error', duration || 8000); };
+  c.showInfo = function (message, duration) { return c.showToast(message, 'info', duration); };
+  c.showWarning = function (message, duration) { return c.showToast(message, 'warning', duration || 6000); };
+
   // Set page title
   $('head title').text("Genpact Insurance Policy Suite");
 
@@ -433,12 +480,12 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
 
     // Show validation errors if any
     if (validationErrors.length > 0) {
-      spUtil.addErrorMessage('Commentary is required for: ' + validationErrors.join(', '));
+      c.showError('Commentary is required for: ' + validationErrors.join(', '));
       return;
     }
 
     if (updates.length === 0) {
-      spUtil.addInfoMessage('No changes to save');
+      c.showInfo('No changes to save');
       return;
     }
 
@@ -458,19 +505,19 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
         c.changedFields = {};
         c.hasChanges = false;
 
-        spUtil.addInfoMessage(response.data.message || 'Changes saved successfully');
+        c.showSuccess(response.data.message || 'Changes saved successfully');
 
         // Log any partial errors
         if (response.data.errors && response.data.errors.length > 0) {
           console.warn('Save completed with errors:', response.data.errors);
         }
       } else {
-        spUtil.addErrorMessage('Failed to save: ' + (response.data.error || 'Unknown error'));
+        c.showError('Failed to save: ' + (response.data.error || 'Unknown error'));
       }
     }).catch(function (error) {
       c.isSaving = false;
       console.error('Save error:', error);
-      spUtil.addErrorMessage('Failed to save changes');
+      c.showError('Failed to save changes');
     });
   };
 
@@ -480,7 +527,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
    */
   c.referSubmission = function () {
     // TODO: Implement refer logic
-    spUtil.addInfoMessage('Refer action - to be implemented');
+    c.showInfo('Refer action - to be implemented');
   };
 
   // Confirmation modal state
@@ -515,19 +562,19 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
       c.showConfirmModal = false;
 
       if (response.data.success) {
-        spUtil.addInfoMessage(response.data.message || 'Submission completed successfully');
+        c.showSuccess(response.data.message || 'Submission completed successfully');
 
         if (response.data.errors && response.data.errors.length > 0) {
           console.warn('Mark completed with errors:', response.data.errors);
         }
       } else {
-        spUtil.addErrorMessage('Failed to complete: ' + (response.data.error || 'Unknown error'));
+        c.showError('Failed to complete: ' + (response.data.error || 'Unknown error'));
       }
     }).catch(function (error) {
       c.isCompleting = false;
       c.showConfirmModal = false;
       console.error('Mark Complete error:', error);
-      spUtil.addErrorMessage('Failed to complete submission');
+      c.showError('Failed to complete submission');
     });
   };
 
@@ -582,7 +629,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
       };
       script.onerror = function () {
         c.isLoading = false;
-        spUtil.addErrorMessage('Failed to load PDF library');
+        c.showError('Failed to load PDF library');
       };
       document.head.appendChild(script);
     } else {
@@ -624,14 +671,14 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
       c.submissionStatusChoice = response.data.submissionStatusChoice || '';
 
       if (response.data.error) {
-        spUtil.addErrorMessage(response.data.error);
+        c.showError(response.data.error);
         c.isLoading = false;
         return;
       }
 
       var documentList = extractAttachmentOptions(response.data.mapping);
       if (documentList.length == 0) {
-        spUtil.addErrorMessage('No Document Returned From Submission');
+        c.showWarning('No Document Returned From Submission');
       }
       c.documents = documentList;
       c.selectedDocument = documentList[0];
@@ -645,7 +692,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     }).catch(function (error) {
       c.isLoading = false;
       console.error('Failed to load mapping:', error);
-      spUtil.addErrorMessage('Failed to load mapping');
+      c.showError('Failed to load mapping');
     });
   }
 
@@ -688,7 +735,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
       console.error('Error loading PDF:', error);
       c.isLoading = false;
       c.isPdfLoading = false;  // Hide PDF area loader on error
-      spUtil.addErrorMessage('Failed to load PDF: ' + error.message);
+      c.showError('Failed to load PDF: ' + error.message);
     });
   }
 
@@ -879,7 +926,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     }).catch(function (error) {
       console.error('Error getting page:', error);
       pageRendering = false;
-      spUtil.addErrorMessage('Failed to render page');
+      c.showError('Failed to render page');
     });
   }
 

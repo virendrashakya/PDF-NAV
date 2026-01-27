@@ -25,6 +25,30 @@
   </div>
 
   <!-- ============================================
+       TOAST NOTIFICATIONS
+       Inline notifications for better UX (replaces spUtil)
+       ============================================ -->
+  <div class="toast-container">
+    <div class="toast" ng-repeat="toast in c.toasts track by toast.id"
+      ng-class="{'toast-success': toast.type === 'success', 'toast-error': toast.type === 'error', 'toast-info': toast.type === 'info', 'toast-warning': toast.type === 'warning'}">
+      <div class="toast-icon">
+        <i class="fas" ng-class="{
+          'fa-check-circle': toast.type === 'success',
+          'fa-exclamation-circle': toast.type === 'error',
+          'fa-info-circle': toast.type === 'info',
+          'fa-exclamation-triangle': toast.type === 'warning'
+        }"></i>
+      </div>
+      <div class="toast-content">
+        <span class="toast-message">{{toast.message}}</span>
+      </div>
+      <button class="toast-close" ng-click="c.dismissToast(toast.id)">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- ============================================
        MAIN LAYOUT
        Two-column layout: Fields (left) + PDF (right)
        ============================================ -->
