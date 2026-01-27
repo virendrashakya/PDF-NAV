@@ -619,15 +619,15 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
       action: 'fetchMapping',
       submissionSysId: submissionSysId
     }).then(function (response) {
+      // Capture submission data first (needed for header display even on error)
+      c.submissionNumber = response.data.submissionNumber || '';
+      c.submissionStatusChoice = response.data.submissionStatusChoice || '';
+
       if (response.data.error) {
-        spUtil.addErrorMessage('Server error: ' + response.data.error);
+        spUtil.addErrorMessage(response.data.error);
         c.isLoading = false;
         return;
       }
-
-      // Capture submission status choice for conditional field editing
-      c.submissionNumber = response.data.submissionNumber;
-      c.submissionStatusChoice = response.data.submissionStatusChoice || '';
 
       var documentList = extractAttachmentOptions(response.data.mapping);
       if (documentList.length == 0) {

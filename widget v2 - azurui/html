@@ -196,11 +196,16 @@
           </div>
         </div>
 
-        <!-- Empty State -->
+        <!-- Empty State - No Fields Available -->
         <div class="empty-state" ng-if="!c.groupedFields || c.getObjectKeys(c.groupedFields).length === 0">
-          <i class="fas fa-file-alt empty-icon"></i>
-          <p>No fields available</p>
-          <p class="empty-hint" ng-if="!c.isLoading">Select a document to view extracted fields</p>
+          <i class="fas fa-exclamation-circle empty-icon"></i>
+          <p class="empty-title">No Fields Available</p>
+          <p class="empty-hint" ng-if="c.isLoading">Loading field data...</p>
+          <p class="empty-hint" ng-if="!c.isLoading && !c.submissionNumber">No submission data found. Please verify the
+            submission record exists.</p>
+          <p class="empty-hint" ng-if="!c.isLoading && c.submissionNumber">No extraction data found for submission
+            #{{c.submissionNumber}}. This may indicate that no Data Extract is linked to this submission or no fields
+            match the current Line of Business criteria.</p>
         </div>
       </div>
 
@@ -268,7 +273,18 @@
             <span>Loading PDF...</span>
           </div>
         </div>
-        <div class="pdf-canvas-wrapper">
+
+        <!-- PDF Placeholder (shown when no document is loaded) -->
+        <div class="pdf-placeholder" ng-show="!c.pdfLoaded && !c.isPdfLoading">
+          <div class="placeholder-content">
+            <i class="fas fa-file-pdf placeholder-icon"></i>
+            <h3 class="placeholder-title">No Document Available</h3>
+            <p class="placeholder-text" ng-if="!c.selectedDocument">Select a document to view</p>
+            <p class="placeholder-text" ng-if="c.selectedDocument">Unable to load document</p>
+          </div>
+        </div>
+
+        <div class="pdf-canvas-wrapper" ng-show="c.pdfLoaded">
           <canvas id="pdfCanvas" class="pdf-canvas"></canvas>
           <canvas id="annotationCanvas" class="annotation-canvas"></canvas>
           <div id="pageMarker" class="page-marker"></div>

@@ -47,11 +47,12 @@
     },
 
     // Line of Business to Metadata LOB mapping
-    // Maps submission.line_of_business value to metadata lob filter and version
+    // Maps submission.line_of_business_choice value to metadata lob filter and version
+    // Values are UPPERCASE as stored in the database
     lobMapping: {
-      'Auto': { lobContains: '(AU)', version: '1.1-DM' },
-      'Property': { lobContains: '(PR)', version: null },
-      'General Liability': { lobContains: '(GL)', version: null }
+      'AUTO': { lobContains: '(AU)', version: null },
+      'PROPERTY': { lobContains: '(PR)', version: null },
+      'GENERAL_LIABILITY': { lobContains: '(GL)', version: null }
     },
 
     // Submission table columns
@@ -59,7 +60,7 @@
       number: 'number',
       statusChoice: 'submission_status_choice',
       dataExtract: 'data_extract',
-      lineOfBusiness: 'line_of_business'
+      lineOfBusiness: 'line_of_business_choice'
     },
 
     // Attachment settings
@@ -176,28 +177,38 @@
   /* ============================================
    * ACTION HANDLER
    * ============================================ */
+  gs.info('PDF-NAV DEBUG: === SERVER SCRIPT START ===');
+  gs.info('PDF-NAV DEBUG: input=' + JSON.stringify(input));
+
   if (input && input.action) {
+    gs.info('PDF-NAV DEBUG: Action received: "' + input.action + '"');
     try {
       switch (input.action) {
         case 'fetchMapping':
+          gs.info('PDF-NAV DEBUG: Calling fetchMapping()');
           fetchMapping();
           break;
         case 'saveMapping':
+          gs.info('PDF-NAV DEBUG: Calling saveMapping()');
           saveMapping();
           break;
         case 'markComplete':
+          gs.info('PDF-NAV DEBUG: Calling markComplete()');
           markComplete();
           break
         default:
+          gs.info('PDF-NAV DEBUG: Unknown action: ' + input.action);
           data.error = 'Unknown action: ' + input.action;
           data.success = false;
       }
     } catch (e) {
+      gs.error('PDF-NAV ERROR: Server error: ' + e.message);
       data.error = 'Server error: ' + e.message;
       data.success = false;
       gs.error('Widget Server Script Error: ' + e.message);
     }
   } else {
+    gs.info('PDF-NAV DEBUG: No action - widget load');
     // Default - widget load
     data.message = 'PDF Annotation Widget loaded successfully';
     data.success = true;
@@ -211,35 +222,54 @@
    * including all editable and display fields
    */
   function markComplete() {
+    gs.info('PDF-NAV DEBUG: *** markComplete() ENTERED ***');
     data.success = false;
     var submissionNumber = input.submissionNumber;
+    gs.info('PDF-NAV DEBUG: submissionNumber=' + submissionNumber);
 
     if (!submissionNumber) {
+      gs.info('PDF-NAV DEBUG: No submissionNumber provided, returning error');
       data.error = 'Submission Number is not provided';
       return;
     }
 
     try {
+      gs.info('PDF-NAV DEBUG: Getting line_of_business...');
       // Get line_of_business from submission to determine which method to use
       var lineOfBusiness = _getSubmissionLineOfBusiness(submissionNumber);
+      gs.info('PDF-NAV DEBUG: lineOfBusiness="' + lineOfBusiness + '"');
 
+      gs.info('PDF-NAV DEBUG: Creating ExtractionUtils...');
       var extractUtils = new ExtractionUtils();
+
+      gs.info('PDF-NAV DEBUG: Building JSON from line items...');
       var flatData = extractUtils.bulildJsonFromDataExtracLineItem(submissionNumber);
+      gs.info('PDF-NAV DEBUG: flatData built successfully');
+
+      gs.info('PDF-NAV DEBUG: Creating SubmissionPayloadBuilder...');
       var payloadBuilder = new SubmissionPayloadBuilder();
 
       // Use different method based on line_of_business
       var paylodModelStructure;
-      if (lineOfBusiness === 'Auto') {
+      if (lineOfBusiness === 'AUTO') {
+        gs.info('PDF-NAV DEBUG: LOB is Auto - calling buildAutoSubmissionModel()');
         // Use Auto submission model for Auto line of business
         paylodModelStructure = payloadBuilder.buildAutoSubmissionModel(flatData, submissionNumber, false);
       } else {
+        gs.info('PDF-NAV DEBUG: LOB is NOT Auto ("' + lineOfBusiness + '") - calling buildSubmissionModel()');
         // Use standard submission model for Property, General Liability, or other
         paylodModelStructure = payloadBuilder.buildSubmissionModel(flatData, submissionNumber, false);
       }
+      gs.info('PDF-NAV DEBUG: Payload model built successfully');
 
+      gs.info('PDF-NAV DEBUG: Processing submission extraction...');
       var updateddata = extractUtils.processSubmissionExtractionAndInsertData(paylodModelStructure, false);
+      gs.info('PDF-NAV DEBUG: processSubmissionExtractionAndInsertData completed');
+
       data.success = true;
+      gs.info('PDF-NAV DEBUG: *** markComplete() SUCCESS ***');
     } catch (e) {
+      gs.error('PDF-NAV ERROR: markComplete failed: ' + e.message);
       data.error = 'Failed to update data to system';
       return;
     }
@@ -252,18 +282,39 @@
    */
   function _getSubmissionLineOfBusiness(submissionNumber) {
     try {
+      gs.info('PDF-NAV DEBUG: Getting LOB for submissionNumber="' + submissionNumber + '"');
+      gs.info('PDF-NAV DEBUG: Looking for column: "' + CONFIG.submissionColumns.lineOfBusiness + '"');
+
       var submissionGr = new GlideRecord(CONFIG.tables.submission);
       submissionGr.addQuery(CONFIG.submissionColumns.number, submissionNumber);
       submissionGr.setLimit(1);
       submissionGr.query();
 
       if (submissionGr.next()) {
-        return _getValue(submissionGr, CONFIG.submissionColumns.lineOfBusiness);
+        gs.info('PDF-NAV DEBUG: Found submission sys_id=' + submissionGr.getUniqueValue());
+
+        // Try multiple ways to get the value
+        var rawValue = submissionGr[CONFIG.submissionColumns.lineOfBusiness];
+        var getValue = submissionGr.getValue(CONFIG.submissionColumns.lineOfBusiness);
+        var displayValue = submissionGr.getDisplayValue(CONFIG.submissionColumns.lineOfBusiness);
+
+        gs.info('PDF-NAV DEBUG: rawValue=' + rawValue);
+        gs.info('PDF-NAV DEBUG: getValue=' + getValue);
+        gs.info('PDF-NAV DEBUG: displayValue=' + displayValue);
+
+        // Check if column exists
+        var element = submissionGr.getElement(CONFIG.submissionColumns.lineOfBusiness);
+        gs.info('PDF-NAV DEBUG: column exists=' + (element ? 'YES' : 'NO'));
+
+        var lob = getValue || '';
+        gs.info('PDF-NAV DEBUG: Returning line_of_business="' + lob + '"');
+        return lob;
       }
 
+      gs.info('PDF-NAV DEBUG: Submission NOT FOUND for number="' + submissionNumber + '"');
       return '';
     } catch (e) {
-      gs.error('Error getting line_of_business: ' + e.message);
+      gs.error('PDF-NAV ERROR: _getSubmissionLineOfBusiness failed: ' + e.message);
       return '';
     }
   }
@@ -301,7 +352,7 @@
 
       var dataExtractSysId = _getValue(submissionGr, CONFIG.submissionColumns.dataExtract);
       if (!dataExtractSysId) {
-        data.error = 'No data extract linked to submission';
+        data.error = 'This submission (#' + data.submissionNumber + ') does not have a Data Extract reference. Please ensure the submission record has a valid Data Extract linked before proceeding.';
         return;
       }
 

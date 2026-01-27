@@ -879,10 +879,20 @@
   margin: 0;
 }
 
+.empty-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #605e5c;
+  margin-bottom: 8px !important;
+}
+
 .empty-hint {
-  font-size: 12px;
+  font-size: 13px;
   margin-top: 8px !important;
-  color: #c8c6c4;
+  color: #a19f9d;
+  max-width: 400px;
+  text-align: center;
+  line-height: 1.5;
 }
 
 /* ============================================
@@ -1055,6 +1065,43 @@
   font-weight: 500;
 }
 
+/* PDF Placeholder - shown when no document is loaded */
+.pdf-placeholder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8f9fa;
+}
+
+.placeholder-content {
+  text-align: center;
+  padding: 40px;
+}
+
+.placeholder-icon {
+  font-size: 64px;
+  color: #d2d0ce;
+  margin-bottom: 20px;
+}
+
+.placeholder-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #605e5c;
+  margin: 0 0 8px 0;
+}
+
+.placeholder-text {
+  font-size: 14px;
+  color: #a19f9d;
+  margin: 0;
+}
+
 /* PDF Content */
 .pdf-content {
   flex: 1;
@@ -1221,6 +1268,7 @@
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -1241,6 +1289,7 @@
     transform: translateY(20px);
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;

@@ -20,11 +20,13 @@ All LOB settings are in **`serverscript.js`** inside the `CONFIG` object (around
 
 ```javascript
 lobMapping: {
-  'Auto': { lobContains: '(AU)', version: '1.1-DM' },
-  'Property': { lobContains: '(PR)', version: null },
-  'General Liability': { lobContains: '(GL)', version: null }
+  'AUTO': { lobContains: '(AU)', version: null },
+  'PROPERTY': { lobContains: '(PR)', version: null },
+  'GENERAL_LIABILITY': { lobContains: '(GL)', version: null }
 }
 ```
+
+> **Note:** Values are UPPERCASE as stored in the database. Column is `line_of_business_choice`.
 
 ---
 
@@ -34,13 +36,13 @@ lobMapping: {
 
 This is a simple lookup table. The **key** is the `line_of_business` value from the submission, and the **value** tells the widget how to filter.
 
-| Key (line_of_business value) | lobContains | version | What it does |
+| Key (line_of_business_choice value) | lobContains | version | What it does |
 |---|---|---|---|
-| `'Auto'` | `'(AU)'` | `'1.1-DM'` | Shows fields where metadata `lob` contains "(AU)" AND `version` equals "1.1-DM" |
-| `'Property'` | `'(PR)'` | `null` | Shows fields where metadata `lob` contains "(PR)" (any version) |
-| `'General Liability'` | `'(GL)'` | `null` | Shows fields where metadata `lob` contains "(GL)" (any version) |
+| `'AUTO'` | `'(AU)'` | `null` | Shows fields where metadata `lob` contains "(AU)" (any version) |
+| `'PROPERTY'` | `'(PR)'` | `null` | Shows fields where metadata `lob` contains "(PR)" (any version) |
+| `'GENERAL_LIABILITY'` | `'(GL)'` | `null` | Shows fields where metadata `lob` contains "(GL)" (any version) |
 
-**If `line_of_business` is empty or not in this list** → all fields are shown (no filtering).
+**If `line_of_business_choice` is empty or not in this list** → all fields are shown (no filtering).
 
 ### How Combined LOB Codes Work
 
@@ -71,9 +73,9 @@ Open `serverscript.js` and find the `lobMapping` section (around line 49):
 
 ```javascript
 lobMapping: {
-  'Auto': { lobContains: '(AU)', version: '1.1-DM' },
-  'Property': { lobContains: '(PR)', version: null },
-  'General Liability': { lobContains: '(GL)', version: null }
+  'AUTO': { lobContains: '(AU)', version: null },
+  'PROPERTY': { lobContains: '(PR)', version: null },
+  'GENERAL_LIABILITY': { lobContains: '(GL)', version: null }
 }
 ```
 
@@ -83,15 +85,15 @@ Add a new line following the same pattern:
 
 ```javascript
 lobMapping: {
-  'Auto': { lobContains: '(AU)', version: '1.1-DM' },
-  'Property': { lobContains: '(PR)', version: null },
-  'General Liability': { lobContains: '(GL)', version: null },
-  'Marine': { lobContains: '(MA)', version: null }  // NEW LINE
+  'AUTO': { lobContains: '(AU)', version: null },
+  'PROPERTY': { lobContains: '(PR)', version: null },
+  'GENERAL_LIABILITY': { lobContains: '(GL)', version: null },
+  'MARINE': { lobContains: '(MA)', version: null }  // NEW LINE
 }
 ```
 
 **Important:** 
-- The key (`'Marine'`) must **exactly match** the value in `line_of_business` column
+- The key (`'MARINE'`) must **exactly match** the UPPERCASE value in `line_of_business_choice` column
 - `lobContains` is what the metadata `lob` field should contain (partial match)
 - `version` can be `null` (any version) or a specific value like `'1.1-DM'`
 
@@ -123,9 +125,9 @@ Simply delete the line from `lobMapping`. That LOB will then fall back to showin
 
 When the user clicks **"Complete"**, the widget automatically selects the correct method:
 
-| line_of_business | Method Called |
+| line_of_business_choice | Method Called |
 |---|---|
-| `'Auto'` | `payloadBuilder.buildAutoSubmissionModel()` |
+| `'AUTO'` | `payloadBuilder.buildAutoSubmissionModel()` |
 | Any other value | `payloadBuilder.buildSubmissionModel()` |
 
 ### Where This Code Lives
@@ -133,7 +135,7 @@ When the user clicks **"Complete"**, the widget automatically selects the correc
 In `serverscript.js`, inside the `markComplete()` function (around lines 213-245):
 
 ```javascript
-if (lineOfBusiness === 'Auto') {
+if (lineOfBusiness === 'AUTO') {
   paylodModelStructure = payloadBuilder.buildAutoSubmissionModel(flatData, submissionNumber, false);
 } else {
   paylodModelStructure = payloadBuilder.buildSubmissionModel(flatData, submissionNumber, false);
@@ -145,9 +147,9 @@ if (lineOfBusiness === 'Auto') {
 If you need a different method for another LOB, modify the condition:
 
 ```javascript
-if (lineOfBusiness === 'Auto') {
+if (lineOfBusiness === 'AUTO') {
   paylodModelStructure = payloadBuilder.buildAutoSubmissionModel(flatData, submissionNumber, false);
-} else if (lineOfBusiness === 'Marine') {
+} else if (lineOfBusiness === 'MARINE') {
   paylodModelStructure = payloadBuilder.buildMarineSubmissionModel(flatData, submissionNumber, false);
 } else {
   paylodModelStructure = payloadBuilder.buildSubmissionModel(flatData, submissionNumber, false);
@@ -160,7 +162,7 @@ if (lineOfBusiness === 'Auto') {
 
 | Table | Column | Description |
 |---|---|---|
-| `x_gegis_uwm_dashbo_submission` | `line_of_business` | The LOB value (e.g., "Auto", "Property") |
+| `x_gegis_uwm_dashbo_submission` | `line_of_business_choice` | The LOB value (e.g., "AUTO", "PROPERTY") - UPPERCASE |
 | `x_gegis_uwm_dashbo_data_extraction_metadata` | `lob` | Contains LOB codes like "(AU)", "(PR)", "(GL)" |
 | `x_gegis_uwm_dashbo_data_extraction_metadata` | `version` | Version string like "1.1-DM" |
 
