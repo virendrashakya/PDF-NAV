@@ -8,6 +8,35 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   var c = this;
 
   /* ============================================
+   * DEBUG CONFIGURATION
+   * Set enabled to false to turn off all debug logging
+   * ============================================ */
+  var DEBUG = {
+    enabled: true,           // Master switch: true = show debug, false = hide all
+    logFieldNameLogic: true, // Log field name resolution (table_field, key, model_label)
+    logServerCalls: false,   // Log server request/response
+    logPdfRendering: false   // Log PDF rendering operations
+  };
+
+  // Debug utility function - only logs when DEBUG.enabled is true
+  function debugLog(category, message, data) {
+    if (!DEBUG.enabled) return;
+    var prefix = '🔍 PDF-NAV [' + category + ']: ';
+    if (data !== undefined) {
+      console.log(prefix + message, data);
+    } else {
+      console.log(prefix + message);
+    }
+  }
+
+  function debugTable(category, label, tableData) {
+    if (!DEBUG.enabled) return;
+    console.group('🔍 PDF-NAV [' + category + '] ' + label);
+    console.table(tableData);
+    console.groupEnd();
+  }
+
+  /* ============================================
    * INITIALIZATION - State Variables
    * ============================================ */
 
@@ -802,6 +831,23 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
       c.mappingData = [];
       c.extractedFields = [];
       return;
+    }
+
+    // DEBUG: Log field name logic for each field (controlled by DEBUG.logFieldNameLogic)
+    if (DEBUG.logFieldNameLogic) {
+      var debugData = mappingData.map(function (m) {
+        return {
+          section: m.section_name,
+          finalFieldName: m.field_name,
+          tableFieldRaw: m._debug ? m._debug.tableFieldRaw : 'N/A',
+          isTableField: m._debug ? m._debug.isTableField : 'N/A',
+          lineItemKey: m._debug ? m._debug.lineItemKey : 'N/A',
+          modelLabel: m._debug ? m._debug.modelLabel : 'N/A',
+          fieldValue: m.field_value ? m.field_value.substring(0, 30) : ''
+        };
+      });
+      debugLog('FieldName', 'Total fields received: ' + mappingData.length);
+      debugTable('FieldName', 'Field Name Resolution', debugData);
     }
 
     // Process all mappings - include those without coordinates too

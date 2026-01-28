@@ -8,6 +8,14 @@
    * ============================================ */
 
   /* ============================================
+   * DEBUG CONFIGURATION
+   * Set includeDebugData to false to remove _debug from responses
+   * ============================================ */
+  var DEBUG = {
+    includeDebugData: true  // Include _debug object in field data for client-side debugging
+  };
+
+  /* ============================================
    * CONFIGURATION - Table and Column Names
    * ============================================
    * Modify these variables to adapt to schema changes
@@ -33,7 +41,9 @@
       commentary: 'commentary',
       reason: 'reason',
       confidenceIndicator: 'confidence_indicator',
-      sectionConfidenceAvg: 'section_confidence_avg'
+      sectionConfidenceAvg: 'section_confidence_avg',
+      tableField: 'table_field',
+      key: 'key'
     },
 
     // Metadata table columns
@@ -407,7 +417,23 @@
 
             if (includeField) {
               sectionName = _getValue(metadataGr, CONFIG.metadataColumns.sectionName) || sectionName;
-              fieldName = _getValue(metadataGr, CONFIG.metadataColumns.modelLabel) || fieldName;
+
+              // Get raw values for debugging
+              var tableFieldRaw = _getValue(lineItemGr, CONFIG.lineItemColumns.tableField);
+              var lineItemKey = _getValue(lineItemGr, CONFIG.lineItemColumns.key);
+              var modelLabel = _getValue(metadataGr, CONFIG.metadataColumns.modelLabel);
+
+              // Check if table_field is true - if so, use lineitem.key; otherwise use metadata.model_label
+              var isTableField = tableFieldRaw === 'true' || tableFieldRaw === '1';
+
+              if (isTableField && lineItemKey) {
+                // Use key from lineitem for table fields (only if key has a value)
+                fieldName = lineItemKey;
+              } else {
+                // Use model_label from metadata (default/fallback)
+                fieldName = modelLabel || fieldName;
+              }
+
               orderNumeric = _parseOrder(_getValue(metadataGr, CONFIG.metadataColumns.order));
             }
           }
@@ -418,7 +444,7 @@
           continue;
         }
 
-        lineItems.push({
+        var lineItem = {
           // Record identifier (from lineitem - used for updates)
           sys_id: lineItemGr.getUniqueValue(),
           _order: orderNumeric, // Internal use only for sorting
@@ -440,7 +466,19 @@
           // Coordinate and attachment data
           source: source,
           attachmentData: documentSysId ? _getAttachmentData(documentSysId) : null
-        });
+        };
+
+        // Conditionally add debug info (controlled by DEBUG.includeDebugData)
+        if (DEBUG.includeDebugData) {
+          lineItem._debug = {
+            tableFieldRaw: tableFieldRaw,
+            isTableField: isTableField,
+            lineItemKey: lineItemKey,
+            modelLabel: modelLabel
+          };
+        }
+
+        lineItems.push(lineItem);
       }
 
       // Sort by order
