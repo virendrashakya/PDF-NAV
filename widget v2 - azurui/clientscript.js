@@ -644,6 +644,104 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     return unique;
   }
 
+  /**
+   * Analyze reasons why documents were not loaded
+   * @param {Array} loadedFields - Fields that were successfully loaded
+   * @param {Array} skippedFields - Fields that were filtered out on server
+   */
+  function analyzeMissingDocuments(loadedFields, skippedFields) {
+    if (!DEBUG.enabled) return;
+
+    // 1. Identify all documents referenced in loaded fields (successful attachment loads)
+    var loadedDocIds = new Set();
+    loadedFields.forEach(function (f) {
+      if (f.attachmentData && f.attachmentData.sys_id) {
+        loadedDocIds.add(f.attachmentData.sys_id);
+      }
+    });
+
+    // 2. Detect attachment load failures: document_sys_id present but attachmentData is missing
+    var attachmentFailures = [];
+    loadedFields.forEach(function (f) {
+      if (f.document_sys_id && (!f.attachmentData || !f.attachmentData.sys_id)) {
+        attachmentFailures.push({
+          lineItemSysId: f.sys_id,
+          documentSysId: f.document_sys_id,
+          reason: 'Attachment Missing or Invalid (not found in sys_attachment or not PDF)',
+          fieldName: f.field_name || 'Unknown'
+        });
+      }
+    });
+
+    // Merge attachment failures into skippedFields for unified analysis
+    var allSkipped = skippedFields.concat(attachmentFailures);
+
+    // 3. Group skipped fields by document ID
+    var skippedByDoc = {};
+    allSkipped.forEach(function (sf) {
+      var docId = sf.documentSysId || 'unknown_doc_id';
+      if (!skippedByDoc[docId]) {
+        skippedByDoc[docId] = [];
+      }
+      skippedByDoc[docId].push(sf);
+    });
+
+    console.group('🔍 PDF-NAV: Document Loading Analysis');
+
+    // 4. Log attachment failures specifically
+    if (attachmentFailures.length > 0) {
+      console.groupCollapsed('🔴 Attachment Load Failures (' + attachmentFailures.length + ' fields)');
+      console.warn('These fields have a document_sys_id but attachmentData failed to load.');
+      var failuresByDoc = {};
+      attachmentFailures.forEach(function (f) {
+        if (!failuresByDoc[f.documentSysId]) {
+          failuresByDoc[f.documentSysId] = [];
+        }
+        failuresByDoc[f.documentSysId].push(f.fieldName);
+      });
+      Object.keys(failuresByDoc).forEach(function (docId) {
+        console.log('Document ' + docId + ': ' + failuresByDoc[docId].length + ' field(s) affected');
+        console.log('  Fields:', failuresByDoc[docId].slice(0, 5).join(', ') + (failuresByDoc[docId].length > 5 ? '...' : ''));
+      });
+      console.groupEnd();
+    }
+
+    // 5. Check for documents that are COMPLETELY missing (in skipped but not in loaded)
+    Object.keys(skippedByDoc).forEach(function (docId) {
+      if (docId === 'unknown_doc_id') return;
+
+      // If this doc ID is NOT in the loaded set, it means ALL its fields were filtered out
+      if (!loadedDocIds.has(docId)) {
+        var skips = skippedByDoc[docId];
+        var reasons = {};
+
+        // Count frequency of each reason
+        skips.forEach(function (s) {
+          var r = s.reason || 'Unknown Reason';
+          reasons[r] = (reasons[r] || 0) + 1;
+        });
+
+        console.groupCollapsed('❌ Document NOT LOADED: ' + docId);
+        console.warn('This document was referenced by ' + skips.length + ' fields, but NONE were loaded.');
+        console.table(reasons);
+        console.log('Sample Skipped Fields:', skips.slice(0, 3));
+        console.groupEnd();
+      }
+    });
+
+    // 6. General Skipped Field Summary
+    console.groupCollapsed('⚠️ Skipped Field Summary (' + allSkipped.length + ' total)');
+    var globalReasons = {};
+    allSkipped.forEach(function (s) {
+      var r = s.reason || 'Unknown Reason';
+      globalReasons[r] = (globalReasons[r] || 0) + 1;
+    });
+    console.table(globalReasons);
+    console.groupEnd();
+
+    console.groupEnd();
+  }
+
   // Load PDF.js library
   function loadPdfJs() {
     c.isLoading = true;
@@ -715,7 +813,12 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
         c.loadDocument();
       }
       if (response.data.success) {
-        processMappingData(response.data.mapping);
+        processMappingData(response.data.mapping, response.data.skippedFields);
+
+        // DEBUG: Analyze missing documents
+        if (response.data.skippedFields && response.data.skippedFields.length > 0) {
+          analyzeMissingDocuments(response.data.mapping, response.data.skippedFields);
+        }
       }
       c.isLoading = false;
     }).catch(function (error) {
@@ -826,7 +929,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   }
 
   // Process mapping data - process cordinates to canvas compatable
-  function processMappingData(mappingData) {
+  function processMappingData(mappingData, skippedFields) {
     if (!mappingData || !Array.isArray(mappingData)) {
       c.mappingData = [];
       c.extractedFields = [];
@@ -835,6 +938,8 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
 
     // DEBUG: Log field name logic for each field (controlled by DEBUG.logFieldNameLogic)
     if (DEBUG.logFieldNameLogic) {
+
+      // Log Included Fields
       var debugData = mappingData.map(function (m) {
         return {
           section: m.section_name,
@@ -843,11 +948,19 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
           isTableField: m._debug ? m._debug.isTableField : 'N/A',
           lineItemKey: m._debug ? m._debug.lineItemKey : 'N/A',
           modelLabel: m._debug ? m._debug.modelLabel : 'N/A',
-          fieldValue: m.field_value ? m.field_value.substring(0, 30) : ''
+          sys_id: m._debug ? m._debug.lineItemSysId : 'N/A'
         };
       });
-      debugLog('FieldName', 'Total fields received: ' + mappingData.length);
-      debugTable('FieldName', 'Field Name Resolution', debugData);
+      debugLog('FieldName', '✅ Included Fields: ' + mappingData.length);
+      debugTable('FieldName', 'Included Fields Resolution', debugData);
+
+      // Log Skipped Fields
+      if (skippedFields && skippedFields.length > 0) {
+        debugLog('FieldName', '🚫 Skipped Fields: ' + skippedFields.length);
+        debugTable('FieldName', 'Skipped Fields Reasons', skippedFields);
+      } else {
+        debugLog('FieldName', 'No fields were skipped.');
+      }
     }
 
     // Process all mappings - include those without coordinates too
@@ -1239,6 +1352,22 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     c.zoomMode = 'actual-size';
     c.scale = 1.0;
     renderPage(c.currentPage);
+  };
+
+  // Custom filter for searching across displayed columns
+  c.searchFilter = function (field) {
+    if (!c.fieldSearch) return true;
+    var search = c.fieldSearch.toLowerCase();
+
+    // Check specific columns
+    return (
+      (field.field_name && field.field_name.toLowerCase().indexOf(search) > -1) ||
+      (field.field_value && field.field_value.toLowerCase().indexOf(search) > -1) ||
+      (field.data_verification && field.data_verification.toLowerCase().indexOf(search) > -1) ||
+      (field.qa_override_value && field.qa_override_value.toLowerCase().indexOf(search) > -1) ||
+      (field.logic_transparency && field.logic_transparency.toLowerCase().indexOf(search) > -1) ||
+      (field.commentary && field.commentary.toLowerCase().indexOf(search) > -1)
+    );
   };
 
   // Get confidence class

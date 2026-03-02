@@ -106,7 +106,7 @@
         <!-- Search Input -->
         <div class="search-wrapper">
           <i class="fas fa-search search-icon"></i>
-          <input type="text" ng-model="c.fieldSearch" placeholder="Search fields..." class="search-input">
+          <input type="text" ng-model="c.fieldSearch" placeholder="Search..." class="search-input">
         </div>
       </div>
 
@@ -145,7 +145,7 @@
               </thead>
               <tbody>
                 <!-- Field Rows (filtered by shouldShowField when toggle is on) -->
-                <tr ng-repeat="field in fields | filter:{field_name: c.fieldSearch}" ng-if="c.shouldShowField(field)"
+                <tr ng-repeat="field in fields | filter:c.searchFilter" ng-if="c.shouldShowField(field)"
                   ng-click="c.isFieldActive(field) && c.navigateToField(field)" ng-class="{
                       'active-field': field === c.isFieldActive(field),
                       'inactive-field': !c.isFieldActive(field),
