@@ -94,12 +94,50 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   c.lastSavedTime = null;
 
   // Submission status choice: determines which fields are editable
-  // CONFIRM_DATA_REVIEW = Data Verification editable, QA Override readonly
-  // QUALITY_ASSURANCE = Data Verification readonly, QA Override editable
-  c.dataReview = 'CONFIRM_DATA_REVIEW';
-  c.qaKey = 'QUALITY_ASSURANCE';
+  // Configurable from server-side CONFIG arrays
   c.submissionNumber = '';
   c.submissionStatusChoice = '';
+
+  // Configurable status arrays (populated from server config)
+  // These determine when Data Verification / QA Override columns are input fields vs text
+  c.dataVerificationEditStatuses = ['CONFIRM_DATA_REVIEW']; // default, overridden by server
+  c.qaOverrideEditStatuses = ['QUALITY_ASSURANCE'];          // default, overridden by server
+
+  /**
+   * Check if Data Verification should be an editable input field
+   * based on the current submissionStatusChoice and configured statuses
+   * @returns {boolean}
+   */
+  c.canEditDataVerification = function () {
+    return c.dataVerificationEditStatuses.indexOf(c.submissionStatusChoice) !== -1;
+  };
+
+  /**
+   * Check if QA Override Value should be an editable input field
+   * based on the current submissionStatusChoice and configured statuses
+   * @returns {boolean}
+   */
+  c.canEditQaOverride = function () {
+    return c.qaOverrideEditStatuses.indexOf(c.submissionStatusChoice) !== -1;
+  };
+
+  /**
+   * Check if Commentary should be editable
+   * Commentary is editable only when at least one of Data Verification or QA Override is editable
+   * @returns {boolean}
+   */
+  c.canEditCommentary = function () {
+    return c.canEditDataVerification() || c.canEditQaOverride();
+  };
+
+  /**
+   * Check if a confidence indicator value is present and valid
+   * @param {*} confidence - The confidence_indicator value
+   * @returns {boolean}
+   */
+  c.hasConfidenceValue = function (confidence) {
+    return confidence !== '' && confidence !== null && confidence !== undefined;
+  };
 
   // Toast notification state
   c.toasts = [];
@@ -394,14 +432,12 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     // Build update object
     var update = { sys_id: field.sys_id };
 
-    // Include the appropriate editable field based on submission status
-    if (c.submissionStatusChoice === c.dataReview) {
+    // Include the appropriate editable field based on configurable status
+    if (c.canEditDataVerification()) {
       update.data_verification = field.data_verification || '';
-    } else if (c.submissionStatusChoice === c.qaKey) {
+    }
+    if (c.canEditQaOverride()) {
       update.qa_override_value = field.qa_override_value || '';
-    } else {
-      update.qa_override_value = field.qa_override_value || '';
-      update.data_verification = field.data_verification || '';
     }
 
     // Always include commentary (editable regardless of status)
@@ -489,15 +525,12 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
 
         var update = { sys_id: field.sys_id };
 
-        // Include the appropriate editable field based on submission status
-        if (c.submissionStatusChoice === c.dataReview) {
+        // Include the appropriate editable field based on configurable status
+        if (c.canEditDataVerification()) {
           update.data_verification = field.data_verification || '';
-        } else if (c.submissionStatusChoice === c.qaKey) {
+        }
+        if (c.canEditQaOverride()) {
           update.qa_override_value = field.qa_override_value || '';
-        } else {
-          // Default: include both if status is unknown
-          update.qa_override_value = field.qa_override_value || '';
-          update.data_verification = field.data_verification || '';
         }
 
         // Include commentary
@@ -796,6 +829,16 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
       // Capture submission data first (needed for header display even on error)
       c.submissionNumber = response.data.submissionNumber || '';
       c.submissionStatusChoice = response.data.submissionStatusChoice || '';
+
+      // Load configurable edit status arrays from server
+      if (response.data.config) {
+        if (response.data.config.dataVerificationEditStatuses) {
+          c.dataVerificationEditStatuses = response.data.config.dataVerificationEditStatuses;
+        }
+        if (response.data.config.qaOverrideEditStatuses) {
+          c.qaOverrideEditStatuses = response.data.config.qaOverrideEditStatuses;
+        }
+      }
 
       if (response.data.error) {
         c.showError(response.data.error);
@@ -1380,6 +1423,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
 
   // Get confidence pill class for styling
   c.getConfidencePillClass = function (confidence) {
+    if (!c.hasConfidenceValue(confidence)) return 'none';
     var value = parseFloat(confidence) || 0;
     if (value >= 0.75) return 'high';
     if (value >= 0.5) return 'medium';
@@ -1392,12 +1436,20 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     var totalConfidence = 0;
     var count = 0;
     fields.forEach(function (field) {
-      if (field.confidence_indicator !== undefined && field.confidence_indicator !== null) {
+      if (c.hasConfidenceValue(field.confidence_indicator)) {
         totalConfidence += parseFloat(field.confidence_indicator) || 0;
         count++;
       }
     });
     return count > 0 ? (totalConfidence / count) * 100 : 0;
+  };
+
+  // Check if any field in the section has a valid confidence value
+  c.sectionHasConfidence = function (fields) {
+    if (!fields || fields.length === 0) return false;
+    return fields.some(function (field) {
+      return c.hasConfidenceValue(field.confidence_indicator);
+    });
   };
 
   // Get section accuracy class for styling (high/medium/low)

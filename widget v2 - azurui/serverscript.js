@@ -81,7 +81,18 @@
     // Query limits
     limits: {
       maxLineItems: 500
-    }
+    },
+
+    // ============================================
+    // EDITABLE STATUS CONFIGURATION
+    // ============================================
+    // Statuses in which Data Verification column becomes an input field (editable).
+    // If submissionStatusChoice is NOT in this list, Data Verification shows as read-only text.
+    dataVerificationEditStatuses: ['CONFIRM_DATA_REVIEW'],
+
+    // Statuses in which QA Override Value column becomes an input field (editable).
+    // If submissionStatusChoice is NOT in this list, QA Override shows as read-only text.
+    qaOverrideEditStatuses: ['QUALITY_ASSURANCE']
   };
 
   /* ============================================
@@ -158,13 +169,20 @@
    */
   function _parseConfidence(confidenceValue) {
     try {
-      var confidence = parseFloat(confidenceValue) || 0;
+      // If no value from source, return empty string (leave blank in UI)
+      if (confidenceValue === null || confidenceValue === undefined || confidenceValue === '') {
+        return '';
+      }
+      var confidence = parseFloat(confidenceValue);
+      if (isNaN(confidence)) {
+        return '';
+      }
       if (confidence > 1) {
         confidence = confidence / 100;
       }
       return confidence;
     } catch (e) {
-      return 0;
+      return '';
     }
   }
 
@@ -241,6 +259,12 @@
   data.success = false;
   data.error = '';
   data.mapping = [];
+
+  // Pass editable status config to client
+  data.config = {
+    dataVerificationEditStatuses: CONFIG.dataVerificationEditStatuses,
+    qaOverrideEditStatuses: CONFIG.qaOverrideEditStatuses
+  };
 
   /* ============================================
    * ACTION HANDLER

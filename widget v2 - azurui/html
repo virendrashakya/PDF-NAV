@@ -125,7 +125,8 @@
               <i class="fas" ng-class="c.collapsedSections[sectionName] ? 'fa-chevron-right' : 'fa-chevron-down'"></i>
               <span class="section-title">{{c.trimInitialNumberAdvanced(sectionName)}} ({{fields.length}})</span>
             </div>
-            <div class="section-accuracy" ng-if="fields.length > 0" ng-class="c.getSectionAccuracyClass(fields)">
+            <div class="section-accuracy" ng-if="fields.length > 0 && c.sectionHasConfidence(fields)"
+              ng-class="c.getSectionAccuracyClass(fields)">
               {{c.calculateSectionAccuracy(fields) | number:0}}%
             </div>
           </div>
@@ -158,7 +159,8 @@
                       <i class="fas fa-crosshairs source-indicator" ng-if="field.source && field.source.length > 0"
                         title="Has source coordinates"></i>
                       <span class="field-name" title="{{field.field_name}}">{{field.field_name}}</span>
-                      <span class="confidence-pill" ng-class="c.getConfidencePillClass(field.confidence_indicator)">
+                      <span class="confidence-pill" ng-if="c.hasConfidenceValue(field.confidence_indicator)"
+                        ng-class="c.getConfidencePillClass(field.confidence_indicator)">
                         {{field.confidence_indicator * 100 | number:0}}%
                       </span>
                     </div>
@@ -171,30 +173,28 @@
                     </span>
                   </td>
 
-                  <!-- Data Verification (Editable when status = 'a', otherwise read-only) -->
+                  <!-- Data Verification (Editable when status is in dataVerificationEditStatuses, otherwise read-only) -->
                   <td class="col-data-verification" ng-click="$event.stopPropagation()">
-                    <!-- Editable input when submission_status_choice is 'a' -->
+                    <!-- Editable input when status is in configured edit statuses -->
                     <input type="text" class="verification-input" ng-model="field.data_verification"
-                      ng-if="c.submissionStatusChoice !== c.qaKey" ng-change="c.markFieldAsChanged(field)"
+                      ng-if="c.canEditDataVerification()" ng-change="c.markFieldAsChanged(field)"
                       ng-blur="c.validateCommentary(field); c.autoSaveField(field)"
                       ng-disabled="false && !c.isFieldActive(field)" placeholder="Enter...">
-                    <!-- Read-only text when submission_status_choice is not 'a' -->
-                    <span class="cell-text" ng-if="c.submissionStatusChoice === c.qaKey"
-                      title="{{field.data_verification}}">
+                    <!-- Read-only text when status is NOT in configured edit statuses -->
+                    <span class="cell-text" ng-if="!c.canEditDataVerification()" title="{{field.data_verification}}">
                       {{c.truncateText(field.data_verification, 12) || '-'}}
                     </span>
                   </td>
 
-                  <!-- QA Override Value (Editable when status = 'b', otherwise read-only) -->
+                  <!-- QA Override Value (Editable when status is in qaOverrideEditStatuses, otherwise read-only) -->
                   <td class="col-qa-override" ng-click="$event.stopPropagation()">
-                    <!-- Editable input when submission_status_choice is 'b' -->
+                    <!-- Editable input when status is in configured edit statuses -->
                     <input type="text" class="override-input" ng-model="field.qa_override_value"
-                      ng-if="c.submissionStatusChoice === c.qaKey" ng-change="c.markFieldAsChanged(field)"
+                      ng-if="c.canEditQaOverride()" ng-change="c.markFieldAsChanged(field)"
                       ng-blur="c.validateCommentary(field); c.autoSaveField(field)"
                       ng-disabled="false && !c.isFieldActive(field)" placeholder="Enter...">
-                    <!-- Read-only text when submission_status_choice is not 'b' -->
-                    <span class="cell-text" ng-if="c.submissionStatusChoice !== c.qaKey"
-                      title="{{field.qa_override_value}}">
+                    <!-- Read-only text when status is NOT in configured edit statuses -->
+                    <span class="cell-text" ng-if="!c.canEditQaOverride()" title="{{field.qa_override_value}}">
                       {{c.truncateText(field.qa_override_value, 12) || '-'}}
                     </span>
                   </td>
@@ -207,12 +207,17 @@
                     </span>
                   </td>
 
-                  <!-- Commentary (Editable input field) -->
+                  <!-- Commentary (Editable only when at least one of Data Verification or QA Override is editable) -->
                   <td class="col-commentary" ng-click="$event.stopPropagation()">
+                    <!-- Editable input when at least one column is editable -->
                     <input type="text" class="commentary-input" ng-model="field.commentary"
-                      ng-class="{'validation-error': field.commentaryRequired}"
+                      ng-if="c.canEditCommentary()" ng-class="{'validation-error': field.commentaryRequired}"
                       ng-change="c.markFieldAsChanged(field); field.commentaryRequired = false;"
                       ng-blur="c.autoSaveField(field)" placeholder="Enter...">
+                    <!-- Read-only text when both columns are read-only -->
+                    <span class="cell-text" ng-if="!c.canEditCommentary()" title="{{field.commentary}}">
+                      {{c.truncateText(field.commentary, 12) || '-'}}
+                    </span>
                   </td>
                 </tr>
               </tbody>
