@@ -67,7 +67,7 @@
     // ============================================
     // Statuses in which Data Verification column becomes an input field (editable).
     // If submissionStatusChoice is NOT in this list, Data Verification shows as read-only text.
-    dataVerificationEditStatuses: ['CONFIRM_DATA_REVIEW'],
+    dataVerificationEditStatuses: ['DATA_CAPTURE', 'INSURED_VERIFICATION', 'CHECK_FOR_DUPLICATES', 'DUPLICATE_CHECK', 'CHECK_FOR_SANCTIONS', 'CONFIRM_DATA_REVIEW'],
 
     // Statuses in which QA Override Value column becomes an input field (editable).
     // If submissionStatusChoice is NOT in this list, QA Override shows as read-only text.

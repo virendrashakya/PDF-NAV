@@ -583,15 +583,6 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     });
   };
 
-  /**
-   * Refer submission action
-   * Placeholder for refer functionality
-   */
-  c.referSubmission = function () {
-    // TODO: Implement refer logic
-    c.showInfo('Refer action - to be implemented');
-  };
-
   // Confirmation modal state
   c.showConfirmModal = false;
 

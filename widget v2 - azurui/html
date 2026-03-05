@@ -73,9 +73,6 @@
 
           <!-- Action Buttons: Refer, Save, Done -->
           <div class="header-actions">
-            <button class="btn-refer" ng-click="c.referSubmission()" ng-disabled="c.isLoading || c.isSaving">
-              Refer
-            </button>
             <button class="btn-save" ng-click="c.saveAllChanges()"
               ng-disabled="c.isLoading || c.isSaving || !c.hasChanges">
               <i class="fas fa-spinner fa-spin" ng-show="c.isSaving"></i>
