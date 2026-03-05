@@ -24,7 +24,6 @@
     // Table names
     tables: {
       lineItem: 'x_gegis_uwm_dashbo_data_extraction_lineitem',
-      metadata: 'x_gegis_uwm_dashbo_data_extraction_metadata',
       submission: 'x_gegis_uwm_dashbo_submission',
       attachment: 'sys_attachment'
     },
@@ -32,7 +31,6 @@
     // Lineitem table columns
     lineItemColumns: {
       parent: 'parent',
-      metadataRef: 'metadata_id',
       source: 'source',
       attachmentRef: 'documentname_attachment_sysid',
       fieldValue: 'field_value',
@@ -41,28 +39,9 @@
       commentary: 'commentary',
       reason: 'reason',
       confidenceIndicator: 'confidence_indicator',
-      sectionConfidenceAvg: 'section_confidence_avg',
-      tableField: 'table_field',
-      key: 'key'
-    },
-
-    // Metadata table columns
-    metadataColumns: {
-      sectionName: 'section_name',
-      modelLabel: 'model_label',
-      columnLabel: 'column_label',
-      order: 'order',
-      lob: 'lob',
-      version: 'version'
-    },
-
-    // Line of Business to Metadata LOB mapping
-    // Maps submission.line_of_business_choice value to metadata lob filter and version
-    // Values are UPPERCASE as stored in the database
-    lobMapping: {
-      'AUTO': { lobContains: 'AU', version: null },
-      'PROPERTY': { lobContains: 'PR', version: null },
-      'GENERAL_LIABILITY': { lobContains: 'GL', version: null }
+      sectionNameFinal: 'section_name_final',
+      sequenceFinal: 'sequence_final',
+      fieldNameFinal: 'field_name_final'
     },
 
     // Submission table columns
@@ -196,62 +175,7 @@
     return parseFloat(orderStr.replace(/,/g, '')) || 0;
   }
 
-  /**
-   * Determine if field should be included based on LOB filters
-   * @param {GlideRecord} metadataGr - Metadata record
-   * @param {object} lobFilter - Filter rules {lobContains: string, version: string}
-   * @returns {boolean} True if field should be included
-   */
-  function _shouldIncludeField(metadataGr, lobFilter) {
-    // If no filter, include everything
-    if (!lobFilter) return true;
 
-    // Get lob and version values
-    var dbLob = _getValue(metadataGr, CONFIG.metadataColumns.lob);
-    var dbVersion = _getValue(metadataGr, CONFIG.metadataColumns.version);
-
-    // Check criteria
-    var lobMatches = dbLob && dbLob.indexOf(lobFilter.lobContains) !== -1;
-    var versionMatches = !lobFilter.version || dbVersion === lobFilter.version;
-
-    return lobMatches && versionMatches;
-  }
-
-  /**
-   * Resolve field name logic (Table Field vs Model Label)
-   * @param {GlideRecord} lineItemGr - Line Item record
-   * @param {GlideRecord} metadataGr - Metadata record
-   * @returns {object} {name: string, debug: object}
-   */
-  function _resolveFieldName(lineItemGr, metadataGr) {
-    // defaults
-    var name = '';
-    var modelLabel = _getValue(metadataGr, CONFIG.metadataColumns.modelLabel);
-
-    // Check raw values
-    var tableFieldRaw = _getValue(lineItemGr, CONFIG.lineItemColumns.tableField);
-    var lineItemKey = _getValue(lineItemGr, CONFIG.lineItemColumns.key);
-    var isTableField = tableFieldRaw === 'true' || tableFieldRaw === '1';
-
-    // Logic: Use Key if Table Field is TRUE and Key exists
-    if (isTableField && lineItemKey) {
-      name = lineItemKey;
-    } else {
-      // Fallback: Always use Model Label
-      name = modelLabel;
-    }
-
-    return {
-      name: name,
-      debug: {
-        tableFieldRaw: tableFieldRaw,
-        isTableField: isTableField,
-        lineItemKey: lineItemKey,
-        modelLabel: modelLabel,
-        finalName: name
-      }
-    };
-  }
 
   /* ============================================
    * INITIALIZE DATA OBJECT
@@ -448,104 +372,24 @@
         return;
       }
 
-      // Get line_of_business from submission to determine filter
-      var lineOfBusiness = _getValue(submissionGr, CONFIG.submissionColumns.lineOfBusiness);
-      var lobFilter = CONFIG.lobMapping[lineOfBusiness] || null;
-
-      // DEBUG: Log LOB filter being used
-      gs.info('PDF-NAV: line_of_business="' + lineOfBusiness + '", filter=' + JSON.stringify(lobFilter));
-
       // Query line items
       var lineItemGr = new GlideRecord(CONFIG.tables.lineItem);
       lineItemGr.addQuery(CONFIG.lineItemColumns.parent, dataExtractSysId);
       lineItemGr.setLimit(CONFIG.limits.maxLineItems);
       lineItemGr.query();
 
-      // Collect all line items with their metadata
+      // Collect all line items
       var lineItems = [];
-      var skippedFields = []; // Track skipped items for debugging
 
       while (lineItemGr.next()) {
-        var metadataId = _getValue(lineItemGr, CONFIG.lineItemColumns.metadataRef);
         var source = _getValue(lineItemGr, CONFIG.lineItemColumns.source);
         var documentSysId = _getValue(lineItemGr, CONFIG.lineItemColumns.attachmentRef);
         var lineItemSysId = lineItemGr.getUniqueValue();
 
         // DEFAULT VALUES
-        var sectionName = 'Uncategorized';
-        var fieldName = '';
-        var orderNumeric = 0;
-
-        // Debug vars
-        var debugData = null;
-
-        // CHECK IF FIELD SHOULD BE INCLUDED & RESOLVE METADATA
-        var includeField = false;
-        var skipReason = '';
-        var metadataSysId = '';
-
-        if (metadataId) {
-          metadataSysId = metadataId; // Store for debug even if get() fails
-          var metadataGr = new GlideRecord(CONFIG.tables.metadata);
-          if (metadataGr.get(metadataId)) {
-            // 1. Check if field matches LOB filters
-            includeField = _shouldIncludeField(metadataGr, lobFilter);
-
-            if (includeField) {
-              // 2. Get Section Name
-              sectionName = _getValue(metadataGr, CONFIG.metadataColumns.sectionName) || sectionName;
-
-              // 3. Resolve Field Name (Table Key vs Model Label)
-              var nameResult = _resolveFieldName(lineItemGr, metadataGr);
-              fieldName = nameResult.name;
-
-              // 4. Get Order
-              orderNumeric = _parseOrder(_getValue(metadataGr, CONFIG.metadataColumns.order));
-
-              // Capture debug data from resolution
-              debugData = nameResult.debug;
-
-              // Add IDs to debug data
-              if (debugData) {
-                debugData.lineItemSysId = lineItemSysId;
-                debugData.metadataSysId = metadataSysId;
-              }
-            } else {
-              skipReason = 'Filtered by LOB (Filter: ' + (lobFilter ? lobFilter.lobContains : 'None') + ')';
-            }
-          } else {
-            skipReason = 'Metadata record not found (sys_id: ' + metadataId + ')';
-          }
-        } else {
-          skipReason = 'Missing Metadata Reference';
-        }
-
-        if (!includeField) {
-          if (DEBUG.includeDebugData) {
-            var skippedAttachmentName = '';
-            // Try to resolve attachment name for better debugging
-            if (documentSysId) {
-              // We won't call _getAttachmentData for every skipped field to avoid performance hit,
-              // but we will try to get the Display Value from the ref if possible, 
-              // or just rely on the ID. 
-              // For now, let's just log the ID. The client can correlate.
-              // Optional: fast lookup if we really wanted to.
-            }
-
-            skippedFields.push({
-              lineItemSysId: lineItemSysId,
-              metadataSysId: metadataSysId,
-              documentSysId: documentSysId, // Critical for identifying missing docs
-              reason: skipReason,
-              source: source,
-              fieldName: fieldName || 'Unknown (Resolution Failed)',
-              tableFieldRaw: _getValue(lineItemGr, CONFIG.lineItemColumns.tableField),
-              lineItemKey: _getValue(lineItemGr, CONFIG.lineItemColumns.key),
-              modelLabel: metadataSysId ? _getValue(metadataGr, CONFIG.metadataColumns.modelLabel) : 'N/A'
-            });
-          }
-          continue;
-        }
+        var sectionName = _getValue(lineItemGr, CONFIG.lineItemColumns.sectionNameFinal) || 'Uncategorized';
+        var fieldName = _getValue(lineItemGr, CONFIG.lineItemColumns.fieldNameFinal) || 'Unknown';
+        var orderNumeric = _parseOrder(_getValue(lineItemGr, CONFIG.lineItemColumns.sequenceFinal));
 
         // BUILD LINE ITEM OBJECT
         var lineItem = {
@@ -573,17 +417,29 @@
           attachmentData: documentSysId ? _getAttachmentData(documentSysId) : null
         };
 
-        // Atach debug info if enabled
-        if (DEBUG.includeDebugData && debugData) {
-          lineItem._debug = debugData;
+        // Attach debug info if enabled
+        if (DEBUG.includeDebugData) {
+          lineItem._debug = {
+            lineItemSysId: lineItemSysId,
+            sectionNameFinal: sectionName,
+            fieldNameFinal: fieldName,
+            sequenceFinal: _getValue(lineItemGr, CONFIG.lineItemColumns.sequenceFinal)
+          };
         }
 
         lineItems.push(lineItem);
       }
 
-      // Sort by order
+      // Sort by order, then by alphabetical order
       lineItems.sort(function (a, b) {
-        return a._order - b._order;
+        if (a._order !== b._order) {
+          return a._order - b._order;
+        }
+        var nameA = (a.field_name || '').toLowerCase();
+        var nameB = (b.field_name || '').toLowerCase();
+        if (nameA < nameB) return -1;
+        if (nameA > nameB) return 1;
+        return 0;
       });
 
       // Remove internal _order field before returning
@@ -593,9 +449,8 @@
 
       data.mapping = lineItems;
 
-      // Return skipped fields for debugging
       if (DEBUG.includeDebugData) {
-        data.skippedFields = skippedFields;
+        data.skippedFields = []; // Empty array since no filtering applied anymore
       }
 
       data.success = true;

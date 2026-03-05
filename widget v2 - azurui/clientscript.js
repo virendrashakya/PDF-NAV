@@ -13,7 +13,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
    * ============================================ */
   var DEBUG = {
     enabled: true,           // Master switch: true = show debug, false = hide all
-    logFieldNameLogic: true, // Log field name resolution (table_field, key, model_label)
+    logExtractionLogic: true, // Log field name resolution
     logServerCalls: false,   // Log server request/response
     logPdfRendering: false   // Log PDF rendering operations
   };
@@ -680,9 +680,8 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   /**
    * Analyze reasons why documents were not loaded
    * @param {Array} loadedFields - Fields that were successfully loaded
-   * @param {Array} skippedFields - Fields that were filtered out on server
    */
-  function analyzeMissingDocuments(loadedFields, skippedFields) {
+  function analyzeMissingDocuments(loadedFields) {
     if (!DEBUG.enabled) return;
 
     // 1. Identify all documents referenced in loaded fields (successful attachment loads)
@@ -706,18 +705,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
       }
     });
 
-    // Merge attachment failures into skippedFields for unified analysis
-    var allSkipped = skippedFields.concat(attachmentFailures);
-
-    // 3. Group skipped fields by document ID
-    var skippedByDoc = {};
-    allSkipped.forEach(function (sf) {
-      var docId = sf.documentSysId || 'unknown_doc_id';
-      if (!skippedByDoc[docId]) {
-        skippedByDoc[docId] = [];
-      }
-      skippedByDoc[docId].push(sf);
-    });
+    if (attachmentFailures.length === 0) return;
 
     console.group('🔍 PDF-NAV: Document Loading Analysis');
 
@@ -738,39 +726,6 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
       });
       console.groupEnd();
     }
-
-    // 5. Check for documents that are COMPLETELY missing (in skipped but not in loaded)
-    Object.keys(skippedByDoc).forEach(function (docId) {
-      if (docId === 'unknown_doc_id') return;
-
-      // If this doc ID is NOT in the loaded set, it means ALL its fields were filtered out
-      if (!loadedDocIds.has(docId)) {
-        var skips = skippedByDoc[docId];
-        var reasons = {};
-
-        // Count frequency of each reason
-        skips.forEach(function (s) {
-          var r = s.reason || 'Unknown Reason';
-          reasons[r] = (reasons[r] || 0) + 1;
-        });
-
-        console.groupCollapsed('❌ Document NOT LOADED: ' + docId);
-        console.warn('This document was referenced by ' + skips.length + ' fields, but NONE were loaded.');
-        console.table(reasons);
-        console.log('Sample Skipped Fields:', skips.slice(0, 3));
-        console.groupEnd();
-      }
-    });
-
-    // 6. General Skipped Field Summary
-    console.groupCollapsed('⚠️ Skipped Field Summary (' + allSkipped.length + ' total)');
-    var globalReasons = {};
-    allSkipped.forEach(function (s) {
-      var r = s.reason || 'Unknown Reason';
-      globalReasons[r] = (globalReasons[r] || 0) + 1;
-    });
-    console.table(globalReasons);
-    console.groupEnd();
 
     console.groupEnd();
   }
@@ -856,12 +811,10 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
         c.loadDocument();
       }
       if (response.data.success) {
-        processMappingData(response.data.mapping, response.data.skippedFields);
+        processMappingData(response.data.mapping);
 
         // DEBUG: Analyze missing documents
-        if (response.data.skippedFields && response.data.skippedFields.length > 0) {
-          analyzeMissingDocuments(response.data.mapping, response.data.skippedFields);
-        }
+        analyzeMissingDocuments(response.data.mapping);
       }
       c.isLoading = false;
     }).catch(function (error) {
@@ -972,38 +925,27 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   }
 
   // Process mapping data - process cordinates to canvas compatable
-  function processMappingData(mappingData, skippedFields) {
+  function processMappingData(mappingData) {
     if (!mappingData || !Array.isArray(mappingData)) {
       c.mappingData = [];
       c.extractedFields = [];
       return;
     }
 
-    // DEBUG: Log field name logic for each field (controlled by DEBUG.logFieldNameLogic)
-    if (DEBUG.logFieldNameLogic) {
+    // DEBUG: Log field name logic for each field (controlled by DEBUG.logExtractionLogic)
+    if (DEBUG.logExtractionLogic) {
 
       // Log Included Fields
       var debugData = mappingData.map(function (m) {
         return {
           section: m.section_name,
           finalFieldName: m.field_name,
-          tableFieldRaw: m._debug ? m._debug.tableFieldRaw : 'N/A',
-          isTableField: m._debug ? m._debug.isTableField : 'N/A',
-          lineItemKey: m._debug ? m._debug.lineItemKey : 'N/A',
-          modelLabel: m._debug ? m._debug.modelLabel : 'N/A',
+          sequenceFinal: m._debug ? m._debug.sequenceFinal : 'N/A',
           sys_id: m._debug ? m._debug.lineItemSysId : 'N/A'
         };
       });
-      debugLog('FieldName', '✅ Included Fields: ' + mappingData.length);
+      debugLog('FieldName', '✅ Included Fields (from LineItem directly): ' + mappingData.length);
       debugTable('FieldName', 'Included Fields Resolution', debugData);
-
-      // Log Skipped Fields
-      if (skippedFields && skippedFields.length > 0) {
-        debugLog('FieldName', '🚫 Skipped Fields: ' + skippedFields.length);
-        debugTable('FieldName', 'Skipped Fields Reasons', skippedFields);
-      } else {
-        debugLog('FieldName', 'No fields were skipped.');
-      }
     }
 
     // Process all mappings - include those without coordinates too
