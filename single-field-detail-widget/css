@@ -1,67 +1,64 @@
 /* ============================================
- * Single Field Detail Widget
- * Updated to match combined widget design
+ * Combined Field Detail + PDF Viewer Widget
+ * Matches screenshot design
  * ============================================ */
 
-.single-field-detail-widget {
+.combined-field-pdf-widget {
+  display: flex;
   width: 100%;
-  height: 100%;
-  background: #ffffff;
+  height: 100vh;
+  background: #f8f9fa;
   font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  overflow: hidden;
+}
+
+/* ============================================
+ * Left Panel - Field Detail
+ * ============================================ */
+
+.left-panel {
+  width: 480px;
+  min-width: 400px;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border-right: 1px solid #e5e5e5;
   overflow-y: auto;
 }
 
-/* Loading State */
-.detail-loading {
-  display: flex;
+/* Back Header */
+.back-header {
+  padding: 16px 24px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.back-btn {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  padding: 60px;
+  gap: 8px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: #333;
+  font-size: 14px;
+  cursor: pointer;
+  transition: color 0.2s;
 }
 
-.loading-spinner {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  color: #6b7280;
+.back-btn:hover {
+  color: #0078d4;
 }
 
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid rgba(0, 120, 212, 0.2);
-  border-top-color: #0078d4;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
+.back-btn i {
+  font-size: 12px;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* Error State */
-.detail-error {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60px;
-  color: #dc2626;
-  text-align: center;
-  gap: 16px;
-}
-
-.detail-error i {
-  font-size: 48px;
-}
-
-/* Content */
-.detail-content {
+/* Field Detail Content */
+.field-detail-content {
   padding: 24px;
+  flex: 1;
 }
 
-/* Field Title */
 .field-title {
   margin: 0 0 12px 0;
   font-size: 24px;
@@ -87,17 +84,16 @@
   font-size: 11px;
 }
 
-/* Section Label */
+/* Score Section */
+.score-section {
+  margin-bottom: 24px;
+}
+
 .section-label {
   display: block;
   font-size: 13px;
   color: #666;
   margin-bottom: 8px;
-}
-
-/* Score Section */
-.score-section {
-  margin-bottom: 24px;
 }
 
 .score-badge {
@@ -230,55 +226,215 @@
   font-size: 14px;
 }
 
-/* No Source */
-.no-source-section {
-  margin-bottom: 24px;
+/* ============================================
+ * Right Panel - PDF Viewer
+ * ============================================ */
+
+.right-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  overflow: hidden;
 }
 
-.no-source-message {
+/* PDF Header */
+.pdf-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 16px;
-  background: #f9fafb;
-  border-radius: 8px;
-  color: #6b7280;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #fff;
+  border-bottom: 1px solid #e5e5e5;
+  flex-shrink: 0;
 }
 
-.no-source-message i {
-  font-size: 20px;
-}
-
-.no-source-message p {
-  margin: 0;
+.pdf-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 14px;
+  color: #1f2937;
 }
 
-/* Commentary Section */
-.commentary-section {
-  margin-bottom: 24px;
+.pdf-title i {
+  color: #ef4444;
+  font-size: 16px;
 }
 
-.commentary-box {
-  padding: 16px 20px;
-  background: #f9fafb;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
-  font-size: 14px;
-  line-height: 1.7;
+.pdf-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.zoom-controls,
+.page-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ctrl-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid #e5e5e5;
+  border-radius: 4px;
+  background: #fff;
   color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-/* Scrollbar */
-.single-field-detail-widget::-webkit-scrollbar {
-  width: 8px;
+.ctrl-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #d1d5db;
 }
 
-.single-field-detail-widget::-webkit-scrollbar-track {
+.ctrl-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.ctrl-btn.active {
+  background: #0078d4;
+  border-color: #0078d4;
+  color: #fff;
+}
+
+.ctrl-btn.highlight-btn {
+  background: #fef3c7;
+  border-color: #fcd34d;
+  color: #92400e;
+}
+
+.page-info {
+  font-size: 13px;
+  color: #6b7280;
+  min-width: 90px;
+  text-align: center;
+}
+
+/* PDF Container */
+.pdf-container {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 20px;
   background: #f5f5f5;
 }
 
-.single-field-detail-widget::-webkit-scrollbar-thumb {
+.pdf-loading,
+.pdf-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px;
+  color: #6b7280;
+  text-align: center;
+  gap: 16px;
+}
+
+.pdf-error {
+  color: #dc2626;
+}
+
+.pdf-error i {
+  font-size: 48px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(0, 120, 212, 0.2);
+  border-top-color: #0078d4;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.canvas-wrapper {
+  position: relative;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+#pdfCanvas {
+  display: block;
+  background: #fff;
+}
+
+#annotationCanvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+/* PDF Footer */
+.pdf-footer {
+  padding: 8px 16px;
+  background: #fff;
+  border-top: 1px solid #e5e5e5;
+  flex-shrink: 0;
+}
+
+.footer-info {
+  display: flex;
+  gap: 24px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.page-size::before,
+.scale-info::before,
+.active-layer::before {
+  content: '○';
+  margin-right: 6px;
+  font-size: 10px;
+}
+
+/* Scrollbar */
+.left-panel::-webkit-scrollbar,
+.pdf-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.left-panel::-webkit-scrollbar-track,
+.pdf-container::-webkit-scrollbar-track {
+  background: #f5f5f5;
+}
+
+.left-panel::-webkit-scrollbar-thumb,
+.pdf-container::-webkit-scrollbar-thumb {
   background: #d1d5db;
   border-radius: 4px;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .combined-field-pdf-widget {
+    flex-direction: column;
+  }
+
+  .left-panel {
+    width: 100%;
+    min-width: unset;
+    height: 50%;
+  }
+
+  .right-panel {
+    height: 50%;
+  }
 }

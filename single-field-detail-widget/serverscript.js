@@ -1,158 +1,121 @@
 (function () {
     /* ============================================
-     * Single Field Detail Widget - Server Script
-     * ============================================
-     * Shows detailed view of a single field/check
-     * with source evidence and PDF navigation
-     * ============================================ */
-
-    // Table names
-    var lineItemTableName = 'x_gegis_uwm_dashbo_data_extraction_lineitem';
-    var submissionTableName = 'x_gegis_uwm_dashbo_submission';
-    var sysAttachmentTable = 'sys_attachment';
-    var supportedContentType = 'application/pdf';
+    * Combined Field Detail + PDF Viewer Widget
+    * Server Script
+    * ============================================
+    * Returns single field demo data
+    * ============================================ */
 
     /* ============================================
-     * HELPER FUNCTIONS
-     * ============================================ */
-
-    function _getValue(gr, field) {
-        try {
-            return gr.getValue(field) || '';
-        } catch (e) {
-            return '';
-        }
-    }
-
-    function _getAttachmentData(attachmentSysId) {
-        if (!attachmentSysId) return null;
-
-        try {
-            var attachmentGr = new GlideRecord(sysAttachmentTable);
-            attachmentGr.addQuery('sys_id', attachmentSysId);
-            attachmentGr.addQuery('content_type', supportedContentType);
-            attachmentGr.setLimit(1);
-            attachmentGr.query();
-
-            if (attachmentGr.next()) {
-                return {
-                    sys_id: attachmentGr.getUniqueValue(),
-                    file_name: _getValue(attachmentGr, 'file_name'),
-                    file_url: "/sys_attachment.do?sys_id=" + attachmentSysId
-                };
-            }
-            return null;
-        } catch (e) {
-            return null;
-        }
-    }
-
-    function _parseConfidence(confidenceValue) {
-        try {
-            var confidence = parseFloat(confidenceValue) || 0;
-            if (confidence > 1) {
-                confidence = confidence / 100;
-            }
-            return confidence;
-        } catch (e) {
-            return 0;
-        }
-    }
-
-    /* ============================================
-     * INITIALIZE DATA
-     * ============================================ */
-    data.success = false;
-    data.error = '';
-    data.field = null;
-
-    /* ============================================
-     * ACTION HANDLER
-     * ============================================ */
+    * ACTION HANDLER
+    * ============================================ */
+    gs.info('PDF-NAV DEBUG: === SERVER SCRIPT START ===');
+    gs.info('PDF-NAV DEBUG: input=' + JSON.stringify(input));
+    //variable declare
+    var criteria;
+    var reasonInput;
+    var source;
+    var reason;
     if (input && input.action) {
+        gs.info('PDF-NAV DEBUG: Action received: "' + input.action + '"');
         try {
             switch (input.action) {
-                case 'fetchFieldDetail':
-                    fetchFieldDetail();
+                case 'fetchSourceMapping':
+                    gs.info('PDF-NAV DEBUG: Calling fetchMapping()');
+                    fetchSourceMapping();
                     break;
                 default:
+                    gs.info('PDF-NAV DEBUG: Unknown action: ' + input.action);
                     data.error = 'Unknown action: ' + input.action;
+                    data.success = false;
             }
         } catch (e) {
+            gs.error('PDF-NAV ERROR: Server error: ' + e.message);
             data.error = 'Server error: ' + e.message;
+            data.success = false;
+            gs.error('Widget Server Script Error: ' + e.message);
         }
     } else {
-        data.message = 'Single Field Detail Widget loaded';
+        gs.info('PDF-NAV DEBUG: No action - widget load');
+        // Default - widget load
+        data.message = 'PDF Annotation Widget loaded successfully';
         data.success = true;
     }
 
-    /* ============================================
-     * FETCH SINGLE FIELD DETAIL
-     * ============================================ */
-    function fetchFieldDetail() {
+    function fetchSourceMapping() {
+        gs.info('Single PDF-NAV DEBUG: *** fwetch mappung ENTERED ***');
         data.success = false;
+        var submissionSysId = input.submissionSysId;
+        var reasonInput = input.reason;
+        gs.info('PDF-NAV DEBUG: submissionSysId=' + submissionSysId);
+        gs.info('PDF-NAV DEBUG: reasonInput=' + reasonInput);
 
-        try {
-            var fieldSysId = input.fieldSysId;
-            if (!fieldSysId) {
-                data.error = 'Field ID is required';
-                return;
-            }
-
-            var lineItemGr = new GlideRecord(lineItemTableName);
-            if (!lineItemGr.get(fieldSysId)) {
-                data.error = 'Field not found';
-                return;
-            }
-
-            var documentSysId = _getValue(lineItemGr, 'documentname_attachment_sysid');
-            var source = _getValue(lineItemGr, 'source');
-
-            // Parse page and section from source
-            var pageNumber = 1;
-            var sectionInfo = '';
-            if (source) {
-                var pageMatch = source.match(/D\((\d+),/);
-                if (pageMatch) {
-                    pageNumber = parseInt(pageMatch[1]);
-                }
-            }
-
-            data.field = {
-                sys_id: lineItemGr.getUniqueValue(),
-
-                // Display fields
-                field_name: _getValue(lineItemGr, 'field_name'),
-                field_value: _getValue(lineItemGr, 'field_value'),
-                section_name: _getValue(lineItemGr, 'section_name'),
-                new_section_name: _getValue(lineItemGr, 'new_section_name'),
-
-                // Status/Score
-                score: _getValue(lineItemGr, 'score') || 'Passed',
-                status: _getValue(lineItemGr, 'status') || '',
-
-                // Reasoning/Explanation
-                reason: _getValue(lineItemGr, 'reason') || '',
-                logic_transparency: _getValue(lineItemGr, 'reason'),
-                commentary: _getValue(lineItemGr, 'commentary'),
-
-                // Confidence
-                confidence_indicator: _parseConfidence(_getValue(lineItemGr, 'confidence_indicator')),
-
-                // Source Evidence
-                source: source,
-                page_number: pageNumber,
-                extracted_text: _getValue(lineItemGr, 'field_value'),
-
-                // Attachment
-                attachmentData: documentSysId ? _getAttachmentData(documentSysId) : null
-            };
-
-            data.success = true;
-
-        } catch (e) {
-            data.error = 'Error loading field detail: ' + e.message;
+        if (!reasonInput) {
+            gs.info('PDF-NAV DEBUG: No reasonInput provided, returning error');
+            data.error = 'reasonInput is not provided';
+            return;
         }
+
+        if (!submissionSysId) {
+            gs.info('PDF-NAV DEBUG: No submissionSysId provided, returning error');
+            data.error = 'Submission sys ID is not provided';
+            return;
+        }
+
+        data.response = {};
+        //actual logic to fetch data
+
+        var guidelineSysId;
+        var score;
+        var submissionGr = new GlideRecord('x_gegis_uwm_dashbo_submission');
+        submissionGr.addQuery('sys_id', submissionSysId);
+        submissionGr.setLimit(1);
+        submissionGr.query();
+        if (submissionGr.next()) {
+            guidelineSysId = submissionGr.getValue('underwriting_guideline');
+
+            gs.info(guidelineSysId);
+        }
+        var gr = new GlideRecord('x_gegis_uwm_dashbo_underwriting_guideline_rule');
+        gr.addQuery('underwriting_guideline', guidelineSysId);
+        gr.addQuery('reason', reasonInput);
+        gr.setLimit(1);
+        gr.query();
+
+        while (gr.next()) {
+            documentSysId = gr.getValue('documentname_attachment_sysid');
+            criteria = gr.getValue('criteria');
+            source = gr.getValue('source');
+            reason = gr.getValue('reason');
+            var documentURL = "/sys_attachment.do?sys_id=" + documentSysId
+            data.response = {
+                sys_id: gr.getUniqueValue('underwriting_guideline'),
+                name: gr.getValue('document_name'),
+                documentURL: documentURL,
+                source: gr.getValue('source'),
+            }
+
+
+        }
+
     }
+
+    // Single field data matching screenshot
+    data.field = {
+        field_name: criteria,
+        field_value: 'This insurance excludes loss damage liability or expense arising from war, invasion, act of foreign enemy, hostilities...',
+        section_name: 'Section 5.1 - Exclusions',
+        score: 'Failed',
+        status: 'Manual Review',
+        reason: reason,
+        confidence_indicator: 0.85,
+        page_number: 2,
+        source: source,
+    };
+
+    // PDF URL from ServiceNow attachment table
+    data.demoPdfUrl = '/sys_attachment.do?sys_id=882e3693fb92f650b70efc647befdc63&view=true';
+
+    data.success = true;
 
 })();

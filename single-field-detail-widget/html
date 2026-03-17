@@ -1,98 +1,129 @@
-<!-- Single Field Detail Widget HTML Template -->
-<!-- Updated to match combined widget design -->
-<div class="single-field-detail-widget">
-  
-  <!-- Loading State -->
-  <div class="detail-loading" ng-if="c.isLoading">
-    <div class="loading-spinner">
-      <div class="spinner"></div>
-      <span>{{c.loadingMessage}}</span>
+<!-- Combined Field Detail + PDF Viewer Widget -->
+<!-- Matches screenshot design: Single field detail on left, PDF viewer on right -->
+<div class="combined-field-pdf-widget">
+
+  <!-- Left Panel: Single Field Detail -->
+  <div class="left-panel">
+
+    <!-- Field Detail Content -->
+    <div class="field-detail-content" ng-if="c.field">
+      <!-- Field Title -->
+      <h1 class="field-title">{{c.field.field_name}}</h1>
+
+      <!-- Status Label -->
+      <div class="status-label">
+        <i class="fa fa-warning"></i>
+        <span>{{c.field.status}}</span>
+      </div>
+
+      <!-- Score Section -->
+      <div class="score-section">
+        <label class="section-label">Score</label>
+        <span class="score-badge" ng-class="c.getScoreClass()">{{c.field.score}}</span>
+      </div>
+
+      <!-- Why this failed -->
+      <div class="reason-section" ng-if="c.field.reason">
+        <label class="section-label">Why this failed:</label>
+        <div class="reason-box">
+          {{c.field.reason}}
+        </div>
+      </div>
+
+      <!-- Source Evidence -->
+      <div class="source-section" ng-if="c.field.source">
+        <label class="section-label">Source Evidence</label>
+
+        <div class="source-card">
+          <!-- Document Info -->
+          <div class="doc-row">
+            <i class="fa fa-file-pdf-o doc-icon"></i>
+            <div class="doc-info">
+              <span class="doc-name">{{c.field.document_name}}</span>
+              <span class="doc-location">Page {{c.field.page_number}} • {{c.field.section_name}}</span>
+            </div>
+          </div>
+
+          <!-- Extracted Text -->
+          <div class="extracted-section">
+            <label class="extracted-label">Extracted Text:</label>
+            <div class="extracted-box">
+              "{{c.field.field_value}}"
+            </div>
+          </div>
+        </div>
+
+        <!-- View in Document Button -->
+        <button class="view-doc-btn" ng-click="c.viewInDocument()">
+          <i class="fa fa-file-text-o"></i>
+          View in Document
+        </button>
+      </div>
     </div>
   </div>
 
-  <!-- Error State -->
-  <div class="detail-error" ng-if="c.errorMessage && !c.isLoading">
-    <i class="fa fa-exclamation-triangle"></i>
-    <p>{{c.errorMessage}}</p>
-  </div>
-
-  <!-- Content -->
-  <div class="detail-content" ng-if="c.field && !c.isLoading">
-    
-    <!-- Field Title -->
-    <h1 class="field-title">{{c.field.field_name}}</h1>
-    
-    <!-- Status Label -->
-    <div class="status-label">
-      <i class="fa fa-warning"></i>
-      <span>{{c.getStatusText()}}</span>
+  <!-- Right Panel: PDF Viewer -->
+  <div class="right-panel">
+    <!-- PDF Header -->
+    <div class="pdf-header">
+      <div class="pdf-title">
+        <i class="fa fa-file-pdf-o"></i>
+        <span>{{c.field.document_name || 'Document'}}</span>
+      </div>
+      <div class="pdf-controls">
+        <!-- Zoom Controls -->
+        <div class="zoom-controls">
+          <button class="ctrl-btn" ng-click="c.fitWidth()" ng-class="{'active': c.zoomMode === 'fit-width'}"
+            title="Fit to Width">
+            <i class="fa fa-arrows-h"></i>
+          </button>
+          <button class="ctrl-btn" ng-click="c.fitPage()" ng-class="{'active': c.zoomMode === 'fit-page'}"
+            title="Fit Complete Page">
+            <i class="fa fa-expand"></i>
+          </button>
+        </div>
+        <!-- Page Navigation -->
+        <div class="page-controls">
+          <button class="ctrl-btn" ng-click="c.previousPage()" ng-disabled="c.currentPage <= 1">
+            <i class="fa fa-chevron-left"></i>
+          </button>
+          <span class="page-info">Page {{c.currentPage}} of {{c.totalPages}}</span>
+          <button class="ctrl-btn" ng-click="c.nextPage()" ng-disabled="c.currentPage >= c.totalPages">
+            <i class="fa fa-chevron-right"></i>
+          </button>
+        </div>
+      </div>
     </div>
 
-    <!-- Score Section -->
-    <div class="score-section">
-      <label class="section-label">Score</label>
-      <span class="score-badge" ng-class="c.getScoreClass()">
-        {{c.field.score || 'N/A'}}
+    <!-- PDF Container -->
+    <div class="pdf-container" id="pdfContainer">
+      <!-- Loading -->
+      <div class="pdf-loading" ng-if="c.isLoading">
+        <div class="spinner"></div>
+        <span>Loading PDF...</span>
+      </div>
+
+      <!-- Error -->
+      <div class="pdf-error" ng-if="c.pdfError">
+        <i class="fa fa-exclamation-triangle"></i>
+        <span>{{c.pdfError}}</span>
+      </div>
+
+      <!-- Canvas -->
+      <div class="canvas-wrapper" ng-hide="c.isLoading || c.pdfError">
+        <canvas id="pdfCanvas"></canvas>
+        <canvas id="annotationCanvas"></canvas>
+      </div>
+    </div>
+
+    <!-- PDF Footer -->
+    <div class="pdf-footer">
+      <span class="footer-info">
+        <span class="page-size">A4: {{c.pageWidth}} × {{c.pageHeight}} points</span>
+        <span class="scale-info">Scale: {{c.scalePercent}}%</span>
+        <span class="active-layer">Active: Occupancy</span>
       </span>
     </div>
-
-    <!-- Why This Failed / Reason Section -->
-    <div class="reason-section" ng-if="c.field.reason || c.field.logic_transparency">
-      <label class="section-label">Why this failed:</label>
-      <div class="reason-box">
-        {{c.field.reason || c.field.logic_transparency}}
-      </div>
-    </div>
-
-    <!-- Source Evidence Section -->
-    <div class="source-section" ng-if="c.hasSource()">
-      <label class="section-label">Source Evidence</label>
-      
-      <div class="source-card">
-        <!-- Document Info -->
-        <div class="doc-row" ng-if="c.field.attachmentData">
-          <i class="fa fa-file-pdf-o doc-icon"></i>
-          <div class="doc-info">
-            <span class="doc-name">{{c.field.attachmentData.file_name}}</span>
-            <span class="doc-location">
-              Page {{c.field.page_number}}
-              <span ng-if="c.field.section_name"> • {{c.field.section_name}}</span>
-            </span>
-          </div>
-        </div>
-
-        <!-- Extracted Text -->
-        <div class="extracted-section" ng-if="c.field.extracted_text">
-          <label class="extracted-label">Extracted Text:</label>
-          <div class="extracted-box">
-            "{{c.field.extracted_text}}"
-          </div>
-        </div>
-      </div>
-
-      <!-- View in Document Button -->
-      <button class="view-doc-btn" ng-click="c.viewInDocument()" ng-if="c.hasSource()">
-        <i class="fa fa-file-text-o"></i>
-        View in Document
-      </button>
-    </div>
-
-    <!-- No Source Available -->
-    <div class="no-source-section" ng-if="!c.hasSource()">
-      <div class="no-source-message">
-        <i class="fa fa-info-circle"></i>
-        <p>No source evidence available for this field</p>
-      </div>
-    </div>
-
-    <!-- Commentary Section -->
-    <div class="commentary-section" ng-if="c.field.commentary">
-      <label class="section-label">Commentary</label>
-      <div class="commentary-box">
-        {{c.field.commentary}}
-      </div>
-    </div>
-
   </div>
 
 </div>
