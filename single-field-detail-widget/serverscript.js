@@ -43,7 +43,7 @@
     }
 
     function fetchSourceMapping() {
-        gs.info('Single PDF-NAV DEBUG: *** fwetch mappung ENTERED ***');
+        gs.info('Single PDF-NAV DEBUG: *** fetchSourceMapping ENTERED ***');
         data.success = false;
         var submissionSysId = input.submissionSysId;
         var reasonInput = input.reason;
@@ -51,31 +51,27 @@
         gs.info('PDF-NAV DEBUG: reasonInput=' + reasonInput);
 
         if (!reasonInput) {
-            gs.info('PDF-NAV DEBUG: No reasonInput provided, returning error');
             data.error = 'reasonInput is not provided';
             return;
         }
 
         if (!submissionSysId) {
-            gs.info('PDF-NAV DEBUG: No submissionSysId provided, returning error');
             data.error = 'Submission sys ID is not provided';
             return;
         }
 
         data.response = {};
-        //actual logic to fetch data
 
         var guidelineSysId;
-        var score;
         var submissionGr = new GlideRecord('x_gegis_uwm_dashbo_submission');
         submissionGr.addQuery('sys_id', submissionSysId);
         submissionGr.setLimit(1);
         submissionGr.query();
         if (submissionGr.next()) {
             guidelineSysId = submissionGr.getValue('underwriting_guideline');
-
-            gs.info(guidelineSysId);
+            gs.info('PDF-NAV DEBUG: guidelineSysId=' + guidelineSysId);
         }
+
         var gr = new GlideRecord('x_gegis_uwm_dashbo_underwriting_guideline_rule');
         gr.addQuery('underwriting_guideline', guidelineSysId);
         gr.addQuery('reason', reasonInput);
@@ -83,38 +79,53 @@
         gr.query();
 
         while (gr.next()) {
-            documentSysId = gr.getValue('documentname_attachment_sysid');
+            var documentSysId = gr.getValue('documentname_attachment_sysid');
             criteria = gr.getValue('criteria');
             source = gr.getValue('source');
             reason = gr.getValue('reason');
-            var documentURL = "/sys_attachment.do?sys_id=" + documentSysId
+            var documentURL = '/sys_attachment.do?sys_id=' + documentSysId;
+
+            // TODO: Replace sample source with actual source once coordinate data is populated in guideline rule table
+            var sampleSource = 'D(1,1.23,2.45,4.56,2.45,4.56,3.67,1.23,3.67);D(2,2.10,5.30,6.80,5.30,6.80,6.50,2.10,6.50)';
+
+            // Document data for PDF loading
             data.response = {
                 sys_id: gr.getUniqueValue('underwriting_guideline'),
                 name: gr.getValue('document_name'),
-                documentURL: documentURL,
-                source: gr.getValue('source'),
-            }
+                documentURL: documentURL
+            };
 
-
+            // Field data for display and coordinate navigation
+            data.field = {
+                name: gr.getValue('document_name'),
+                source: source || sampleSource,
+                criteria: criteria,
+                field_value: 'This insurance excludes loss damage liability or expense arising from war, invasion, act of foreign enemy, hostilities...',
+                section_name: 'Section 5.1 - Exclusions',
+                score: 'Failed',
+                status: 'Manual Review',
+                reason: reason,
+                confidence_indicator: 0.85
+            };
         }
 
     }
 
     // Single field data matching screenshot
-    data.field = {
-        field_name: criteria,
-        field_value: 'This insurance excludes loss damage liability or expense arising from war, invasion, act of foreign enemy, hostilities...',
-        section_name: 'Section 5.1 - Exclusions',
-        score: 'Failed',
-        status: 'Manual Review',
-        reason: reason,
-        confidence_indicator: 0.85,
-        page_number: 2,
-        source: source,
-    };
+    //    data.field = {
+    //      field_name: criteria,
+    //    field_value: 'This insurance excludes loss damage liability or expense arising from war, invasion, act of foreign enemy, hostilities...',
+    //  section_name: 'Section 5.1 - Exclusions',
+    //   score: 'Failed',
+    // status: 'Manual Review',
+    // reason: reason,
+    // confidence_indicator: 0.85,
+    // page_number: 2,
+    //source: source,
+    //};
 
     // PDF URL from ServiceNow attachment table
-    data.demoPdfUrl = '/sys_attachment.do?sys_id=882e3693fb92f650b70efc647befdc63&view=true';
+    //data.demoPdfUrl = '/sys_attachment.do?sys_id=882e3693fb92f650b70efc647befdc63&view=true';
 
     data.success = true;
 

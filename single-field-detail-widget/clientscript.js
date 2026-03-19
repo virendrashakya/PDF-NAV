@@ -109,9 +109,23 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
             reason: reason
         }).then(function (response) {
 
-            console.log('response recieve from server script');
-            console.log(response);
+            console.log('response received from server script');
+            console.log('response.data.field:', response.data.field);
+            console.log('response.data.response:', response.data.response);
             c.field = response.data.field || null;
+
+            // Parse coordinates from field source
+            if (c.field && c.field.source) {
+                console.log('Parsing source coordinates:', c.field.source);
+                c.activeCoordinates = parseCoordinates(c.field.source);
+                console.log('Parsed coordinates:', c.activeCoordinates);
+                // Set page_number from first coordinate for display
+                if (c.activeCoordinates.length > 0 && c.activeCoordinates[0].page) {
+                    c.field.page_number = c.activeCoordinates[0].page;
+                }
+            } else {
+                console.warn('No field or source data available for coordinates');
+            }
 
             if (response.data.error) {
                 c.showError(response.data.error);
@@ -123,7 +137,6 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
             c.selectedDocument = response.data.response;
             if (c.selectedDocument) {
                 c.loadDocument();
-                c.field.document_name = response.data.response.name;
             }
             if (response.data.success) {
                 // processMappingData(response.data.mapping);
@@ -250,23 +263,26 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
         });
     }
 
+    // Convert inches to pixels (coordinates from DB source are in inches)
+    function toPixels(value) {
+        return value * 72 * c.scale;
+    }
+
     function drawHighlights(ctx, pageNum) {
         var pageCoords = c.activeCoordinates.filter(function (coord) {
             return coord.page === pageNum;
         });
 
         pageCoords.forEach(function (coord) {
-            var canvas = document.getElementById('annotationCanvas');
-            var scale = c.scale;
-
-            var x1 = coord.x1 * scale;
-            var y1 = canvas.height - (coord.y1 * scale);
-            var x2 = coord.x2 * scale;
-            var y2 = canvas.height - (coord.y2 * scale);
-            var x3 = coord.x3 * scale;
-            var y3 = canvas.height - (coord.y3 * scale);
-            var x4 = coord.x4 * scale;
-            var y4 = canvas.height - (coord.y4 * scale);
+            // 3) MUST MULTIPLY BY 72 (toPixels) OR boxes will be 1px big
+            var x1 = toPixels(coord.x1);
+            var y1 = toPixels(coord.y1);
+            var x2 = toPixels(coord.x2);
+            var y2 = toPixels(coord.y2);
+            var x3 = toPixels(coord.x3);
+            var y3 = toPixels(coord.y3);
+            var x4 = toPixels(coord.x4);
+            var y4 = toPixels(coord.y4);
 
             ctx.beginPath();
             ctx.moveTo(x1, y1);
@@ -312,11 +328,63 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
      * ============================================ */
 
     c.viewInDocument = function () {
+        // Re-parse coordinates from source if activeCoordinates is empty
+        if (c.activeCoordinates.length === 0 && c.field && c.field.source) {
+            console.log('viewInDocument: Re-parsing coordinates from source:', c.field.source);
+            c.activeCoordinates = parseCoordinates(c.field.source);
+            console.log('viewInDocument: Re-parsed result:', c.activeCoordinates);
+        }
+
+        console.log('viewInDocument called, activeCoordinates:', c.activeCoordinates);
+
         if (c.activeCoordinates.length > 0) {
             var targetPage = c.activeCoordinates[0].page || 1;
             goToPage(targetPage);
+
+            // After page renders, re-draw highlights with emphasis and scroll into view
+            $timeout(function () {
+                var coordsOnPage = c.activeCoordinates.filter(function (coord) {
+                    return coord.page === targetPage;
+                });
+                if (coordsOnPage.length > 0) {
+                    // Re-draw highlights with emphasis
+                    var annotationCanvas = document.getElementById('annotationCanvas');
+                    if (annotationCanvas) {
+                        var annotationCtx = annotationCanvas.getContext('2d');
+                        annotationCtx.clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
+                        drawHighlights(annotationCtx, targetPage);
+                    }
+
+                    // Scroll to the first coordinate
+                    var coord = coordsOnPage[0];
+                    var centerX = (toPixels(coord.x1) + toPixels(coord.x3)) / 2;
+                    var centerY = (toPixels(coord.y1) + toPixels(coord.y3)) / 2;
+                    smoothScrollToCoordinate(centerX, centerY);
+                }
+            }, 500);
+        } else {
+            console.warn('viewInDocument: No coordinates available. c.field:', c.field);
+            console.warn('viewInDocument: c.field.source:', c.field ? c.field.source : 'field is null');
         }
     };
+
+    // Smooth scroll to coordinate position in PDF container
+    function smoothScrollToCoordinate(x, y) {
+        var container = document.getElementById('pdfContainer');
+        if (!container) return;
+
+        var targetX = x - container.clientWidth / 2;
+        var targetY = y - container.clientHeight / 2;
+
+        targetX = Math.max(0, Math.min(targetX, container.scrollWidth - container.clientWidth));
+        targetY = Math.max(0, Math.min(targetY, container.scrollHeight - container.clientHeight));
+
+        container.scrollTo({
+            left: targetX,
+            top: targetY,
+            behavior: 'smooth'
+        });
+    }
 
     /* ============================================
      * ZOOM CONTROLS
@@ -348,8 +416,9 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
         var dStrings = source.split(';');
 
         dStrings.forEach(function (dString) {
+            // 2) FLEXIBLE REGEX: Handles spaces in "D( 1, 0.5, ... )"
             var match = dString.trim().match(
-                /D\((\d+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+)\)/
+                /D\(\s*(\d+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*\)/
             );
             if (match) {
                 coordinates.push({

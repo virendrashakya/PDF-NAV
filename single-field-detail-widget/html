@@ -8,7 +8,7 @@
     <!-- Field Detail Content -->
     <div class="field-detail-content" ng-if="c.field">
       <!-- Field Title -->
-      <h1 class="field-title">{{c.field.field_name}}</h1>
+      <h1 class="field-title">{{c.field.criteria}}</h1>
 
       <!-- Status Label -->
       <div class="status-label">
@@ -39,7 +39,7 @@
           <div class="doc-row">
             <i class="fa fa-file-pdf-o doc-icon"></i>
             <div class="doc-info">
-              <span class="doc-name">{{c.field.document_name}}</span>
+              <span class="doc-name">{{c.field.name}}</span>
               <span class="doc-location">Page {{c.field.page_number}} • {{c.field.section_name}}</span>
             </div>
           </div>
@@ -68,7 +68,7 @@
     <div class="pdf-header">
       <div class="pdf-title">
         <i class="fa fa-file-pdf-o"></i>
-        <span>{{c.field.document_name || 'Document'}}</span>
+        <span>{{c.field.name || 'Document'}}</span>
       </div>
       <div class="pdf-controls">
         <!-- Zoom Controls -->

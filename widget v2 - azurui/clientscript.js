@@ -450,7 +450,8 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     // Call server to save
     c.server.get({
       action: 'saveMapping',
-      updates: [update]
+      updates: [update],
+      submissionNumber: c.submissionNumber
     }).then(function (response) {
       if (response.data.success) {
         // Remove from changed fields tracking
@@ -558,7 +559,8 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     // Call server to save
     c.server.get({
       action: 'saveMapping',
-      updates: updates
+      updates: updates,
+      submissionNumber: c.submissionNumber
     }).then(function (response) {
       c.isSaving = false;
 

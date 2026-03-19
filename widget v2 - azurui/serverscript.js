@@ -474,6 +474,7 @@
 
     try {
       var updates = input.updates;
+      var submissionNumber = input.submissionNumber;
 
       if (!updates || !Array.isArray(updates) || updates.length === 0) {
         data.error = 'No updates provided';
@@ -520,6 +521,21 @@
 
       if (errors.length > 0) {
         data.message += ' with ' + errors.length + ' error(s)';
+      }
+
+      // Run field data-type validation after each save
+      if (submissionNumber) {
+        try {
+          gs.info('PDF-NAV DEBUG: Running validation for submission=' + submissionNumber);
+          dataFlowBetweenDataExtractAndModel(submissionNumber, ExtractionHelper.VALIDATE);
+          gs.info('PDF-NAV DEBUG: Validation completed successfully');
+        } catch (validateError) {
+          gs.error('PDF-NAV ERROR: Validation failed after save: ' + validateError.message);
+          // Validation failure is non-blocking - save already succeeded
+          data.validationError = 'Validation step failed: ' + validateError.message;
+        }
+      } else {
+        gs.warn('PDF-NAV WARN: submissionNumber not provided - skipping post-save validation');
       }
 
     } catch (e) {
