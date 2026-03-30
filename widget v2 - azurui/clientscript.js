@@ -469,6 +469,9 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
             c.saveStatus = '';
           }
         }, 3000);
+
+        // Apply validation errors from server
+        c.applyValidationErrors(response.data.validationErrors);
       } else {
         c.saveStatus = 'error';
         c.saveStatusMessage = 'Save failed: ' + (response.data.error || 'Unknown error');
@@ -477,6 +480,19 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
       console.error('Auto-save error:', error);
       c.saveStatus = 'error';
       c.saveStatusMessage = 'Save failed';
+    });
+  };
+
+  /**
+   * Apply validation errors returned by the server to in-memory field objects
+   * Sets field.validationError for fields with errors, clears it for those without
+   * @param {object} validationErrors - Map of { sys_id: errorMessage }
+   */
+  c.applyValidationErrors = function (validationErrors) {
+    if (!validationErrors) return;
+    var allFields = c.flatten(c.groupedFields);
+    allFields.forEach(function (field) {
+      field.validationError = validationErrors[field.sys_id] || null;
     });
   };
 
@@ -575,6 +591,9 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
         if (response.data.errors && response.data.errors.length > 0) {
           console.warn('Save completed with errors:', response.data.errors);
         }
+
+        // Apply validation errors from server
+        c.applyValidationErrors(response.data.validationErrors);
       } else {
         c.showError('Failed to save: ' + (response.data.error || 'Unknown error'));
       }
@@ -604,30 +623,31 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
 
   /**
    * Confirm and execute the complete action
+   * Dismisses the modal immediately and shows progress via toasts
    */
   c.confirmComplete = function () {
+    // Dismiss modal immediately so user can continue working
+    c.showConfirmModal = false;
     c.isCompleting = true;
-    c.loadingMessage = 'Completing...';
+
+    // Show persistent in-progress toast (duration 0 = no auto-dismiss)
+    var progressToastId = c.showInfo('Completion in progress… This may take a moment.', 0);
 
     c.server.get({
       action: 'markComplete',
       submissionNumber: c.submissionNumber
     }).then(function (response) {
       c.isCompleting = false;
-      c.showConfirmModal = false;
+      c.dismissToast(progressToastId);
 
       if (response.data.success) {
-        c.showSuccess(response.data.message || 'Submission completed successfully');
-
-        if (response.data.errors && response.data.errors.length > 0) {
-          console.warn('Mark completed with errors:', response.data.errors);
-        }
+        c.showSuccess(response.data.message || 'Audit to Model completed successfully');
       } else {
         c.showError('Failed to complete: ' + (response.data.error || 'Unknown error'));
       }
     }).catch(function (error) {
       c.isCompleting = false;
-      c.showConfirmModal = false;
+      c.dismissToast(progressToastId);
       console.error('Mark Complete error:', error);
       c.showError('Failed to complete submission');
     });
@@ -768,12 +788,14 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
       return;
     }
 
-    c.loadingMessage = 'Loading field mappings...';
+    c.loadingMessage = 'Model to Audit is in progress...';
 
     c.server.get({
       action: 'fetchMapping',
       submissionSysId: submissionSysId
     }).then(function (response) {
+      // Update loading message after MODEL2AUDIT completes
+      c.loadingMessage = 'Loading field mappings...';
       // Capture submission data first (needed for header display even on error)
       c.submissionNumber = response.data.submissionNumber || '';
       c.submissionStatusChoice = response.data.submissionStatusChoice || '';

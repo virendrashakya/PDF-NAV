@@ -41,7 +41,8 @@
       confidenceIndicator: 'confidence_indicator',
       sectionNameFinal: 'section_name_final',
       sequenceFinal: 'sequence_final',
-      fieldNameFinal: 'field_name_final'
+      fieldNameFinal: 'field_name_final',
+      validationError: 'validation_error'
     },
 
     // Submission table columns
@@ -250,43 +251,16 @@
     }
 
     try {
-      gs.info('PDF-NAV DEBUG: Getting line_of_business...');
-      // Get line_of_business from submission to determine which method to use
-      var lineOfBusiness = _getSubmissionLineOfBusiness(submissionNumber);
-      gs.info('PDF-NAV DEBUG: lineOfBusiness="' + lineOfBusiness + '"');
-
-      gs.info('PDF-NAV DEBUG: Creating ExtractionUtils...');
-      var extractUtils = new ExtractionUtils();
-
-      gs.info('PDF-NAV DEBUG: Building JSON from line items...');
-      var flatData = extractUtils.bulildJsonFromDataExtracLineItem(submissionNumber);
-      gs.info('PDF-NAV DEBUG: flatData built successfully');
-
-      gs.info('PDF-NAV DEBUG: Creating SubmissionPayloadBuilder...');
-      var payloadBuilder = new SubmissionPayloadBuilder();
-
-      // Use different method based on line_of_business
-      var paylodModelStructure;
-      if (lineOfBusiness === 'AUTO') {
-        gs.info('PDF-NAV DEBUG: LOB is Auto - calling buildAutoSubmissionModel()');
-        // Use Auto submission model for Auto line of business
-        paylodModelStructure = payloadBuilder.buildAutoSubmissionModel(flatData, submissionNumber, false);
-      } else {
-        gs.info('PDF-NAV DEBUG: LOB is NOT Auto ("' + lineOfBusiness + '") - calling buildSubmissionModel()');
-        // Use standard submission model for Property, General Liability, or other
-        paylodModelStructure = payloadBuilder.buildSubmissionModel(flatData, submissionNumber, false);
-      }
-      gs.info('PDF-NAV DEBUG: Payload model built successfully');
-
-      gs.info('PDF-NAV DEBUG: Processing submission extraction...');
-      var updateddata = extractUtils.processSubmissionExtractionAndInsertData(paylodModelStructure, false);
-      gs.info('PDF-NAV DEBUG: processSubmissionExtractionAndInsertData completed');
+      gs.info('PDF-NAV DEBUG: Running AUDIT2MODEL for submission=' + submissionNumber);
+      ExtractionHelper.dataFlowBetweenDataExtractAndModel(submissionNumber, ExtractionHelper.AUDIT2MODEL);
+      gs.info('PDF-NAV DEBUG: AUDIT2MODEL completed successfully');
 
       data.success = true;
+      data.message = 'Audit to Model completed successfully';
       gs.info('PDF-NAV DEBUG: *** markComplete() SUCCESS ***');
     } catch (e) {
-      gs.error('PDF-NAV ERROR: markComplete failed: ' + e.message);
-      data.error = 'Failed to update data to system';
+      gs.error('PDF-NAV ERROR: markComplete (AUDIT2MODEL) failed: ' + e.message);
+      data.error = 'Failed to complete: ' + e.message;
       return;
     }
   }
@@ -370,6 +344,18 @@
       if (!dataExtractSysId) {
         data.error = 'This submission (#' + data.submissionNumber + ') does not have a Data Extract reference. Please ensure the submission record has a valid Data Extract linked before proceeding.';
         return;
+      }
+
+      // Sync model → audit before loading data
+      try {
+        gs.info('PDF-NAV DEBUG: Running MODEL2AUDIT for submission=' + data.submissionNumber);
+        ExtractionHelper.dataFlowBetweenDataExtractAndModel(data.submissionNumber, ExtractionHelper.MODEL2AUDIT);
+        gs.info('PDF-NAV DEBUG: MODEL2AUDIT completed successfully');
+        data.model2auditCompleted = true;
+      } catch (m2aError) {
+        gs.error('PDF-NAV ERROR: MODEL2AUDIT failed: ' + m2aError.message);
+        data.model2auditCompleted = false;
+        // Non-blocking - continue loading data even if sync fails
       }
 
       // Query line items
@@ -527,8 +513,23 @@
       if (submissionNumber) {
         try {
           gs.info('PDF-NAV DEBUG: Running validation for submission=' + submissionNumber);
-          dataFlowBetweenDataExtractAndModel(submissionNumber, ExtractionHelper.VALIDATE);
+          ExtractionHelper.dataFlowBetweenDataExtractAndModel(submissionNumber, ExtractionHelper.VALIDATE);
           gs.info('PDF-NAV DEBUG: Validation completed successfully');
+
+          // Read back validation_error for the saved records
+          var validationErrors = {};
+          for (var j = 0; j < updates.length; j++) {
+            if (!updates[j].sys_id) continue;
+            var vrGr = new GlideRecord(CONFIG.tables.lineItem);
+            if (vrGr.get(updates[j].sys_id)) {
+              var errVal = _getValue(vrGr, CONFIG.lineItemColumns.validationError);
+              if (errVal) {
+                validationErrors[updates[j].sys_id] = errVal;
+              }
+            }
+          }
+          data.validationErrors = validationErrors;
+          gs.info('PDF-NAV DEBUG: Returned ' + Object.keys(validationErrors).length + ' validation error(s)');
         } catch (validateError) {
           gs.error('PDF-NAV ERROR: Validation failed after save: ' + validateError.message);
           // Validation failure is non-blocking - save already succeeded

@@ -11,6 +11,32 @@
   href="https://fonts.googleapis.com/css2?display=swap&family=Segoe+UI:wght@300;400;600;700&family=Inter:wght@400;500;600;700" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
+<style>
+  /* Validation error styles */
+  .has-validation-error {
+    border-left: 3px solid #dc3545 !important;
+    background-color: rgba(220, 53, 69, 0.04) !important;
+  }
+  .validation-error-row td {
+    padding: 0 !important;
+    border-top: none !important;
+  }
+  .field-validation-error {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px 4px 14px;
+    font-size: 11px;
+    color: #dc3545;
+    background-color: rgba(220, 53, 69, 0.06);
+    border-bottom: 1px solid rgba(220, 53, 69, 0.15);
+  }
+  .field-validation-error i {
+    font-size: 10px;
+    flex-shrink: 0;
+  }
+</style>
+
 <div class="pdf-viewer-container">
 
   <!-- ============================================
@@ -143,11 +169,12 @@
               </thead>
               <tbody>
                 <!-- Field Rows (filtered by shouldShowField when toggle is on) -->
-                <tr ng-repeat="field in fields | filter:c.searchFilter" ng-if="c.shouldShowField(field)"
+                <tr ng-repeat-start="field in fields | filter:c.searchFilter" ng-if="c.shouldShowField(field)"
                   ng-click="c.isFieldActive(field) && c.navigateToField(field)" ng-class="{
                       'active-field': field === c.isFieldActive(field),
                       'inactive-field': !c.isFieldActive(field),
-                      'no-navigate': !c.canNavigate(field)
+                      'no-navigate': !c.canNavigate(field),
+                      'has-validation-error': field.validationError
                     }">
 
                   <!-- Field Name + Source Indicator + Confidence -->
@@ -215,6 +242,15 @@
                     <span class="cell-text" ng-if="!c.canEditCommentary()" title="{{field.commentary}}">
                       {{c.truncateText(field.commentary, 12) || '-'}}
                     </span>
+                  </td>
+                </tr>
+                <!-- Validation Error Sub-Row (shown only when field has validation_error) -->
+                <tr ng-repeat-end ng-if="field.validationError && c.shouldShowField(field)" class="validation-error-row">
+                  <td colspan="6">
+                    <div class="field-validation-error">
+                      <i class="fas fa-exclamation-circle"></i>
+                      <span>{{field.validationError}}</span>
+                    </div>
                   </td>
                 </tr>
               </tbody>
