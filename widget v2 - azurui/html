@@ -99,40 +99,22 @@
 
           <!-- Action Buttons: Complete only (Save removed — fields auto-save) -->
           <div class="header-actions">
-            <button class="btn-complete"
-              ng-class="{
-                'btn-complete-idle': c.completeState === 'idle',
-                'btn-complete-progress': c.completeState === 'progress',
-                'btn-complete-done': c.completeState === 'done',
-                'btn-complete-error': c.completeState === 'error'
-              }"
+            <button class="btn-complete" ng-class="c.completeBtn.css"
               ng-click="c.markAsComplete()"
-              ng-disabled="c.isLoading || c.completeState === 'progress' || c.completeState === 'done'">
-
-              <!-- Idle state -->
-              <span ng-if="c.completeState === 'idle'" class="btn-complete-content">
-                <i class="fas fa-paper-plane"></i> Complete
-              </span>
-
-              <!-- Progress state -->
-              <span ng-if="c.completeState === 'progress'" class="btn-complete-content">
-                <span class="btn-progress-dots">
+              ng-disabled="c.isLoading || c.completeBtn.disabled">
+              <span class="btn-complete-content">
+                <!-- Bouncing dots for progress -->
+                <span class="btn-progress-dots" ng-if="c.completeBtn.showDots">
                   <span class="dot"></span><span class="dot"></span><span class="dot"></span>
                 </span>
-                Sending Data to Model...
-              </span>
-
-              <!-- Done state with animated checkmark -->
-              <span ng-if="c.completeState === 'done'" class="btn-complete-content btn-complete-done-content">
-                <svg class="checkmark-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                  <path class="checkmark-path" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="M4 12.6 9 17.6 20 6.6"/>
+                <!-- Animated circle-check for done -->
+                <svg ng-if="c.completeBtn.showCheck" class="circle-check" viewBox="0 0 26 26" xmlns="http://www.w3.org/2000/svg">
+                  <circle class="circle-check-ring" cx="13" cy="13" r="11" fill="none" stroke="#fff" stroke-width="2"/>
+                  <path class="circle-check-tick" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M7.5 13.5 11 17 18.5 9.5"/>
                 </svg>
-                Completed
-              </span>
-
-              <!-- Error state -->
-              <span ng-if="c.completeState === 'error'" class="btn-complete-content">
-                <i class="fas fa-exclamation-triangle"></i> Failed — Retry
+                <!-- FA icon for idle / error -->
+                <i class="fas {{c.completeBtn.icon}}" ng-if="!c.completeBtn.showDots && !c.completeBtn.showCheck && c.completeBtn.icon"></i>
+                {{c.completeBtn.label}}
               </span>
             </button>
           </div>
@@ -227,7 +209,7 @@
                     <input type="text" class="verification-input" ng-model="field.data_verification"
                       ng-if="c.canEditDataVerification()" ng-change="c.markFieldAsChanged(field)"
                       ng-blur="c.validateCommentary(field); c.autoSaveField(field)"
-                      ng-disabled="c.completeState === 'progress'" placeholder="Enter...">
+                      ng-disabled="c.completeBtn.state === 'progress'" placeholder="Enter...">
                     <span class="cell-text" ng-if="!c.canEditDataVerification()" title="{{field.data_verification}}">
                       {{c.truncateText(field.data_verification, 12) || '-'}}
                     </span>
@@ -238,7 +220,7 @@
                     <input type="text" class="override-input" ng-model="field.qa_override_value"
                       ng-if="c.canEditQaOverride()" ng-change="c.markFieldAsChanged(field)"
                       ng-blur="c.validateCommentary(field); c.autoSaveField(field)"
-                      ng-disabled="c.completeState === 'progress'" placeholder="Enter...">
+                      ng-disabled="c.completeBtn.state === 'progress'" placeholder="Enter...">
                     <span class="cell-text" ng-if="!c.canEditQaOverride()" title="{{field.qa_override_value}}">
                       {{c.truncateText(field.qa_override_value, 12) || '-'}}
                     </span>
@@ -257,7 +239,7 @@
                     <input type="text" class="commentary-input" ng-model="field.commentary"
                       ng-if="c.canEditCommentary()" ng-class="{'validation-error': field.commentaryRequired}"
                       ng-change="c.markFieldAsChanged(field); field.commentaryRequired = false;"
-                      ng-blur="c.autoSaveField(field)" ng-disabled="c.completeState === 'progress'" placeholder="Enter...">
+                      ng-blur="c.autoSaveField(field)" ng-disabled="c.completeBtn.state === 'progress'" placeholder="Enter...">
                     <span class="cell-text" ng-if="!c.canEditCommentary()" title="{{field.commentary}}">
                       {{c.truncateText(field.commentary, 12) || '-'}}
                     </span>

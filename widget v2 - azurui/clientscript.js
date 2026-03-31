@@ -84,8 +84,66 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   c.loadingMessage = 'Loading...';
   c.isCompleting = false;
 
-  // Complete button states: 'idle' | 'progress' | 'done' | 'error'
-  c.completeState = 'idle';
+  /* ============================================
+   * COMPLETE BUTTON - Single object drives all display
+   * ============================================
+   * One object, one source of truth. No multi-span toggling.
+   * Call setCompleteState('idle'|'progress'|'done'|'error') to update.
+   */
+  c.completeBtn = {
+    state: 'idle',
+    label: 'Complete',
+    icon: 'fa-paper-plane',
+    css: 'btn-complete-idle',
+    disabled: false,
+    showDots: false,
+    showCheck: false
+  };
+
+  /**
+   * Atomically update the complete button display.
+   * Single function, single object — no race conditions.
+   */
+  function setCompleteState(state) {
+    switch (state) {
+      case 'progress':
+        c.completeBtn.state = 'progress';
+        c.completeBtn.label = 'Sending Data to Model...';
+        c.completeBtn.icon = '';
+        c.completeBtn.css = 'btn-complete-progress';
+        c.completeBtn.disabled = true;
+        c.completeBtn.showDots = true;
+        c.completeBtn.showCheck = false;
+        break;
+      case 'done':
+        c.completeBtn.state = 'done';
+        c.completeBtn.label = 'Completed';
+        c.completeBtn.icon = '';
+        c.completeBtn.css = 'btn-complete-done';
+        c.completeBtn.disabled = true;
+        c.completeBtn.showDots = false;
+        c.completeBtn.showCheck = true;
+        break;
+      case 'error':
+        c.completeBtn.state = 'error';
+        c.completeBtn.label = 'Failed — Retry';
+        c.completeBtn.icon = 'fa-exclamation-triangle';
+        c.completeBtn.css = 'btn-complete-error';
+        c.completeBtn.disabled = false;
+        c.completeBtn.showDots = false;
+        c.completeBtn.showCheck = false;
+        break;
+      default: // idle
+        c.completeBtn.state = 'idle';
+        c.completeBtn.label = 'Complete';
+        c.completeBtn.icon = 'fa-paper-plane';
+        c.completeBtn.css = 'btn-complete-idle';
+        c.completeBtn.disabled = false;
+        c.completeBtn.showDots = false;
+        c.completeBtn.showCheck = false;
+        break;
+    }
+  }
 
   // Change tracking for save functionality
   c.hasChanges = false;
@@ -369,8 +427,8 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
       c.hasChanges = true;
 
       // Reset complete button if it was in done state
-      if (c.completeState === 'done') {
-        c.completeState = 'idle';
+      if (c.completeBtn.state === 'done') {
+        setCompleteState('idle');
       }
     }
   };
@@ -532,12 +590,12 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
 
   /**
    * Execute the complete action directly (no confirmation modal).
-   * Manages button state transitions with visual feedback.
+   * Uses setCompleteState() for atomic, flicker-free button updates.
    */
   c.markAsComplete = function () {
-    if (c.completeState === 'progress' || c.completeState === 'done') return;
+    if (c.completeBtn.state === 'progress' || c.completeBtn.state === 'done') return;
 
-    c.completeState = 'progress';
+    setCompleteState('progress');
     c.isCompleting = true;
 
     c.server.get({
@@ -547,36 +605,34 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
       c.isCompleting = false;
 
       if (response.data.success) {
-        c.completeState = 'done';
+        setCompleteState('done');
         c.showSuccess(response.data.message || 'Audit to Model completed successfully');
 
-        // Reset back to idle after 2 seconds so user can re-trigger if needed
+        // Reset back to idle after 2 seconds
         $timeout(function () {
-          if (c.completeState === 'done') {
-            c.completeState = 'idle';
+          if (c.completeBtn.state === 'done') {
+            setCompleteState('idle');
           }
         }, 2000);
       } else {
-        c.completeState = 'error';
+        setCompleteState('error');
         c.showError('Failed to complete: ' + (response.data.error || 'Unknown error'));
 
-        // Reset to idle after a delay so user can retry
         $timeout(function () {
-          if (c.completeState === 'error') {
-            c.completeState = 'idle';
+          if (c.completeBtn.state === 'error') {
+            setCompleteState('idle');
           }
         }, 4000);
       }
     }).catch(function (error) {
       c.isCompleting = false;
-      c.completeState = 'error';
+      setCompleteState('error');
       console.error('Mark Complete error:', error);
       c.showError('Failed to complete submission');
 
-      // Reset to idle after a delay so user can retry
       $timeout(function () {
-        if (c.completeState === 'error') {
-          c.completeState = 'idle';
+        if (c.completeBtn.state === 'error') {
+          setCompleteState('idle');
         }
       }, 4000);
     });
@@ -1353,7 +1409,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
 
   // Warn user on page reload/close when Audit2Model is in progress
   var beforeUnloadHandler = function (e) {
-    if (c.completeState === 'progress') {
+    if (c.completeBtn.state === 'progress') {
       var msg = 'Audit to Model is in progress. Reloading will restart the Model to Audit flow. Are you sure?';
       e.returnValue = msg;
       return msg;

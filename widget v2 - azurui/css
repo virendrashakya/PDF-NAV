@@ -457,61 +457,56 @@
 
 /* --- Done --- */
 .btn-complete-done {
-  background: #107c10;
+  background: #0e7a6b;
   color: #ffffff;
-  min-width: 150px;
+  min-width: 160px;
   pointer-events: none;
   animation: completePulse 0.6s ease-out;
-  box-shadow: 0 0 0 0 rgba(16, 124, 16, 0.5);
+  box-shadow: 0 0 0 0 rgba(14, 122, 107, 0.5);
 }
 
 @keyframes completePulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(16, 124, 16, 0.5);
+    box-shadow: 0 0 0 0 rgba(14, 122, 107, 0.5);
     transform: scale(1);
   }
   40% {
-    box-shadow: 0 0 0 10px rgba(16, 124, 16, 0);
-    transform: scale(1.05);
+    box-shadow: 0 0 0 10px rgba(14, 122, 107, 0);
+    transform: scale(1.06);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(16, 124, 16, 0);
+    box-shadow: 0 0 0 0 rgba(14, 122, 107, 0);
     transform: scale(1);
   }
 }
 
-/* Animated SVG checkmark */
-.checkmark-svg {
-  width: 18px;
-  height: 18px;
+/* Animated circle-check SVG */
+.circle-check {
+  width: 20px;
+  height: 20px;
   flex-shrink: 0;
 }
 
-.checkmark-path {
-  stroke-dasharray: 28;
-  stroke-dashoffset: 28;
-  animation: drawCheck 0.45s ease-out 0.15s forwards;
+/* Circle draws first */
+.circle-check-ring {
+  stroke-dasharray: 70;
+  stroke-dashoffset: 70;
+  animation: drawCircle 0.4s ease-out forwards;
 }
 
-@keyframes drawCheck {
-  to {
-    stroke-dashoffset: 0;
-  }
+/* Tick draws after circle finishes */
+.circle-check-tick {
+  stroke-dasharray: 20;
+  stroke-dashoffset: 20;
+  animation: drawTick 0.3s ease-out 0.35s forwards;
 }
 
-.btn-complete-done-content {
-  animation: contentFadeIn 0.3s ease-out;
+@keyframes drawCircle {
+  to { stroke-dashoffset: 0; }
 }
 
-@keyframes contentFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+@keyframes drawTick {
+  to { stroke-dashoffset: 0; }
 }
 
 /* --- Error --- */
