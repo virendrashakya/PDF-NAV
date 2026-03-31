@@ -325,9 +325,7 @@
   gap: 8px;
 }
 
-.btn-refer,
-.btn-save,
-.btn-done {
+.btn-refer {
   padding: 4px 10px;
   font-size: 11px;
   font-weight: 500;
@@ -348,35 +346,6 @@
   border-color: #323130;
 }
 
-.btn-save {
-  background: #0078d4;
-  color: #ffffff;
-  border-color: #0078d4;
-  min-width: 50px;
-}
-
-.btn-save:hover:not(:disabled) {
-  background: #106ebe;
-  border-color: #106ebe;
-}
-
-.btn-save:disabled {
-  background: #c8c6c4;
-  border-color: #c8c6c4;
-  cursor: not-allowed;
-}
-
-.btn-done {
-  background: #107c10;
-  color: #ffffff;
-  border-color: #107c10;
-}
-
-.btn-done:hover:not(:disabled) {
-  background: #0b5c0b;
-  border-color: #0b5c0b;
-}
-
 .btn-more {
   width: 32px;
   height: 32px;
@@ -393,6 +362,176 @@
 
 .btn-more:hover {
   background: #f3f2f1;
+}
+
+/* ============================================
+   COMPLETE BUTTON — Multi-State
+   States: idle | progress | done | error
+   ============================================ */
+.btn-complete {
+  position: relative;
+  padding: 6px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 120px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.btn-complete:disabled {
+  cursor: not-allowed;
+}
+
+.btn-complete-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* --- Idle --- */
+.btn-complete-idle {
+  background: #107c10;
+  color: #ffffff;
+}
+
+.btn-complete-idle:hover:not(:disabled) {
+  background: #0b6a0b;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(16, 124, 16, 0.35);
+}
+
+.btn-complete-idle:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* --- Progress --- */
+.btn-complete-progress {
+  background: #0078d4;
+  color: #ffffff;
+  min-width: 210px;
+  pointer-events: none;
+}
+
+/* Bouncing dots animation */
+.btn-progress-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.btn-progress-dots .dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #ffffff;
+  animation: dotBounce 1.2s ease-in-out infinite;
+}
+
+.btn-progress-dots .dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.btn-progress-dots .dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes dotBounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+/* --- Done --- */
+.btn-complete-done {
+  background: #107c10;
+  color: #ffffff;
+  min-width: 150px;
+  pointer-events: none;
+  animation: completePulse 0.6s ease-out;
+  box-shadow: 0 0 0 0 rgba(16, 124, 16, 0.5);
+}
+
+@keyframes completePulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 124, 16, 0.5);
+    transform: scale(1);
+  }
+  40% {
+    box-shadow: 0 0 0 10px rgba(16, 124, 16, 0);
+    transform: scale(1.05);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 124, 16, 0);
+    transform: scale(1);
+  }
+}
+
+/* Animated SVG checkmark */
+.checkmark-svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.checkmark-path {
+  stroke-dasharray: 28;
+  stroke-dashoffset: 28;
+  animation: drawCheck 0.45s ease-out 0.15s forwards;
+}
+
+@keyframes drawCheck {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.btn-complete-done-content {
+  animation: contentFadeIn 0.3s ease-out;
+}
+
+@keyframes contentFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* --- Error --- */
+.btn-complete-error {
+  background: #d13438;
+  color: #ffffff;
+  min-width: 140px;
+  animation: errorShake 0.4s ease-in-out;
+}
+
+.btn-complete-error:hover:not(:disabled) {
+  background: #b52e31;
+}
+
+@keyframes errorShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
 }
 
 /* Document Selector Row */
@@ -900,7 +1039,6 @@
 
 /* ============================================
    LOGIC TRANSPARENCY - POPOVER STYLES
-   Truncated text with hover popover for full content
    ============================================ */
 .logic-cell {
   display: flex;
@@ -979,7 +1117,6 @@
 
 /* ============================================
    EMPTY STATE
-   Shown when no fields available
    ============================================ */
 .empty-state {
   display: flex;
@@ -1365,180 +1502,4 @@
   .pdf-controls {
     flex-wrap: wrap;
   }
-}
-
-/* ============================================
-   CONFIRMATION MODAL
-   Styled as a commit/confirm action dialog
-   ============================================ */
-.confirmation-modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10000;
-  backdrop-filter: blur(4px);
-  animation: fadeIn 0.2s ease;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
-.confirmation-modal {
-  background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-  width: 420px;
-  max-width: 90%;
-  animation: slideUp 0.25s ease;
-  overflow: hidden;
-}
-
-@keyframes slideUp {
-  from {
-    transform: translateY(20px);
-    opacity: 0;
-  }
-
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-.confirmation-modal .modal-header {
-  padding: 24px 24px 16px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border-bottom: 1px solid #e1dfdd;
-  background: #faf9f8;
-}
-
-.confirmation-modal .modal-icon {
-  font-size: 24px;
-  color: #f59e0b;
-}
-
-.confirmation-modal .modal-header h3 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: #323130;
-}
-
-.confirmation-modal .modal-body {
-  padding: 24px;
-}
-
-.confirmation-modal .modal-body p {
-  margin: 0 0 12px;
-  font-size: 14px;
-  color: #323130;
-  line-height: 1.5;
-}
-
-.confirmation-modal .modal-body p:last-child {
-  margin-bottom: 0;
-}
-
-.confirmation-modal .modal-warning {
-  color: #d13438;
-  font-weight: 500;
-  font-size: 13px;
-  padding: 10px 14px;
-  background: #fde7e9;
-  border-radius: 6px;
-  border-left: 3px solid #d13438;
-}
-
-.confirmation-modal .modal-info {
-  margin-top: 16px;
-  padding: 12px 14px;
-  background: #f3f2f1;
-  border-radius: 6px;
-  font-size: 13px;
-  color: #605e5c;
-}
-
-.confirmation-modal .modal-info i {
-  margin-right: 6px;
-  color: #0078d4;
-}
-
-.confirmation-modal .modal-info strong {
-  color: #323130;
-}
-
-.confirmation-modal .modal-footer {
-  padding: 16px 24px;
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  border-top: 1px solid #e1dfdd;
-  background: #faf9f8;
-}
-
-.btn-modal-cancel {
-  padding: 10px 20px;
-  font-size: 14px;
-  font-weight: 500;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  background: #ffffff;
-  color: #323130;
-  border: 1px solid #8a8886;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btn-modal-cancel:hover {
-  background: #f3f2f1;
-  border-color: #323130;
-}
-
-.btn-modal-cancel i {
-  font-size: 12px;
-}
-
-.btn-modal-confirm {
-  padding: 10px 24px;
-  font-size: 14px;
-  font-weight: 600;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  background: #107c10;
-  color: #ffffff;
-  border: none;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btn-modal-confirm:hover:not(:disabled) {
-  background: #0b5c0b;
-}
-
-.btn-modal-confirm:disabled {
-  background: #a3a3a3;
-  cursor: not-allowed;
-}
-
-.btn-modal-confirm i {
-  font-size: 12px;
 }

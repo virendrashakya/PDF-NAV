@@ -2,7 +2,7 @@
      PDF-NAV Widget HTML Template
      ============================================
      Layout: Left sidebar (Fields) + Right panel (PDF Viewer)
-     Features: Document selection, searchable fields table, save functionality
+     Features: Document selection, searchable fields table, auto-save, complete action
      ============================================ -->
 
 <!-- External CSS Libraries -->
@@ -97,19 +97,44 @@
             <h2 class="fields-title" ng-hide="c.sidebarCollapsed">Audit - #{{c.submissionNumber}}</h2>
           </div>
 
-          <!-- Action Buttons: Refer, Save, Done -->
+          <!-- Action Buttons: Complete only (Save removed — fields auto-save) -->
           <div class="header-actions">
-            <button class="btn-save" ng-click="c.saveAllChanges()"
-              ng-disabled="c.isLoading || c.isSaving || !c.hasChanges">
-              <i class="fas fa-spinner fa-spin" ng-show="c.isSaving"></i>
-              <span ng-hide="c.isSaving">Save</span>
-              <span ng-show="c.isSaving">Saving...</span>
+            <button class="btn-complete"
+              ng-class="{
+                'btn-complete-idle': c.completeState === 'idle',
+                'btn-complete-progress': c.completeState === 'progress',
+                'btn-complete-done': c.completeState === 'done',
+                'btn-complete-error': c.completeState === 'error'
+              }"
+              ng-click="c.markAsComplete()"
+              ng-disabled="c.isLoading || c.completeState === 'progress' || c.completeState === 'done'">
+
+              <!-- Idle state -->
+              <span ng-if="c.completeState === 'idle'" class="btn-complete-content">
+                <i class="fas fa-paper-plane"></i> Complete
+              </span>
+
+              <!-- Progress state -->
+              <span ng-if="c.completeState === 'progress'" class="btn-complete-content">
+                <span class="btn-progress-dots">
+                  <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                </span>
+                Sending Data to Model...
+              </span>
+
+              <!-- Done state with animated checkmark -->
+              <span ng-if="c.completeState === 'done'" class="btn-complete-content btn-complete-done-content">
+                <svg class="checkmark-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                  <path class="checkmark-path" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="M4 12.6 9 17.6 20 6.6"/>
+                </svg>
+                Completed
+              </span>
+
+              <!-- Error state -->
+              <span ng-if="c.completeState === 'error'" class="btn-complete-content">
+                <i class="fas fa-exclamation-triangle"></i> Failed — Retry
+              </span>
             </button>
-            <button class="btn-done" ng-click="c.markAsComplete()"
-              ng-disabled="c.isLoading || c.isSaving || c.isCompleting">
-              <i class="fas fa-spinner fa-spin" ng-show="c.isCompleting"></i>
-              <span ng-hide="c.isCompleting">Complete</span>
-              <span ng-show="c.isCompleting">Completing...</span>
           </div>
         </div>
 
@@ -197,33 +222,29 @@
                     </span>
                   </td>
 
-                  <!-- Data Verification (Editable when status is in dataVerificationEditStatuses, otherwise read-only) -->
+                  <!-- Data Verification -->
                   <td class="col-data-verification" ng-click="$event.stopPropagation()">
-                    <!-- Editable input when status is in configured edit statuses -->
                     <input type="text" class="verification-input" ng-model="field.data_verification"
                       ng-if="c.canEditDataVerification()" ng-change="c.markFieldAsChanged(field)"
                       ng-blur="c.validateCommentary(field); c.autoSaveField(field)"
-                      ng-disabled="false && !c.isFieldActive(field)" placeholder="Enter...">
-                    <!-- Read-only text when status is NOT in configured edit statuses -->
+                      ng-disabled="c.completeState === 'progress'" placeholder="Enter...">
                     <span class="cell-text" ng-if="!c.canEditDataVerification()" title="{{field.data_verification}}">
                       {{c.truncateText(field.data_verification, 12) || '-'}}
                     </span>
                   </td>
 
-                  <!-- QA Override Value (Editable when status is in qaOverrideEditStatuses, otherwise read-only) -->
+                  <!-- QA Override Value -->
                   <td class="col-qa-override" ng-click="$event.stopPropagation()">
-                    <!-- Editable input when status is in configured edit statuses -->
                     <input type="text" class="override-input" ng-model="field.qa_override_value"
                       ng-if="c.canEditQaOverride()" ng-change="c.markFieldAsChanged(field)"
                       ng-blur="c.validateCommentary(field); c.autoSaveField(field)"
-                      ng-disabled="false && !c.isFieldActive(field)" placeholder="Enter...">
-                    <!-- Read-only text when status is NOT in configured edit statuses -->
+                      ng-disabled="c.completeState === 'progress'" placeholder="Enter...">
                     <span class="cell-text" ng-if="!c.canEditQaOverride()" title="{{field.qa_override_value}}">
                       {{c.truncateText(field.qa_override_value, 12) || '-'}}
                     </span>
                   </td>
 
-                  <!-- Logic Transparency (Always truncated with title tooltip) -->
+                  <!-- Logic Transparency -->
                   <td class="col-logic">
                     <span class="cell-text" ng-class="{'has-value': field.logic_transparency}"
                       title="{{field.logic_transparency}}">
@@ -231,20 +252,18 @@
                     </span>
                   </td>
 
-                  <!-- Commentary (Editable only when at least one of Data Verification or QA Override is editable) -->
+                  <!-- Commentary -->
                   <td class="col-commentary" ng-click="$event.stopPropagation()">
-                    <!-- Editable input when at least one column is editable -->
                     <input type="text" class="commentary-input" ng-model="field.commentary"
                       ng-if="c.canEditCommentary()" ng-class="{'validation-error': field.commentaryRequired}"
                       ng-change="c.markFieldAsChanged(field); field.commentaryRequired = false;"
-                      ng-blur="c.autoSaveField(field)" placeholder="Enter...">
-                    <!-- Read-only text when both columns are read-only -->
+                      ng-blur="c.autoSaveField(field)" ng-disabled="c.completeState === 'progress'" placeholder="Enter...">
                     <span class="cell-text" ng-if="!c.canEditCommentary()" title="{{field.commentary}}">
                       {{c.truncateText(field.commentary, 12) || '-'}}
                     </span>
                   </td>
                 </tr>
-                <!-- Validation Error Sub-Row (shown only when field has validation_error) -->
+                <!-- Validation Error Sub-Row -->
                 <tr ng-repeat-end ng-if="field.validationError && c.shouldShowField(field)" class="validation-error-row">
                   <td colspan="6">
                     <div class="field-validation-error">
@@ -258,7 +277,7 @@
           </div>
         </div>
 
-        <!-- Empty State - No Fields Available -->
+        <!-- Empty State -->
         <div class="empty-state" ng-if="!c.groupedFields || c.getObjectKeys(c.groupedFields).length === 0">
           <i class="fas fa-exclamation-circle empty-icon"></i>
           <p class="empty-title">No Fields Available</p>
@@ -271,7 +290,7 @@
         </div>
       </div>
 
-      <!-- Save Status Bar -->
+      <!-- Save Status Bar (auto-save feedback) -->
       <div class="save-status-bar"
         ng-class="{'saving': c.saveStatus === 'saving', 'saved': c.saveStatus === 'saved', 'error': c.saveStatus === 'error'}"
         ng-show="c.saveStatus">
@@ -284,7 +303,6 @@
 
     <!-- ============================================
          RIGHT PANEL - PDF VIEWER
-         Contains: Header, Canvas, Footer
          ============================================ -->
     <div class="pdf-panel">
 
@@ -297,7 +315,6 @@
         </div>
 
         <div class="pdf-controls">
-          <!-- Zoom Controls -->
           <div class="control-group">
             <button ng-click="c.fitWidth()" ng-disabled="c.isLoading || !c.pdfLoaded" class="btn-icon"
               ng-class="{'active': c.zoomMode === 'fit-width'}" title="Fit to Width">
@@ -309,7 +326,6 @@
             </button>
           </div>
 
-          <!-- Page Navigation -->
           <div class="control-group">
             <button ng-click="c.previousPage()" ng-disabled="c.currentPage <= 1 || c.isLoading" class="btn-icon"
               title="Previous Page">
@@ -328,7 +344,6 @@
 
       <!-- PDF Content Area -->
       <div class="pdf-content" id="pdfContainer">
-        <!-- PDF Loading Overlay -->
         <div class="pdf-loading-overlay" ng-show="c.isPdfLoading">
           <div class="pdf-loader">
             <i class="fas fa-spinner fa-spin"></i>
@@ -336,7 +351,6 @@
           </div>
         </div>
 
-        <!-- PDF Placeholder (shown when no document is loaded) -->
         <div class="pdf-placeholder" ng-show="!c.pdfLoaded && !c.isPdfLoading">
           <div class="placeholder-content">
             <i class="fas fa-file-pdf placeholder-icon"></i>
@@ -372,37 +386,6 @@
             </span>
           </span>
         </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ============================================
-       CONFIRMATION MODAL
-       Shows before completing/committing submission
-       ============================================ -->
-  <div class="confirmation-modal-overlay" ng-show="c.showConfirmModal" ng-click="c.cancelComplete()">
-    <div class="confirmation-modal" ng-click="$event.stopPropagation()">
-      <div class="modal-header">
-        <i class="fas fa-exclamation-triangle modal-icon"></i>
-        <h3>Confirm Completion</h3>
-      </div>
-      <div class="modal-body">
-        <p>Are you sure you want to <strong>complete</strong> this submission?</p>
-        <p class="modal-warning">This action will commit all changes and cannot be undone.</p>
-        <div class="modal-info">
-          <span><i class="fas fa-hashtag"></i> Submission: <strong>{{c.submissionNumber}}</strong></span>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn-modal-cancel" ng-click="c.cancelComplete()">
-          <i class="fas fa-times"></i> Cancel
-        </button>
-        <button class="btn-modal-confirm" ng-click="c.confirmComplete()" ng-disabled="c.isCompleting">
-          <i class="fas fa-spinner fa-spin" ng-show="c.isCompleting"></i>
-          <i class="fas fa-check" ng-hide="c.isCompleting"></i>
-          <span ng-hide="c.isCompleting">Confirm & Complete</span>
-          <span ng-show="c.isCompleting">Processing...</span>
-        </button>
       </div>
     </div>
   </div>

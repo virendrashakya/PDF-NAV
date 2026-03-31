@@ -84,6 +84,9 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   c.loadingMessage = 'Loading...';
   c.isCompleting = false;
 
+  // Complete button states: 'idle' | 'progress' | 'done' | 'error'
+  c.completeState = 'idle';
+
   // Change tracking for save functionality
   c.hasChanges = false;
   c.changedFields = {};  // Tracks fields with unsaved changes: { sys_id: true }
@@ -364,6 +367,11 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     if (field && field.sys_id) {
       c.changedFields[field.sys_id] = true;
       c.hasChanges = true;
+
+      // Reset complete button if it was in done state
+      if (c.completeState === 'done') {
+        c.completeState = 'idle';
+      }
     }
   };
 
@@ -514,142 +522,63 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     return hours + ':' + minutes + ':' + seconds + ' ' + ampm;
   };
 
-  /**
-   * Save all changed fields to the server
-   * Sends only fields that have been modified
+  /* ============================================
+   * COMPLETE ACTION (Simplified - no modal)
+   * ============================================
+   * Directly triggers the complete action on click.
+   * Button transitions through states:
+   *   idle → progress → done (or error)
    */
-  c.saveAllChanges = function () {
-    if (!c.hasChanges || c.isSaving) return;
-
-    // Collect all changed fields with their updated values
-    var updates = [];
-    var allFields = c.flatten(c.groupedFields);
-    var validationErrors = [];
-
-    allFields.forEach(function (field) {
-      if (c.changedFields[field.sys_id]) {
-
-        // VALIDATION: QA Override Value requires Commentary (always check)
-        if (field.qa_override_value && field.qa_override_value.trim() !== '') {
-          if (!field.commentary || field.commentary.trim() === '') {
-            validationErrors.push(field.field_name + ' (QA Override)');
-            return; // Skip this field
-          }
-        }
-
-
-
-
-        var update = { sys_id: field.sys_id };
-
-        // Include the appropriate editable field based on configurable status
-        if (c.canEditDataVerification()) {
-          update.data_verification = field.data_verification || '';
-        }
-        if (c.canEditQaOverride()) {
-          update.qa_override_value = field.qa_override_value || '';
-        }
-
-        // Include commentary
-        update.commentary = field.commentary || '';
-
-        updates.push(update);
-      }
-    });
-
-    // Show validation errors if any
-    if (validationErrors.length > 0) {
-      c.showError('Commentary is required for: ' + validationErrors.join(', '));
-      return;
-    }
-
-    if (updates.length === 0) {
-      c.showInfo('No changes to save');
-      return;
-    }
-
-    // Show saving state
-    c.isSaving = true;
-    c.loadingMessage = 'Saving ' + updates.length + ' change(s)...';
-
-    // Call server to save
-    c.server.get({
-      action: 'saveMapping',
-      updates: updates,
-      submissionNumber: c.submissionNumber
-    }).then(function (response) {
-      c.isSaving = false;
-
-      if (response.data.success) {
-        // Clear change tracking
-        c.changedFields = {};
-        c.hasChanges = false;
-
-        c.showSuccess(response.data.message || 'Changes saved successfully');
-
-        // Log any partial errors
-        if (response.data.errors && response.data.errors.length > 0) {
-          console.warn('Save completed with errors:', response.data.errors);
-        }
-
-        // Apply validation errors from server
-        c.applyValidationErrors(response.data.validationErrors);
-      } else {
-        c.showError('Failed to save: ' + (response.data.error || 'Unknown error'));
-      }
-    }).catch(function (error) {
-      c.isSaving = false;
-      console.error('Save error:', error);
-      c.showError('Failed to save changes');
-    });
-  };
-
-  // Confirmation modal state
-  c.showConfirmModal = false;
 
   /**
-   * Mark as complete - shows confirmation modal first
+   * Execute the complete action directly (no confirmation modal).
+   * Manages button state transitions with visual feedback.
    */
   c.markAsComplete = function () {
-    c.showConfirmModal = true;
-  };
+    if (c.completeState === 'progress' || c.completeState === 'done') return;
 
-  /**
-   * Cancel the complete action - close modal
-   */
-  c.cancelComplete = function () {
-    c.showConfirmModal = false;
-  };
-
-  /**
-   * Confirm and execute the complete action
-   * Dismisses the modal immediately and shows progress via toasts
-   */
-  c.confirmComplete = function () {
-    // Dismiss modal immediately so user can continue working
-    c.showConfirmModal = false;
+    c.completeState = 'progress';
     c.isCompleting = true;
-
-    // Show persistent in-progress toast (duration 0 = no auto-dismiss)
-    var progressToastId = c.showInfo('Completion in progress… This may take a moment.', 0);
 
     c.server.get({
       action: 'markComplete',
       submissionNumber: c.submissionNumber
     }).then(function (response) {
       c.isCompleting = false;
-      c.dismissToast(progressToastId);
 
       if (response.data.success) {
+        c.completeState = 'done';
         c.showSuccess(response.data.message || 'Audit to Model completed successfully');
+
+        // Reset back to idle after 2 seconds so user can re-trigger if needed
+        $timeout(function () {
+          if (c.completeState === 'done') {
+            c.completeState = 'idle';
+          }
+        }, 2000);
       } else {
+        c.completeState = 'error';
         c.showError('Failed to complete: ' + (response.data.error || 'Unknown error'));
+
+        // Reset to idle after a delay so user can retry
+        $timeout(function () {
+          if (c.completeState === 'error') {
+            c.completeState = 'idle';
+          }
+        }, 4000);
       }
     }).catch(function (error) {
       c.isCompleting = false;
-      c.dismissToast(progressToastId);
+      c.completeState = 'error';
       console.error('Mark Complete error:', error);
       c.showError('Failed to complete submission');
+
+      // Reset to idle after a delay so user can retry
+      $timeout(function () {
+        if (c.completeState === 'error') {
+          c.completeState = 'idle';
+        }
+      }, 4000);
     });
   };
 
@@ -1187,13 +1116,6 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
       annotationCtx.lineTo(x4, y4);
       annotationCtx.closePath();
       annotationCtx.stroke();
-
-      // Add index label for multiple coordinates
-      //if (coords.length > 1) {
-      //annotationCtx.fillStyle = 'rgba(0, 120, 212, 0.9)';
-      //annotationCtx.font = 'bold 12px Arial';
-      //annotationCtx.fillText((index + 1).toString(), x1 + 5, y1 + 15);
-      //}
     });
 
     if (scrollToView) {
@@ -1425,7 +1347,19 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     if (pdfDoc) {
       pdfDoc.destroy();
     }
+    // Remove beforeunload handler
+    $window.removeEventListener('beforeunload', beforeUnloadHandler);
   });
+
+  // Warn user on page reload/close when Audit2Model is in progress
+  var beforeUnloadHandler = function (e) {
+    if (c.completeState === 'progress') {
+      var msg = 'Audit to Model is in progress. Reloading will restart the Model to Audit flow. Are you sure?';
+      e.returnValue = msg;
+      return msg;
+    }
+  };
+  $window.addEventListener('beforeunload', beforeUnloadHandler);
 
   // Window resize handler
   var resizeHandler = debounce(function () {
