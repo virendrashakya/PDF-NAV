@@ -536,8 +536,8 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
           }
         }, 3000);
 
-        // Apply validation errors from server
-        c.applyValidationErrors(response.data.validationErrors);
+        // Apply validation errors from server (only for the field just saved)
+        c.applyValidationErrors(response.data.validationErrors, [field.sys_id]);
       } else {
         c.saveStatus = 'error';
         c.saveStatusMessage = 'Save failed: ' + (response.data.error || 'Unknown error');
@@ -550,15 +550,22 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   };
 
   /**
-   * Apply validation errors returned by the server to in-memory field objects
-   * Sets field.validationError for fields with errors, clears it for those without
+   * Apply validation errors returned by the server to in-memory field objects.
+   * Only updates fields whose sys_ids were part of the current save (savedSysIds).
+   * This prevents clearing validation errors for fields that were not saved.
    * @param {object} validationErrors - Map of { sys_id: errorMessage }
+   * @param {Array} savedSysIds - Array of sys_ids that were saved in this operation
    */
-  c.applyValidationErrors = function (validationErrors) {
-    if (!validationErrors) return;
+  c.applyValidationErrors = function (validationErrors, savedSysIds) {
+    if (!validationErrors || !savedSysIds || savedSysIds.length === 0) return;
     var allFields = c.flatten(c.groupedFields);
+    var savedSet = {};
+    savedSysIds.forEach(function (id) { savedSet[id] = true; });
     allFields.forEach(function (field) {
-      field.validationError = validationErrors[field.sys_id] || null;
+      if (savedSet[field.sys_id]) {
+        // Only update fields that were part of this save
+        field.validationError = validationErrors[field.sys_id] || null;
+      }
     });
   };
 
