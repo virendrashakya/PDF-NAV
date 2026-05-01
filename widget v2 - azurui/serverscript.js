@@ -25,6 +25,7 @@
     tables: {
       lineItem: 'x_gegis_uwm_dashbo_data_extraction_lineitem',
       submission: 'x_gegis_uwm_dashbo_submission',
+      dataExtraction: 'x_gegis_uwm_dashbo_data_extraction',
       attachment: 'sys_attachment'
     },
 
@@ -51,6 +52,16 @@
       statusChoice: 'submission_status_choice',
       dataExtract: 'data_extract',
       lineOfBusiness: 'line_of_business_choice'
+    },
+
+    // Data extraction table columns
+    dataExtractionColumns: {
+      submission: 'submission',
+      version: 'version',
+      versionDisplayValue: 'version_display_value',
+      active: 'active',
+      discarded: 'discarded',
+      sysCreatedOn: 'sys_created_on'
     },
 
     // Attachment settings
@@ -242,11 +253,18 @@
     gs.info('PDF-NAV DEBUG: *** markComplete() ENTERED ***');
     data.success = false;
     var submissionNumber = input.submissionNumber;
-    gs.info('PDF-NAV DEBUG: submissionNumber=' + submissionNumber);
+    var dataExtractSysId = input.dataExtractSysId;
+    gs.info('PDF-NAV DEBUG: submissionNumber=' + submissionNumber + ', dataExtractSysId=' + dataExtractSysId);
 
     if (!submissionNumber) {
       gs.info('PDF-NAV DEBUG: No submissionNumber provided, returning error');
       data.error = 'Submission Number is not provided';
+      return;
+    }
+
+    // Reject completion when viewing a non-active data extraction version
+    if (dataExtractSysId && !_isDataExtractionActive(dataExtractSysId)) {
+      data.error = 'Cannot complete: this data extraction version is read-only. Switch to the active version to mark complete.';
       return;
     }
 
@@ -309,6 +327,119 @@
     }
   }
 
+  /**
+   * Resolve which data_extraction record to load for a submission.
+   * Returns versions list (newest first), the selected sys_id, and whether it is active.
+   *
+   * Selection priority:
+   *   1. Explicit requestedSysId from input (verified to belong to the submission, not discarded)
+   *   2. Most recent active=true extraction for the submission
+   *   3. TODO(remove-after-migration): submission.data_extract pointer
+   *   4. Most recent non-discarded extraction (will be loaded read-only since not active)
+   *
+   * @param {string} submissionSysId
+   * @param {GlideRecord} submissionGr - already-positioned submission record
+   * @param {string} requestedSysId - optional client-requested data_extraction sys_id
+   * @returns {{ selectedSysId: string, isActive: boolean, versions: Array, error: string }}
+   */
+  function _resolveDataExtraction(submissionSysId, submissionGr, requestedSysId) {
+    var result = { selectedSysId: '', isActive: false, versions: [], error: '' };
+
+    var deTable = CONFIG.tables.dataExtraction;
+    var deCols = CONFIG.dataExtractionColumns;
+
+    // Build versions list (newest version first), excluding discarded
+    var deGr = new GlideRecord(deTable);
+    deGr.addQuery(deCols.submission, submissionSysId);
+    deGr.addQuery(deCols.discarded, '!=', true);
+    deGr.orderByDesc(deCols.version);
+    deGr.orderByDesc(deCols.sysCreatedOn);
+    deGr.query();
+
+    var activeSysId = '';
+    while (deGr.next()) {
+      var sysId = deGr.getUniqueValue();
+      var isActive = deGr.getValue(deCols.active) === 'true' || deGr.getValue(deCols.active) === '1';
+      var versionRaw = _getValue(deGr, deCols.version);
+      var versionDisplay = _getValue(deGr, deCols.versionDisplayValue);
+      result.versions.push({
+        sys_id: sysId,
+        version: parseInt(versionRaw, 10) || 0,
+        version_display_value: versionDisplay,
+        active: isActive,
+        sys_created_on: _getValue(deGr, deCols.sysCreatedOn)
+      });
+      if (isActive && !activeSysId) activeSysId = sysId;
+    }
+
+    // 1. Explicit request — verify it belongs to this submission and is in versions list
+    if (requestedSysId) {
+      for (var i = 0; i < result.versions.length; i++) {
+        if (result.versions[i].sys_id === requestedSysId) {
+          result.selectedSysId = requestedSysId;
+          result.isActive = result.versions[i].active;
+          return result;
+        }
+      }
+      result.error = 'Requested data extraction does not belong to this submission or has been discarded.';
+      return result;
+    }
+
+    // 2. Active extraction
+    if (activeSysId) {
+      result.selectedSysId = activeSysId;
+      result.isActive = true;
+      return result;
+    }
+
+    // 3. TODO(remove-after-migration): fallback to legacy submission.data_extract pointer
+    var legacyPtr = _getValue(submissionGr, CONFIG.submissionColumns.dataExtract);
+    if (legacyPtr) {
+      // Surface it in versions list if not already there (legacy record may pre-date version model)
+      var inList = false;
+      for (var j = 0; j < result.versions.length; j++) {
+        if (result.versions[j].sys_id === legacyPtr) { inList = true; break; }
+      }
+      if (!inList) {
+        result.versions.unshift({
+          sys_id: legacyPtr,
+          version: 0,
+          version_display_value: '',
+          active: false,
+          sys_created_on: ''
+        });
+      }
+      result.selectedSysId = legacyPtr;
+      result.isActive = false; // Treat legacy fallback as read-only — no active flag set
+      return result;
+    }
+
+    // 4. Most recent non-discarded — read-only since none are active
+    if (result.versions.length > 0) {
+      result.selectedSysId = result.versions[0].sys_id;
+      result.isActive = false;
+      return result;
+    }
+
+    result.error = 'No data extraction records found for this submission.';
+    return result;
+  }
+
+  /**
+   * Verify that a given data_extraction sys_id is currently active.
+   * Used as a defense-in-depth guard for save/complete actions.
+   * @param {string} dataExtractSysId
+   * @returns {boolean}
+   */
+  function _isDataExtractionActive(dataExtractSysId) {
+    if (!dataExtractSysId) return false;
+    var deGr = new GlideRecord(CONFIG.tables.dataExtraction);
+    if (!deGr.get(dataExtractSysId)) return false;
+    if (deGr.getValue(CONFIG.dataExtractionColumns.discarded) === 'true') return false;
+    var activeRaw = deGr.getValue(CONFIG.dataExtractionColumns.active);
+    return activeRaw === 'true' || activeRaw === '1';
+  }
+
   /* ============================================
    * FETCH MAPPING DATA
    * ============================================
@@ -340,22 +471,35 @@
         return;
       }
 
-      var dataExtractSysId = _getValue(submissionGr, CONFIG.submissionColumns.dataExtract);
-      if (!dataExtractSysId) {
-        data.error = 'This submission (#' + data.submissionNumber + ') does not have a Data Extract reference. Please ensure the submission record has a valid Data Extract linked before proceeding.';
+      // Resolve which data_extraction version to load
+      var resolution = _resolveDataExtraction(submissionSysId, submissionGr, input.dataExtractSysId);
+      if (resolution.error) {
+        data.error = resolution.error;
         return;
       }
 
-      // Sync model → audit before loading data
-      try {
-        gs.info('PDF-NAV DEBUG: Running MODEL2AUDIT for submission=' + data.submissionNumber);
-        ExtractionHelper.dataFlowBetweenDataExtractAndModel(data.submissionNumber, ExtractionHelper.MODEL2AUDIT);
-        gs.info('PDF-NAV DEBUG: MODEL2AUDIT completed successfully');
-        data.model2auditCompleted = true;
-      } catch (m2aError) {
-        gs.error('PDF-NAV ERROR: MODEL2AUDIT failed: ' + m2aError.message);
+      var dataExtractSysId = resolution.selectedSysId;
+      data.versions = resolution.versions;
+      data.selectedDataExtract = {
+        sys_id: dataExtractSysId,
+        active: resolution.isActive
+      };
+
+      // Only sync model → audit when loading the active version. Historical versions are read-only.
+      if (resolution.isActive) {
+        try {
+          gs.info('PDF-NAV DEBUG: Running MODEL2AUDIT for submission=' + data.submissionNumber);
+          ExtractionHelper.dataFlowBetweenDataExtractAndModel(data.submissionNumber, ExtractionHelper.MODEL2AUDIT);
+          gs.info('PDF-NAV DEBUG: MODEL2AUDIT completed successfully');
+          data.model2auditCompleted = true;
+        } catch (m2aError) {
+          gs.error('PDF-NAV ERROR: MODEL2AUDIT failed: ' + m2aError.message);
+          data.model2auditCompleted = false;
+          // Non-blocking - continue loading data even if sync fails
+        }
+      } else {
+        gs.info('PDF-NAV DEBUG: Skipping MODEL2AUDIT — selected version is not active (read-only view)');
         data.model2auditCompleted = false;
-        // Non-blocking - continue loading data even if sync fails
       }
 
       // Query line items
@@ -461,9 +605,16 @@
     try {
       var updates = input.updates;
       var submissionNumber = input.submissionNumber;
+      var dataExtractSysId = input.dataExtractSysId;
 
       if (!updates || !Array.isArray(updates) || updates.length === 0) {
         data.error = 'No updates provided';
+        return;
+      }
+
+      // Reject saves against a non-active data extraction version (defense in depth — UI should already block this)
+      if (dataExtractSysId && !_isDataExtractionActive(dataExtractSysId)) {
+        data.error = 'Cannot save: this data extraction version is read-only.';
         return;
       }
 

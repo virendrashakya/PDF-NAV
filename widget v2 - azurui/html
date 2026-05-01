@@ -95,13 +95,25 @@
               <i class="fas" ng-class="c.sidebarCollapsed ? 'fa-chevron-right' : 'fa-chevron-left'"></i>
             </button>
             <h2 class="fields-title" ng-hide="c.sidebarCollapsed">Audit - #{{c.submissionNumber}}</h2>
+            <select class="version-dropdown" ng-hide="c.sidebarCollapsed"
+              ng-show="c.versions && c.versions.length"
+              ng-model="c.selectedVersionSysId" ng-change="c.onVersionChange()"
+              ng-disabled="c.isLoading"
+              ng-options="v.sys_id as v.label for v in c.versions"
+              title="Select data extraction version">
+            </select>
+            <span class="version-readonly-badge" ng-show="c.isReadOnlyVersion && !c.sidebarCollapsed"
+              title="This version is not active — fields are read-only">
+              <i class="fas fa-lock"></i> Read-only
+            </span>
           </div>
 
           <!-- Action Buttons: Complete only (Save removed — fields auto-save) -->
           <div class="header-actions">
             <button class="btn-complete" ng-class="c.completeBtn.css"
               ng-click="c.markAsComplete()"
-              ng-disabled="c.isLoading || c.completeBtn.disabled">
+              ng-disabled="c.isLoading || c.completeBtn.disabled || c.isReadOnlyVersion"
+              title="{{c.isReadOnlyVersion ? 'Switch to the active version to mark complete' : ''}}">
               <span class="btn-complete-content">
                 <!-- Bouncing dots for progress -->
                 <span class="btn-progress-dots" ng-if="c.completeBtn.showDots">
@@ -120,23 +132,31 @@
           </div>
         </div>
 
-        <!-- Document Selector Dropdown with Filter Toggle -->
-        <div class="document-selector-row">
+        <!-- Document Selector Row: dropdown + filter toggle + expandable search -->
+        <div class="document-selector-row" ng-class="{'search-expanded': c.searchExpanded}">
           <select ng-model="c.selectedDocument" ng-change="c.loadDocument()" ng-disabled="c.isLoading"
-            ng-options="doc as doc.name for doc in c.documents track by doc.url" class="document-dropdown">
+            ng-options="doc as doc.name for doc in c.documents track by doc.url"
+            class="document-dropdown">
           </select>
+          <div class="search-inline" ng-show="c.searchExpanded">
+            <i class="fas fa-search search-icon"></i>
+            <input type="text" ng-model="c.fieldSearch" placeholder="Search fields..."
+              class="search-input" id="fieldSearchInput"
+              ng-keydown="$event.keyCode === 27 && c.collapseSearch()">
+            <button class="btn-search-clear" ng-click="c.collapseSearch()" title="Close search">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          <button class="btn-search-toggle" ng-click="c.expandSearch()"
+            ng-show="!c.searchExpanded" title="Search fields">
+            <i class="fas fa-search"></i>
+          </button>
           <button class="btn-filter-toggle" ng-click="c.toggleDocumentFilter()"
             ng-class="{'active': c.filterDocumentOnly}"
             title="{{c.filterDocumentOnly ? 'Showing fields with source only - Click to show all' : 'Showing all fields - Click to filter by document & source'}}">
-            <i class="fas" ng-class="c.filterDocumentOnly ? 'fa-filter' : 'fa-filter'"></i>
+            <i class="fas fa-filter"></i>
             <span class="filter-count" ng-show="c.filterDocumentOnly">{{c.getVisibleFieldCount()}}</span>
           </button>
-        </div>
-
-        <!-- Search Input -->
-        <div class="search-wrapper">
-          <i class="fas fa-search search-icon"></i>
-          <input type="text" ng-model="c.fieldSearch" placeholder="Search..." class="search-input">
         </div>
       </div>
 

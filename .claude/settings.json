@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "additionalDirectories": [
+      "c:\\Users\\703344457\\.claude\\projects\\c--Users-703344457-Documents-development-PDF-NAV-PDF-NAV\\memory"
+    ],
+    "allow": [
+      "Bash(node --check \"widget v2 - azurui/serverscript.js\")",
+      "Bash(node --check \"widget v2 - azurui/clientscript.js\")"
+    ]
+  }
+}

@@ -55,6 +55,20 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   c.collapsedSections = {};
   c.mappingData = null;
   c.fieldSearch = '';
+  c.searchExpanded = false;
+
+  c.expandSearch = function () {
+    c.searchExpanded = true;
+    $timeout(function () {
+      var el = document.getElementById('fieldSearchInput');
+      if (el) el.focus();
+    }, 0);
+  };
+
+  c.collapseSearch = function () {
+    c.fieldSearch = '';
+    c.searchExpanded = false;
+  };
 
   // Active field navigation
   c.activeField = null;
@@ -164,12 +178,18 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   c.dataVerificationEditStatuses = ['CONFIRM_DATA_REVIEW']; // default, overridden by server
   c.qaOverrideEditStatuses = ['QUALITY_ASSURANCE'];          // default, overridden by server
 
+  // Data extraction version state
+  c.versions = [];                 // [{sys_id, version, version_display_value, active, label}]
+  c.selectedVersionSysId = null;   // currently loaded data_extraction sys_id
+  c.isReadOnlyVersion = false;     // true when selected version is not active
+
   /**
    * Check if Data Verification should be an editable input field
    * based on the current submissionStatusChoice and configured statuses
    * @returns {boolean}
    */
   c.canEditDataVerification = function () {
+    if (c.isReadOnlyVersion) return false;
     return c.dataVerificationEditStatuses.indexOf(c.submissionStatusChoice) !== -1;
   };
 
@@ -179,6 +199,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
    * @returns {boolean}
    */
   c.canEditQaOverride = function () {
+    if (c.isReadOnlyVersion) return false;
     return c.qaOverrideEditStatuses.indexOf(c.submissionStatusChoice) !== -1;
   };
 
@@ -188,6 +209,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
    * @returns {boolean}
    */
   c.canEditCommentary = function () {
+    if (c.isReadOnlyVersion) return false;
     return c.canEditDataVerification() || c.canEditQaOverride();
   };
 
@@ -264,6 +286,8 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
 
   // URL parameters
   var submissionSysId = $location.search().submissionSysId || '2726125693a63210ce18b5d97bba106c';
+  // Optional: sys_id of x_gegis_uwm_dashbo_data_extraction to load a specific version on first load
+  var initialVersionSysId = $location.search().version || null;
 
   // Performance optimization: Debounce functions
   var debounce = function (func, wait) {
@@ -513,11 +537,17 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     c.saveStatus = 'saving';
     c.saveStatusMessage = 'Saving...';
 
+    // Defense in depth: never POST a save when viewing a non-active version
+    if (c.isReadOnlyVersion) {
+      return;
+    }
+
     // Call server to save
     c.server.get({
       action: 'saveMapping',
       updates: [update],
-      submissionNumber: c.submissionNumber
+      submissionNumber: c.submissionNumber,
+      dataExtractSysId: c.selectedVersionSysId
     }).then(function (response) {
       if (response.data.success) {
         // Remove from changed fields tracking
@@ -601,13 +631,15 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
    */
   c.markAsComplete = function () {
     if (c.completeBtn.state === 'progress' || c.completeBtn.state === 'done') return;
+    if (c.isReadOnlyVersion) return;
 
     setCompleteState('progress');
     c.isCompleting = true;
 
     c.server.get({
       action: 'markComplete',
-      submissionNumber: c.submissionNumber
+      submissionNumber: c.submissionNumber,
+      dataExtractSysId: c.selectedVersionSysId
     }).then(function (response) {
       c.isCompleting = false;
 
@@ -770,22 +802,49 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
         annotationCtx = annotationCanvas.getContext('2d');
       }
     }, 100);
-    loadSourceMapping();
+    // Pass URL `version` param (data_extraction sys_id) on first load so the requested version is selected.
+    // Server validates ownership; if invalid/discarded, it returns an error and we fall back via reload.
+    loadSourceMapping(initialVersionSysId);
   }
 
-  // Load source mapping
-  function loadSourceMapping() {
+  /**
+   * Build a human-readable label for a version dropdown option.
+   * Prefers version_display_value, falls back to "v<N>". Active version gets " (active)" suffix.
+   */
+  function buildVersionLabel(v) {
+    var base = (v.version_display_value && v.version_display_value.trim()) || ('v' + (v.version || 0));
+    return v.active ? (base + ' (active)') : base;
+  }
+
+  /**
+   * Switch to a different data extraction version. Triggered by the version dropdown.
+   */
+  c.onVersionChange = function () {
+    if (!c.selectedVersionSysId) return;
+    loadSourceMapping(c.selectedVersionSysId);
+  };
+
+  // Load source mapping. Pass dataExtractSysId to load a specific version; omit for default (active) version.
+  function loadSourceMapping(dataExtractSysId) {
     if (!submissionSysId) {
       c.isLoading = false;
       return;
     }
 
-    c.loadingMessage = 'Model to Audit is in progress...';
+    c.isLoading = true;
+    c.loadingMessage = dataExtractSysId
+      ? 'Loading selected version...'
+      : 'Model to Audit is in progress...';
 
-    c.server.get({
+    var request = {
       action: 'fetchMapping',
       submissionSysId: submissionSysId
-    }).then(function (response) {
+    };
+    if (dataExtractSysId) {
+      request.dataExtractSysId = dataExtractSysId;
+    }
+
+    c.server.get(request).then(function (response) {
       // Update loading message after MODEL2AUDIT completes
       c.loadingMessage = 'Loading field mappings...';
       // Capture submission data first (needed for header display even on error)
@@ -800,6 +859,28 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
         if (response.data.config.qaOverrideEditStatuses) {
           c.qaOverrideEditStatuses = response.data.config.qaOverrideEditStatuses;
         }
+      }
+
+      // Populate version state — even on error, so the dropdown reflects what was returned
+      if (response.data.versions && response.data.versions.length) {
+        c.versions = response.data.versions.map(function (v) {
+          return {
+            sys_id: v.sys_id,
+            version: v.version,
+            version_display_value: v.version_display_value,
+            active: v.active,
+            label: buildVersionLabel(v)
+          };
+        });
+      } else {
+        c.versions = [];
+      }
+      if (response.data.selectedDataExtract) {
+        c.selectedVersionSysId = response.data.selectedDataExtract.sys_id;
+        c.isReadOnlyVersion = !response.data.selectedDataExtract.active;
+      } else {
+        c.selectedVersionSysId = null;
+        c.isReadOnlyVersion = false;
       }
 
       if (response.data.error) {
