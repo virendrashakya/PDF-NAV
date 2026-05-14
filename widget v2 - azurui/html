@@ -197,9 +197,8 @@
               <tbody>
                 <!-- Field Rows (filtered by shouldShowField when toggle is on) -->
                 <tr ng-repeat-start="field in fields | filter:c.searchFilter" ng-if="c.shouldShowField(field)"
-                  ng-click="c.isFieldActive(field) && c.navigateToField(field)" ng-class="{
+                  ng-click="c.canNavigate(field) && c.navigateToField(field)" ng-class="{
                       'active-field': field === c.isFieldActive(field),
-                      'inactive-field': !c.isFieldActive(field),
                       'no-navigate': !c.canNavigate(field),
                       'has-validation-error': field.validationError
                     }">

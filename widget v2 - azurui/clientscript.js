@@ -912,8 +912,10 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     });
   }
 
-  // Load PDF from URL with optimization
-  function loadPdfFromUrl(url) {
+  // Load PDF from URL with optimization. Optional onLoaded callback fires after the
+  // PDF document is ready and replaces the default first-page render — used by
+  // cross-document field navigation to render the field's page directly.
+  function loadPdfFromUrl(url, onLoaded) {
     c.isPdfLoading = true;  // Show PDF area loader
     c.loadingMessage = 'Loading PDF document...';
 
@@ -943,9 +945,13 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
         c.isPdfLoading = false;  // Hide PDF area loader
       });
 
-      // Wait for container to be ready, then render with fit-width
+      // Wait for container to be ready, then render
       $timeout(function () {
-        renderPage(c.currentPage);
+        if (typeof onLoaded === 'function') {
+          onLoaded();
+        } else {
+          renderPage(c.currentPage);
+        }
       }, 100);
     }).catch(function (error) {
       console.error('Error loading PDF:', error);
@@ -1174,15 +1180,49 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     currentHighlights = [];
   }
 
-  // Navigate to field with multiple coordinates support
+  // Navigate to field with multiple coordinates support.
+  // If the field belongs to a different document than the one currently loaded,
+  // automatically switch the document selector and load that PDF before highlighting.
   c.navigateToField = function (field) {
-    if (!field || !field.allCoordinates || field.allCoordinates.length === 0 || !canvas) return;
+    if (!field || !field.allCoordinates || field.allCoordinates.length === 0) return;
+
+    var firstCoord = field.allCoordinates[0];
+
+    // Cross-document navigation: switch selectedDocument and load the matching PDF.
+    if (field.attachmentData && field.attachmentData.file_name) {
+      var currentDocName = c.selectedDocument ? c.selectedDocument.name : null;
+      if (field.attachmentData.file_name !== currentDocName) {
+        var targetDoc = null;
+        for (var i = 0; i < c.documents.length; i++) {
+          if (c.documents[i].name === field.attachmentData.file_name) {
+            targetDoc = c.documents[i];
+            break;
+          }
+        }
+        if (!targetDoc) return; // No matching doc in dropdown — nothing we can load.
+
+        c.selectedDocument = targetDoc;
+        c.activeField = field;
+        c.activeFieldCoordIndex = 0;
+
+        loadPdfFromUrl(targetDoc.url, function () {
+          c.currentPage = firstCoord.page;
+          renderPage(c.currentPage);
+          $timeout(function () {
+            var coordsOnPage = field.allCoordinates.filter(function (coord) {
+              return coord.page === c.currentPage;
+            });
+            highlightMultipleFields(coordsOnPage, true);
+          }, 500);
+        });
+        return;
+      }
+    }
+
+    if (!canvas) return;
 
     c.activeField = field;
     c.activeFieldCoordIndex = 0;
-
-    // Navigate to first coordinate's page
-    var firstCoord = field.allCoordinates[0];
 
     if (firstCoord.page !== c.currentPage) {
       c.currentPage = firstCoord.page;
