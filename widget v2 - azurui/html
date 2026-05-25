@@ -112,8 +112,8 @@
           <div class="header-actions">
             <button class="btn-complete" ng-class="c.completeBtn.css"
               ng-click="c.markAsComplete()"
-              ng-disabled="c.isLoading || c.completeBtn.disabled || c.isReadOnlyVersion"
-              title="{{c.isReadOnlyVersion ? 'Switch to the active version to mark complete' : ''}}">
+              ng-disabled="c.isLoading || c.completeBtn.disabled || c.isReadOnlyVersion || c.hasValidationErrors()"
+              title="{{c.isReadOnlyVersion ? 'Switch to the active version to mark complete' : (c.hasValidationErrors() ? 'Fix validation errors before completing' : '')}}">
               <span class="btn-complete-content">
                 <!-- Bouncing dots for progress -->
                 <span class="btn-progress-dots" ng-if="c.completeBtn.showDots">

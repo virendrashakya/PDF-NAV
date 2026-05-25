@@ -480,6 +480,50 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   };
 
   /**
+   * Pure check (no state mutation — safe to call from ng-disabled) that reports
+   * whether any field has a blocking validation error. Used to keep the Complete
+   * button disabled while the data is not valid.
+   *  - server-side `validationError` (set by VALIDATE after save)
+   *  - client-side QA Override populated with empty commentary
+   * @returns {boolean}
+   */
+  c.hasValidationErrors = function () {
+    if (!c.groupedFields) return false;
+    var allFields = c.flatten(c.groupedFields);
+    for (var i = 0; i < allFields.length; i++) {
+      var f = allFields[i];
+      if (f.validationError) return true;
+      var hasQa = f.qa_override_value && f.qa_override_value.trim() !== '';
+      var hasComment = f.commentary && f.commentary.trim() !== '';
+      if (hasQa && !hasComment) return true;
+    }
+    return false;
+  };
+
+  /**
+   * Scan all fields for QA Override values that are missing required commentary.
+   * Used as a gate before markAsComplete to prevent completing with unsaved/invalid state
+   * (autoSaveField blocks the save when commentary is missing, so the QA Override change
+   * would otherwise be silently dropped while the Complete action proceeded anyway).
+   * Sets commentaryRequired = true on each offending field for visual highlighting.
+   * @returns {Array} Offending field objects
+   */
+  c.findFieldsMissingCommentary = function () {
+    var invalid = [];
+    if (!c.groupedFields) return invalid;
+    var allFields = c.flatten(c.groupedFields);
+    allFields.forEach(function (field) {
+      var hasQa = field.qa_override_value && field.qa_override_value.trim() !== '';
+      var hasComment = field.commentary && field.commentary.trim() !== '';
+      if (hasQa && !hasComment) {
+        field.commentaryRequired = true;
+        invalid.push(field);
+      }
+    });
+    return invalid;
+  };
+
+  /**
    * Auto-save a single field when input loses focus (blur)
    * @param {object} field - The field object to save
    */
@@ -632,6 +676,23 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   c.markAsComplete = function () {
     if (c.completeBtn.state === 'progress' || c.completeBtn.state === 'done') return;
     if (c.isReadOnlyVersion) return;
+
+    // Validation gate: every QA Override value must have a commentary.
+    // autoSaveField rejects saves that violate this, so without the gate the
+    // QA Override change is silently dropped while AUDIT2MODEL proceeds anyway.
+    var missingCommentary = c.findFieldsMissingCommentary();
+    if (missingCommentary.length > 0) {
+      var preview = missingCommentary.slice(0, 3).map(function (f) {
+        return f.field_name || '(unnamed)';
+      }).join(', ');
+      var more = missingCommentary.length > 3 ? ', +' + (missingCommentary.length - 3) + ' more' : '';
+      c.showError('Comment is mandatory when updating QA Override. Missing on: ' + preview + more);
+      // Bring the first offending field into view so the user can fix it.
+      if (typeof c.navigateToField === 'function') {
+        c.navigateToField(missingCommentary[0]);
+      }
+      return;
+    }
 
     setCompleteState('progress');
     c.isCompleting = true;
