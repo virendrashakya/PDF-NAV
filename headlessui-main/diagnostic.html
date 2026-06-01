@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ServiceNow Connectivity Diagnostic</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #0078d4;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #323130;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #c8c6c4;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: monospace;
+            box-sizing: border-box;
+        }
+        input:focus {
+            outline: none;
+            border-color: #0078d4;
+            box-shadow: 0 0 0 2px rgba(0,120,212,0.1);
+        }
+        button {
+            background: #0078d4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        button:hover {
+            background: #106ebe;
+        }
+        button:disabled {
+            background: #a19f9d;
+            cursor: not-allowed;
+        }
+        .results {
+            margin-top: 30px;
+            border-top: 1px solid #e1dfdd;
+            padding-top: 20px;
+        }
+        .test {
+            margin-bottom: 20px;
+            padding: 12px;
+            border-radius: 4px;
+            border-left: 4px solid #ccc;
+        }
+        .test.success {
+            background: #dff6dd;
+            border-left-color: #107c10;
+        }
+        .test.error {
+            background: #fde7e9;
+            border-left-color: #d13438;
+        }
+        .test.info {
+            background: #f3f2f1;
+            border-left-color: #0078d4;
+        }
+        .test-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .test.success .test-title {
+            color: #107c10;
+        }
+        .test.error .test-title {
+            color: #d13438;
+        }
+        .test.info .test-title {
+            color: #0078d4;
+        }
+        .test-message {
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .code {
+            background: #f3f2f1;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid #e1dfdd;
+            border-top: 2px solid #0078d4;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .icon {
+            margin-right: 6px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 ServiceNow Connectivity Diagnostic</h1>
+        <p>Test your ServiceNow instance configuration and CORS settings.</p>
+
+        <div class="form-group">
+            <label for="baseUrl">ServiceNow Base URL:</label>
+            <input
+                id="baseUrl"
+                type="text"
+                placeholder="https://dev12345.service-now.com"
+                value="https://dev12345.service-now.com"
+            >
+            <small style="color: #605e5c; margin-top: 4px; display: block;">
+                Format: https://your-instance.service-now.com (no trailing slash)
+            </small>
+        </div>
+
+        <button onclick="runDiagnostics()" id="runBtn">
+            <span class="icon">▶</span> Run Diagnostics
+        </button>
+
+        <div class="results" id="results" style="display: none;">
+            <h2>Results</h2>
+            <div id="resultsList"></div>
+        </div>
+    </div>
+
+    <script>
+        async function runDiagnostics() {
+            const baseUrl = document.getElementById('baseUrl').value.trim();
+            const resultsDiv = document.getElementById('results');
+            const resultsList = document.getElementById('resultsList');
+            const runBtn = document.getElementById('runBtn');
+
+            if (!baseUrl) {
+                alert('Please enter a ServiceNow URL');
+                return;
+            }
+
+            runBtn.disabled = true;
+            resultsList.innerHTML = '<div class="test info"><div class="test-title"><span class="spinner"></span> Running diagnostics...</div></div>';
+            resultsDiv.style.display = 'block';
+
+            const results = [];
+
+            // Test 1: URL Format
+            try {
+                new URL(baseUrl);
+                results.push({
+                    type: 'success',
+                    title: '✓ URL Format Valid',
+                    message: `URL is properly formatted: <span class="code">${baseUrl}</span>`
+                });
+            } catch {
+                results.push({
+                    type: 'error',
+                    title: '✗ Invalid URL Format',
+                    message: 'URL format is invalid. Use: https://instance-name.service-now.com'
+                });
+                renderResults(results);
+                runBtn.disabled = false;
+                return;
+            }
+
+            // Test 2: CORS Preflight
+            try {
+                const corsTest = await fetch(`${baseUrl}/oauth_token.do`, {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Origin': window.location.origin,
+                        'Access-Control-Request-Method': 'POST',
+                        'Access-Control-Request-Headers': 'content-type'
+                    }
+                });
+
+                const corsHeaders = {
+                    'access-control-allow-origin': corsTest.headers.get('access-control-allow-origin'),
+                    'access-control-allow-methods': corsTest.headers.get('access-control-allow-methods'),
+                    'access-control-allow-credentials': corsTest.headers.get('access-control-allow-credentials')
+                };
+
+                if (corsHeaders['access-control-allow-origin']) {
+                    results.push({
+                        type: 'success',
+                        title: '✓ CORS Enabled',
+                        message: `CORS is configured. Origin: <span class="code">${corsHeaders['access-control-allow-origin']}</span>`
+                    });
+                } else {
+                    results.push({
+                        type: 'error',
+                        title: '✗ CORS Not Configured',
+                        message: 'ServiceNow is blocking cross-origin requests. <strong>Enable CORS in ServiceNow:</strong><br/>System Web Services → CORS Rules → New'
+                    });
+                }
+            } catch (e) {
+                results.push({
+                    type: 'error',
+                    title: '✗ Cannot Reach ServiceNow',
+                    message: `Network error: ${e.message}<br/>Check: 1) URL is correct 2) Instance is accessible 3) No firewall blocking`
+                });
+                renderResults(results);
+                runBtn.disabled = false;
+                return;
+            }
+
+            // Test 3: OAuth Endpoint
+            try {
+                const oauthTest = await fetch(`${baseUrl}/oauth_token.do`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'Origin': window.location.origin
+                    },
+                    body: 'grant_type=client_credentials&client_id=test&client_secret=test'
+                });
+
+                if (oauthTest.status === 400 || oauthTest.status === 401) {
+                    results.push({
+                        type: 'success',
+                        title: '✓ OAuth Endpoint Accessible',
+                        message: `OAuth endpoint is reachable. Status: ${oauthTest.status} (expected for invalid credentials)`
+                    });
+                } else if (oauthTest.status === 403) {
+                    results.push({
+                        type: 'error',
+                        title: '✗ Access Forbidden',
+                        message: 'OAuth endpoint returned 403. Check CORS configuration allows POST requests.'
+                    });
+                } else {
+                    results.push({
+                        type: 'info',
+                        title: 'ℹ OAuth Endpoint Response',
+                        message: `Status: ${oauthTest.status}. This is expected - real auth will use valid credentials.`
+                    });
+                }
+            } catch (e) {
+                results.push({
+                    type: 'error',
+                    title: '✗ Cannot Reach OAuth Endpoint',
+                    message: `Error: ${e.message}`
+                });
+            }
+
+            // Test 4: Recommendations
+            results.push({
+                type: 'info',
+                title: 'ℹ Next Steps',
+                message: `
+                    <strong>If CORS is not enabled:</strong><br/>
+                    1. Log in to ServiceNow<br/>
+                    2. Go to System Web Services → CORS Rules<br/>
+                    3. Create new rule with origin: <span class="code">http://localhost:5173</span> (for dev)<br/>
+                    4. Allow methods: GET, POST, PUT, DELETE, OPTIONS<br/>
+                    5. Allow credentials: ✓ checked<br/>
+                    6. Save and refresh this page<br/><br/>
+                    <strong>For Netlify deployment:</strong><br/>
+                    Add another CORS rule with your Netlify URL: <span class="code">https://your-app.netlify.app</span>
+                `
+            });
+
+            renderResults(results);
+            runBtn.disabled = false;
+        }
+
+        function renderResults(results) {
+            const resultsList = document.getElementById('resultsList');
+            resultsList.innerHTML = results.map(r => `
+                <div class="test ${r.type}">
+                    <div class="test-title">${r.title}</div>
+                    <div class="test-message">${r.message}</div>
+                </div>
+            `).join('');
+        }
+
+        // Run on enter
+        document.getElementById('baseUrl').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') runDiagnostics();
+        });
+    </script>
+</body>
+</html>

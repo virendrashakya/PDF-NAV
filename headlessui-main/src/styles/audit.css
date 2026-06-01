@@ -1,0 +1,12 @@
+.audit-page {
+  height: 100vh;
+  display: flex;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.main-layout {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}

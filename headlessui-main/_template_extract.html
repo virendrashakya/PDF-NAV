@@ -1,0 +1,393 @@
+﻿<!-- ============================================
+     PDF-NAV Widget HTML Template
+     ============================================
+     Layout: Left sidebar (Fields) + Right panel (PDF Viewer)
+     Features: Document selection, searchable fields table, auto-save, complete action
+     ============================================ -->
+
+<!-- External CSS Libraries -->
+<link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
+<link rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?display=swap&family=Segoe+UI:wght@300;400;600;700&family=Inter:wght@400;500;600;700" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<style>
+  /* Validation error styles */
+  .has-validation-error {
+    border-left: 3px solid #dc3545 !important;
+    background-color: rgba(220, 53, 69, 0.04) !important;
+  }
+  .validation-error-row td {
+    padding: 0 !important;
+    border-top: none !important;
+  }
+  .field-validation-error {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px 4px 14px;
+    font-size: 11px;
+    color: #dc3545;
+    background-color: rgba(220, 53, 69, 0.06);
+    border-bottom: 1px solid rgba(220, 53, 69, 0.15);
+  }
+  .field-validation-error i {
+    font-size: 10px;
+    flex-shrink: 0;
+  }
+</style>
+
+<div class="pdf-viewer-container">
+
+  <!-- ============================================
+       LOADING OVERLAY
+       Shows during data fetch/save operations
+       ============================================ -->
+  <div class="loading-overlay" ng-show="c.isLoading">
+    <div class="loader-container">
+      <div class="spinner"></div>
+      <p class="loading-text">{{c.loadingMessage}}</p>
+    </div>
+  </div>
+
+  <!-- ============================================
+       TOAST NOTIFICATIONS
+       Inline notifications for better UX (replaces spUtil)
+       ============================================ -->
+  <div class="toast-container">
+    <div class="toast" ng-repeat="toast in c.toasts track by toast.id"
+      ng-class="{'toast-success': toast.type === 'success', 'toast-error': toast.type === 'error', 'toast-info': toast.type === 'info', 'toast-warning': toast.type === 'warning'}">
+      <div class="toast-icon">
+        <i class="fas" ng-class="{
+          'fa-check-circle': toast.type === 'success',
+          'fa-exclamation-circle': toast.type === 'error',
+          'fa-info-circle': toast.type === 'info',
+          'fa-exclamation-triangle': toast.type === 'warning'
+        }"></i>
+      </div>
+      <div class="toast-content">
+        <span class="toast-message">{{toast.message}}</span>
+      </div>
+      <button class="toast-close" ng-click="c.dismissToast(toast.id)">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- ============================================
+       MAIN LAYOUT
+       Two-column layout: Fields (left) + PDF (right)
+       ============================================ -->
+  <div class="main-layout">
+
+    <!-- ============================================
+         LEFT SIDEBAR - FIELDS PANEL
+         Contains: Header, Document selector, Search, Fields table
+         ============================================ -->
+    <div class="left-sidebar" ng-class="{'collapsed': c.sidebarCollapsed}">
+
+      <!-- Header with Title and Action Buttons -->
+      <div class="fields-header">
+        <div class="header-row">
+          <div class="header-title-group">
+            <button class="btn-collapse-toggle" ng-click="c.toggleSidebar()"
+              title="{{c.sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}}">
+              <i class="fas" ng-class="c.sidebarCollapsed ? 'fa-chevron-right' : 'fa-chevron-left'"></i>
+            </button>
+            <h2 class="fields-title" ng-hide="c.sidebarCollapsed">Audit - #{{c.submissionNumber}}</h2>
+            <select class="version-dropdown" ng-hide="c.sidebarCollapsed"
+              ng-show="c.versions && c.versions.length"
+              ng-model="c.selectedVersionSysId" ng-change="c.onVersionChange()"
+              ng-disabled="c.isLoading"
+              ng-options="v.sys_id as v.label for v in c.versions"
+              title="Select data extraction version">
+            </select>
+            <span class="version-readonly-badge" ng-show="c.isReadOnlyVersion && !c.sidebarCollapsed"
+              title="This version is not active â€” fields are read-only">
+              <i class="fas fa-lock"></i> Read-only
+            </span>
+          </div>
+
+          <!-- Action Buttons: Complete only (Save removed â€” fields auto-save) -->
+          <div class="header-actions">
+            <button class="btn-complete" ng-class="c.completeBtn.css"
+              ng-click="c.markAsComplete()"
+              ng-disabled="c.isLoading || c.completeBtn.disabled || c.isReadOnlyVersion || c.hasValidationErrors()"
+              title="{{c.isReadOnlyVersion ? 'Switch to the active version to mark complete' : (c.hasValidationErrors() ? 'Fix validation errors before completing' : '')}}">
+              <span class="btn-complete-content">
+                <!-- Bouncing dots for progress -->
+                <span class="btn-progress-dots" ng-if="c.completeBtn.showDots">
+                  <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                </span>
+                <!-- Animated circle-check for done -->
+                <svg ng-if="c.completeBtn.showCheck" class="circle-check" viewBox="0 0 26 26" xmlns="http://www.w3.org/2000/svg">
+                  <circle class="circle-check-ring" cx="13" cy="13" r="11" fill="none" stroke="#fff" stroke-width="2"/>
+                  <path class="circle-check-tick" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M7.5 13.5 11 17 18.5 9.5"/>
+                </svg>
+                <!-- FA icon for idle / error -->
+                <i class="fas {{c.completeBtn.icon}}" ng-if="!c.completeBtn.showDots && !c.completeBtn.showCheck && c.completeBtn.icon"></i>
+                {{c.completeBtn.label}}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Document Selector Row: dropdown + filter toggle + expandable search -->
+        <div class="document-selector-row" ng-class="{'search-expanded': c.searchExpanded}">
+          <select ng-model="c.selectedDocument" ng-change="c.loadDocument()" ng-disabled="c.isLoading"
+            ng-options="doc as doc.name for doc in c.documents track by doc.url"
+            class="document-dropdown">
+          </select>
+          <div class="search-inline" ng-show="c.searchExpanded">
+            <i class="fas fa-search search-icon"></i>
+            <input type="text" ng-model="c.fieldSearch" placeholder="Search fields..."
+              class="search-input" id="fieldSearchInput"
+              ng-keydown="$event.keyCode === 27 && c.collapseSearch()">
+            <button class="btn-search-clear" ng-click="c.collapseSearch()" title="Close search">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          <button class="btn-search-toggle" ng-click="c.expandSearch()"
+            ng-show="!c.searchExpanded" title="Search fields">
+            <i class="fas fa-search"></i>
+          </button>
+          <button class="btn-filter-toggle" ng-click="c.toggleDocumentFilter()"
+            ng-class="{'active': c.filterDocumentOnly}"
+            title="{{c.filterDocumentOnly ? 'Showing fields with source only - Click to show all' : 'Showing all fields - Click to filter by document & source'}}">
+            <i class="fas fa-filter"></i>
+            <span class="filter-count" ng-show="c.filterDocumentOnly">{{c.getVisibleFieldCount()}}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ============================================
+           FIELDS CONTENT
+           Grouped sections with expandable tables
+           ============================================ -->
+      <div class="fields-content">
+
+        <!-- Loop through grouped field sections -->
+        <div ng-repeat="(sectionName, fields) in c.groupedFields" class="field-section">
+
+          <!-- Section Header (Collapsible) -->
+          <div class="section-header" ng-click="c.collapsedSections[sectionName] = !c.collapsedSections[sectionName]">
+            <div class="section-title-wrapper">
+              <i class="fas" ng-class="c.collapsedSections[sectionName] ? 'fa-chevron-right' : 'fa-chevron-down'"></i>
+              <span class="section-title">{{c.trimInitialNumberAdvanced(sectionName)}} ({{fields.length}})</span>
+            </div>
+            <div class="section-accuracy" ng-if="fields.length > 0 && c.sectionHasConfidence(fields)"
+              ng-class="c.getSectionAccuracyClass(fields)">
+              {{c.calculateSectionAccuracy(fields) | number:0}}%
+            </div>
+          </div>
+
+          <!-- Section Table (Fields) -->
+          <div class="section-table-wrapper" ng-show="!c.collapsedSections[sectionName]">
+            <table class="fields-table">
+              <thead>
+                <tr>
+                  <th class="col-field-name">Field Name</th>
+                  <th class="col-ai-value">AI Value</th>
+                  <th class="col-data-verification">Data Verification</th>
+                  <th class="col-qa-override">QA Override Value</th>
+                  <th class="col-logic">Logic Transparency</th>
+                  <th class="col-commentary">Commentary</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Field Rows (filtered by shouldShowField when toggle is on) -->
+                <tr ng-repeat-start="field in fields | filter:c.searchFilter" ng-if="c.shouldShowField(field)"
+                  ng-click="c.canNavigate(field) && c.navigateToField(field)" ng-class="{
+                      'active-field': field === c.isFieldActive(field),
+                      'no-navigate': !c.canNavigate(field),
+                      'has-validation-error': field.validationError
+                    }">
+
+                  <!-- Field Name + Source Indicator + Confidence -->
+                  <td class="col-field-name">
+                    <div class="field-name-cell">
+                      <i class="fas fa-crosshairs source-indicator" ng-if="field.source && field.source.length > 0"
+                        title="Has source coordinates"></i>
+                      <span class="field-name" title="{{field.field_name}}">{{field.field_name}}</span>
+                      <span class="confidence-pill" ng-if="c.hasConfidenceValue(field.confidence_indicator)"
+                        ng-class="c.getConfidencePillClass(field.confidence_indicator)">
+                        {{field.confidence_indicator * 100 | number:0}}%
+                      </span>
+                    </div>
+                  </td>
+
+                  <!-- AI Value (Read-only with title tooltip) -->
+                  <td class="col-ai-value">
+                    <span class="cell-text" ng-class="{'has-value': field.field_value}" title="{{field.field_value}}">
+                      {{c.truncateText(field.field_value, 15) || '-'}}
+                    </span>
+                  </td>
+
+                  <!-- Data Verification -->
+                  <td class="col-data-verification" ng-click="$event.stopPropagation()">
+                    <input type="text" class="verification-input" ng-model="field.data_verification"
+                      ng-if="c.canEditDataVerification()" ng-change="c.markFieldAsChanged(field)"
+                      ng-blur="c.validateCommentary(field); c.autoSaveField(field)"
+                      ng-disabled="c.completeBtn.state === 'progress'" placeholder="Enter...">
+                    <span class="cell-text" ng-if="!c.canEditDataVerification()" title="{{field.data_verification}}">
+                      {{c.truncateText(field.data_verification, 12) || '-'}}
+                    </span>
+                  </td>
+
+                  <!-- QA Override Value -->
+                  <td class="col-qa-override" ng-click="$event.stopPropagation()">
+                    <input type="text" class="override-input" ng-model="field.qa_override_value"
+                      ng-if="c.canEditQaOverride()" ng-change="c.markFieldAsChanged(field)"
+                      ng-blur="c.validateCommentary(field); c.autoSaveField(field)"
+                      ng-disabled="c.completeBtn.state === 'progress'" placeholder="Enter...">
+                    <span class="cell-text" ng-if="!c.canEditQaOverride()" title="{{field.qa_override_value}}">
+                      {{c.truncateText(field.qa_override_value, 12) || '-'}}
+                    </span>
+                  </td>
+
+                  <!-- Logic Transparency -->
+                  <td class="col-logic">
+                    <span class="cell-text" ng-class="{'has-value': field.logic_transparency}"
+                      title="{{field.logic_transparency}}">
+                      {{c.truncateText(field.logic_transparency, 15) || '-'}}
+                    </span>
+                  </td>
+
+                  <!-- Commentary -->
+                  <td class="col-commentary" ng-click="$event.stopPropagation()">
+                    <input type="text" class="commentary-input" ng-model="field.commentary"
+                      ng-if="c.canEditCommentary()" ng-class="{'validation-error': field.commentaryRequired}"
+                      ng-change="c.markFieldAsChanged(field); field.commentaryRequired = false;"
+                      ng-blur="c.autoSaveField(field)" ng-disabled="c.completeBtn.state === 'progress'" placeholder="Enter...">
+                    <span class="cell-text" ng-if="!c.canEditCommentary()" title="{{field.commentary}}">
+                      {{c.truncateText(field.commentary, 12) || '-'}}
+                    </span>
+                  </td>
+                </tr>
+                <!-- Validation Error Sub-Row -->
+                <tr ng-repeat-end ng-if="field.validationError && c.shouldShowField(field)" class="validation-error-row">
+                  <td colspan="6">
+                    <div class="field-validation-error">
+                      <i class="fas fa-exclamation-circle"></i>
+                      <span>{{field.validationError}}</span>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-state" ng-if="!c.groupedFields || c.getObjectKeys(c.groupedFields).length === 0">
+          <i class="fas fa-exclamation-circle empty-icon"></i>
+          <p class="empty-title">No Fields Available</p>
+          <p class="empty-hint" ng-if="c.isLoading">Loading field data...</p>
+          <p class="empty-hint" ng-if="!c.isLoading && !c.submissionNumber">No submission data found. Please verify the
+            submission record exists.</p>
+          <p class="empty-hint" ng-if="!c.isLoading && c.submissionNumber">No extraction data found for submission
+            #{{c.submissionNumber}}. This may indicate that no Data Extract is linked to this submission or no fields
+            match the current Line of Business criteria.</p>
+        </div>
+      </div>
+
+      <!-- Save Status Bar (auto-save feedback) -->
+      <div class="save-status-bar"
+        ng-class="{'saving': c.saveStatus === 'saving', 'saved': c.saveStatus === 'saved', 'error': c.saveStatus === 'error'}"
+        ng-show="c.saveStatus">
+        <i class="fas fa-spinner fa-spin" ng-show="c.saveStatus === 'saving'"></i>
+        <i class="fas fa-check-circle" ng-show="c.saveStatus === 'saved'"></i>
+        <i class="fas fa-exclamation-circle" ng-show="c.saveStatus === 'error'"></i>
+        <span>{{c.saveStatusMessage}}</span>
+      </div>
+    </div>
+
+    <!-- ============================================
+         RIGHT PANEL - PDF VIEWER
+         ============================================ -->
+    <div class="pdf-panel">
+
+      <!-- PDF Header -->
+      <div class="pdf-header">
+        <div class="pdf-title">
+          <i class="fas fa-file-pdf"></i>
+          <span ng-if="c.selectedDocument">{{c.selectedDocument.name}}</span>
+          <span ng-if="!c.selectedDocument">No document selected</span>
+        </div>
+
+        <div class="pdf-controls">
+          <div class="control-group">
+            <button ng-click="c.fitWidth()" ng-disabled="c.isLoading || !c.pdfLoaded" class="btn-icon"
+              ng-class="{'active': c.zoomMode === 'fit-width'}" title="Fit to Width">
+              <i class="fa-solid fa-arrows-left-right-to-line"></i>
+            </button>
+            <button ng-click="c.actual100Percent()" ng-disabled="c.isLoading || !c.pdfLoaded" class="btn-icon"
+              ng-class="{'active': c.zoomMode === 'actual-size'}" title="Actual Size (100%)">
+              <i class="fa-solid fa-text-height"></i>
+            </button>
+          </div>
+
+          <div class="control-group">
+            <button ng-click="c.previousPage()" ng-disabled="c.currentPage <= 1 || c.isLoading" class="btn-icon"
+              title="Previous Page">
+              <i class="fas fa-chevron-left"></i>
+            </button>
+            <div class="page-info">
+              <span>Page {{c.currentPage}} of {{c.totalPages}}</span>
+            </div>
+            <button ng-click="c.nextPage()" ng-disabled="c.currentPage >= c.totalPages || c.isLoading" class="btn-icon"
+              title="Next Page">
+              <i class="fas fa-chevron-right"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PDF Content Area -->
+      <div class="pdf-content" id="pdfContainer">
+        <div class="pdf-loading-overlay" ng-show="c.isPdfLoading">
+          <div class="pdf-loader">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>Loading PDF...</span>
+          </div>
+        </div>
+
+        <div class="pdf-placeholder" ng-show="!c.pdfLoaded && !c.isPdfLoading">
+          <div class="placeholder-content">
+            <i class="fas fa-file-pdf placeholder-icon"></i>
+            <h3 class="placeholder-title">No Document Available</h3>
+            <p class="placeholder-text" ng-if="!c.selectedDocument">Select a document to view</p>
+            <p class="placeholder-text" ng-if="c.selectedDocument">Unable to load document</p>
+          </div>
+        </div>
+
+        <div class="pdf-canvas-wrapper" ng-show="c.pdfLoaded">
+          <canvas id="pdfCanvas" class="pdf-canvas"></canvas>
+          <canvas id="annotationCanvas" class="annotation-canvas"></canvas>
+          <div id="pageMarker" class="page-marker"></div>
+        </div>
+      </div>
+
+      <!-- PDF Footer -->
+      <div class="pdf-footer">
+        <div class="footer-content">
+          <span class="footer-item">
+            <i class="fas fa-file"></i>
+            A4: 595 Ã— 842 points
+          </span>
+          <span class="footer-item">
+            <i class="fas fa-expand"></i>
+            Scale: {{(c.scale * 100) | number:0}}%
+          </span>
+          <span class="footer-item" ng-if="c.activeField">
+            <i class="fas fa-crosshairs"></i>
+            Active: {{c.activeField.field_name}}
+            <span ng-if="c.activeField.allCoordinates && c.activeField.allCoordinates.length > 1">
+              ({{c.activeFieldCoordIndex + 1}}/{{c.activeField.allCoordinates.length}})
+            </span>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
