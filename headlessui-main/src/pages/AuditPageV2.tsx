@@ -183,6 +183,8 @@ export const AuditPageV2: React.FC<AuditPageV2Props> = ({
   const [fields, setFields] = useState<Field[]>([])
   const [submissionNumber, setSubmissionNumber] = useState('')
   const [submissionStatus, setSubmissionStatus] = useState('')
+  const [dataVerificationEditStatuses, setDataVerificationEditStatuses] = useState<string[]>([])
+  const [qaOverrideEditStatuses, setQaOverrideEditStatuses] = useState<string[]>([])
   const [versions, setVersions] = useState<VersionItem[]>([])
   const [selectedVersionSysId, setSelectedVersionSysId] = useState('')
   const [isReadOnlyVersion, setIsReadOnlyVersion] = useState(false)
@@ -220,13 +222,16 @@ export const AuditPageV2: React.FC<AuditPageV2Props> = ({
           return
         }
 
-        const [, mappingResponse] = await Promise.all([
-          apiService.getConfig(),
-          apiService.fetchMapping(submissionSysId)
-        ])
+        const mappingResponse = await apiService.fetchMapping(submissionSysId)
 
         const nextFields = mappingResponse.fields || []
         setFields(nextFields)
+
+        const responseConfig = mappingResponse.result?.config
+        if (responseConfig) {
+          setDataVerificationEditStatuses(responseConfig.dataVerificationEditStatuses || [])
+          setQaOverrideEditStatuses(responseConfig.qaOverrideEditStatuses || [])
+        }
 
         const apiResponse = mappingResponse.result
         if (apiResponse?.submissionNumber) {
@@ -267,11 +272,11 @@ export const AuditPageV2: React.FC<AuditPageV2Props> = ({
 
         showToast(`Loaded ${nextFields.length} extracted mappings`, 'success', 2500)
       } catch (error) {
-        showToast(
-          `Failed to load data: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          'error',
-          8000
-        )
+        // showToast(
+        //   `Failed to load data: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        //   'error',
+        //   8000
+        // )
       } finally {
         setLoading(false)
       }
@@ -475,6 +480,10 @@ export const AuditPageV2: React.FC<AuditPageV2Props> = ({
     setShowAiSummary(true)
   }, [selectedDocument])
 
+  const canEditDataVerification = !isReadOnlyVersion && dataVerificationEditStatuses.includes(submissionStatus)
+  const canEditQaOverride = !isReadOnlyVersion && qaOverrideEditStatuses.includes(submissionStatus)
+  const canEditCommentary = canEditDataVerification || canEditQaOverride
+
   const handleFieldChange = (fieldId: string, updates: Partial<Field>) => {
     setFields((previousFields) =>
       previousFields.map((field) => (
@@ -503,6 +512,7 @@ export const AuditPageV2: React.FC<AuditPageV2Props> = ({
   }
 
   const handleOverrideChange = (field: Field, value: string) => {
+    if (!canEditQaOverride) return
     handleFieldChange(field.sys_id, {
       qa_override_value: value,
       data_verification: value.trim() ? field.data_verification || field.field_value : field.data_verification
@@ -510,6 +520,7 @@ export const AuditPageV2: React.FC<AuditPageV2Props> = ({
   }
 
   const handleToggleConflict = (field: Field) => {
+    if (!canEditCommentary) return
     const commentary = (field.commentary || '').trim()
     const flagged = hasConflictMarker(commentary)
     const nextCommentary = flagged
@@ -613,6 +624,7 @@ export const AuditPageV2: React.FC<AuditPageV2Props> = ({
   }
 
   const handleAcceptField = (field: Field) => {
+    if (!canEditDataVerification) return
     const acceptedValue = field.field_value?.trim() || getResolvedValue(field)
     if (!acceptedValue) {
       showToast(`No extracted value available for ${field.field_name}`, 'warning', 4000)
@@ -626,6 +638,7 @@ export const AuditPageV2: React.FC<AuditPageV2Props> = ({
   }
 
   const handleAcceptAllHighConfidence = () => {
+    if (!canEditDataVerification) return
     const acceptedIds: string[] = []
 
     setFields((previousFields) => previousFields.map((field) => {
@@ -1018,7 +1031,13 @@ export const AuditPageV2: React.FC<AuditPageV2Props> = ({
               </div>
 
               <div className="audit-v2-mapping-toolbar-row">
-                <button type="button" className="audit-v2-outline-button small" onClick={handleAcceptAllHighConfidence}>
+                <button
+                  type="button"
+                  className="audit-v2-outline-button small"
+                  onClick={handleAcceptAllHighConfidence}
+                  disabled={!canEditDataVerification || saving || completing}
+                  title={canEditDataVerification ? 'Accept high-confidence mappings on this document' : 'Verification is not editable in the current submission status'}
+                >
                   <i className="fas fa-check" />
                   Accept high-conf
                 </button>
@@ -1177,7 +1196,8 @@ export const AuditPageV2: React.FC<AuditPageV2Props> = ({
                                     event.stopPropagation()
                                     handleAcceptField(field)
                                   }}
-                                  disabled={saving || completing || isReadOnlyVersion}
+                                  disabled={saving || completing || !canEditDataVerification}
+                                  title={canEditDataVerification ? 'Accept the AI value' : 'Verification is not editable in the current submission status'}
                                 >
                                   <i className="fas fa-check" />
                                   Accept
@@ -1189,7 +1209,8 @@ export const AuditPageV2: React.FC<AuditPageV2Props> = ({
                                     event.stopPropagation()
                                     handleToggleConflict(field)
                                   }}
-                                  disabled={saving || completing || isReadOnlyVersion}
+                                  disabled={saving || completing || !canEditCommentary}
+                                  title={canEditCommentary ? 'Flag this field as a conflict' : 'Commentary is not editable in the current submission status'}
                                 >
                                   <i className="fas fa-triangle-exclamation" />
                                   {isConflictFlagged ? 'Clear' : 'Conflict'}
@@ -1201,7 +1222,8 @@ export const AuditPageV2: React.FC<AuditPageV2Props> = ({
                                     event.stopPropagation()
                                     setOverrideEditorFieldId((currentValue) => currentValue === field.sys_id ? '' : field.sys_id)
                                   }}
-                                  disabled={saving || completing || isReadOnlyVersion}
+                                  disabled={saving || completing || !canEditQaOverride}
+                                  title={canEditQaOverride ? 'Open the override editor' : 'QA Override is not editable in the current submission status'}
                                 >
                                   <i className="fas fa-pen" />
                                   Override
@@ -1214,7 +1236,7 @@ export const AuditPageV2: React.FC<AuditPageV2Props> = ({
                                     value={field.qa_override_value || ''}
                                     onChange={(event) => handleOverrideChange(field, event.target.value)}
                                     onClick={(event) => event.stopPropagation()}
-                                    disabled={saving || completing || isReadOnlyVersion}
+                                    disabled={saving || completing || !canEditQaOverride}
                                     className="audit-v2-field-input compact"
                                     placeholder={extractedValue || 'Add override'}
                                   />

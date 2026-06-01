@@ -35,6 +35,10 @@ export interface MappingData {
       version_display_value: string
       active: boolean
     }>
+    config?: {
+      dataVerificationEditStatuses?: string[]
+      qaOverrideEditStatuses?: string[]
+    }
     [key: string]: unknown
   }
   groupedFields?: { [key: string]: Field[] }
