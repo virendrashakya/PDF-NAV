@@ -244,6 +244,40 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   };
 
   /* ============================================
+   * TOP-RIGHT ACTION BUTTONS — Refer / Save Changes / Re-Run Geocoding
+   * ============================================
+   * All three are currently dummy. Each method shows an info toast so the
+   * click is observable, but does nothing real.
+   * TODO: wire each to its real backend action (a server action / data
+   * resource / scripted REST endpoint) once the requirements are confirmed.
+   * ============================================ */
+
+  c.onRefer = function () {
+    // TODO: implement Refer action — should refer the submission to the next workflow stage.
+    //       Likely server action 'referSubmission' that updates submission.submission_status_choice
+    //       and triggers any downstream notifications. Confirm target status + audit requirements.
+    c.showInfo('Refer — not yet implemented');
+  };
+
+  c.onSaveChanges = function () {
+    // TODO: implement Save Changes action — bulk-save all currently dirty fields.
+    //       Today each field already autosaves on blur (c.autoSaveField), so this button
+    //       might be redundant in this widget. Confirm with product whether this should:
+    //       (a) flush any in-flight autosaves, (b) save fields edited in the top PL summary
+    //       table, or (c) be removed entirely.
+    c.showInfo('Save Changes — not yet implemented');
+  };
+
+  c.onReRunGeocoding = function () {
+    // TODO: implement Re-Run Geocoding action — re-runs geocoding for the selected /
+    //       all property locations on the submission. Likely calls a server-side
+    //       GeocodingHelper script include that updates x_gegis_uwm_dashbo_address rows.
+    //       Confirm scope (this PL only vs all PLs on the submission) and whether a
+    //       confirm dialog is required before the call.
+    c.showInfo('Re-Run Geocoding — not yet implemented');
+  };
+
+  /* ============================================
    * PROPERTY LOCATION SELECTION
    * ============================================ */
 

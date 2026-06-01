@@ -64,6 +64,19 @@
               <span class="submission-id-value">{{c.submission.number || '-'}}</span>
             </h2>
           </div>
+
+          <!-- Top-right action buttons (dummy handlers for now) -->
+          <div class="header-actions" ng-hide="c.sidebarCollapsed">
+            <button class="btn-secondary" ng-click="c.onRefer()" title="Refer the submission">
+              Refer
+            </button>
+            <button class="btn-secondary" ng-click="c.onSaveChanges()" title="Save all pending changes">
+              Save Changes
+            </button>
+            <button class="btn-primary" ng-click="c.onReRunGeocoding()" title="Re-run geocoding for all property locations">
+              Re-Run Geocoding
+            </button>
+          </div>
         </div>
 
         <!-- Fields toolbar: document badge + search + Show only exceptions -->

@@ -149,9 +149,11 @@ The QA Override → Commentary gate from widget v2 azurui is intentionally absen
   - **Save status bar** at sidebar bottom
 - **PDF panel:** header (filename, fit-width / actual-size, prev / next page) + canvas + footer
 
-### Intentionally omitted vs the screenshot
+### Top action buttons (currently dummy)
 
-User asked to skip these for now: top action buttons `Refer`, `Save Changes`, `Re-Run Geocoding`, and the page-level `⋯` menu. No Complete button either (no completion workflow exists in this widget yet).
+`Refer`, `Save Changes`, `Re-Run Geocoding` live in `.header-actions` to the right of the submission title. Each click handler (`c.onRefer`, `c.onSaveChanges`, `c.onReRunGeocoding`) shows an info toast and does nothing else — each handler carries a TODO with notes on the intended real backend behavior. Wire these up when the corresponding server actions land.
+
+The page-level `⋯` menu from the screenshot is still omitted.
 
 ---
 
