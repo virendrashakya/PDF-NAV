@@ -304,17 +304,23 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   var renderTask = null;
   var currentPageInstance = null;
 
-  // Resolve submission sys_id, in priority order:
-  //   1. URL parameter ?submissionSysId=<sys_id>
-  //   2. URL parameter ?sys_id=<sys_id>  (ServiceNow standard)
-  //   3. Server-resolved value from $scope.data.submissionSysId (covers widget-instance options)
+  // Resolve URL identifiers, in priority order:
+  //   submissionSysId — ?submissionSysId=<sys_id>, then ?sys_id=<sys_id>, then $scope.data
+  //   locationSysId   — ?locationSysId=<sys_id>, then $scope.data
+  // When locationSysId is provided, the server loads exactly that one property_location
+  // (single-row summary table). Otherwise it lists all PLs for the submission.
   var search = $location.search();
   var submissionSysId =
     search.submissionSysId ||
     search.sys_id ||
     ($scope.data && $scope.data.submissionSysId) ||
     '';
+  var locationSysId =
+    search.locationSysId ||
+    ($scope.data && $scope.data.locationSysId) ||
+    '';
   c.submissionSysId = submissionSysId;
+  c.locationSysId = locationSysId;
 
   function debounce(func, wait) {
     var t;
@@ -369,7 +375,8 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
 
     c.server.get({
       action: 'fetchPropertyLocations',
-      submissionSysId: submissionSysId
+      submissionSysId: submissionSysId,
+      locationSysId: locationSysId
     }).then(function (response) {
       var d = response.data || {};
       if (d.error) {

@@ -4,13 +4,16 @@ Single source of truth for working on this widget. **Update this file whenever b
 
 ServiceNow Service Portal widget for browsing property locations on an underwriting submission alongside the source PDF.
 
-**Submission sys_id resolution (in priority order):**
+**URL parameters:**
 
-1. URL parameter `?submissionSysId=<sys_id>` (preferred)
-2. URL parameter `?sys_id=<sys_id>` (ServiceNow standard)
-3. Server-side `$sp.getParameter(...)` falls back into `data.submissionSysId`, which the client reads from `$scope.data.submissionSysId` — covers widget-instance options on a Service Portal page
+- `?submissionSysId=<sys_id>` (preferred) or `?sys_id=<sys_id>` (ServiceNow standard) — required. Identifies the submission whose property locations to load.
+- `?locationSysId=<sys_id>` — optional. When provided, the server loads ONLY that one property location (single-row summary table). When omitted, the server lists all property locations for the submission via the property_detail bridge.
 
-If none of the above resolve to a value, the client surfaces a toast: "Missing submission sys_id. Open this widget with ?submissionSysId=<sys_id> in the URL." No silent fallback to a hardcoded sys_id.
+Resolution order on the client: URL param → `$scope.data.<param>` (set by server from `$sp.getParameter` — covers widget-instance options on a Service Portal page).
+
+If `submissionSysId` doesn't resolve, the client surfaces a toast: "Missing submission sys_id. Open this widget with ?submissionSysId=<sys_id> in the URL." No silent fallback to a hardcoded sys_id.
+
+If `locationSysId` is provided but the PL doesn't belong to the submission (via the shared `property_detail` reference), the server returns an error and the client shows the empty state.
 
 Sibling of [widget v2 - azurui/](../widget%20v2%20-%20azurui/) — visual shell + PDF.js viewer are intentionally adapted from there.
 
@@ -35,7 +38,7 @@ Sibling of [widget v2 - azurui/](../widget%20v2%20-%20azurui/) — visual shell 
 |---|---|
 | `x_gegis_uwm_dashbo_submission` | Submission header (number, line_of_business_choice, total_insured_value) |
 | `x_gegis_uwm_dashbo_property_lob_detail` | **Bridge table.** Both submission and property_location have a `property_detail` reference column pointing at a row here. Used to resolve which PLs belong to a submission. |
-| `x_gegis_uwm_dashbo_property_location` | Property locations. Versioned via `version` column. Has `property_document` (attachment sys_id) and `source_in_document` (PDF coords). Linked to a submission via `property_detail` (NOT a direct `submission` ref). |
+| `x_gegis_uwm_dashbo_property_location` | Property locations. Versioned via `version` column. Has `audit_document` (attachment sys_id — note: not `property_document`) and `source_in_document` (PDF coords). Linked to a submission via `property_detail` (NOT a direct `submission` ref). |
 | `x_gegis_uwm_dashbo_address` | Geocoded address joined from `property_location.address` |
 | `x_gegis_uwm_dashbo_extract_top_risk` | `property_location` → many top risks. Current impl fetches the first one and exposes its `total` as Insured Value. |
 | `sys_attachment` | PDF attachments (filtered by `content_type ∈ application/pdf, application/octet-stream`) |
@@ -48,7 +51,9 @@ submission.property_detail ──┐
 property_location.property_detail ──┘
 ```
 
-A submission's property locations are found by reading `submission.property_detail`, then querying `property_location` where `property_detail = <that sys_id>`. Each PL has `version` (for future versioning UI), joins to 1 Address (via `property_location.address`) + many Top Risks (first row's `total` used as "Insured Value") + 1 PDF attachment via `property_document`.
+A submission's property locations are found by reading `submission.property_detail`, then querying `property_location` where `property_detail = <that sys_id>`. Each PL has `version` (for future versioning UI), joins to 1 Address (via `property_location.address`) + many Top Risks (first row's `total` used as "Insured Value") + 1 PDF attachment via `audit_document`.
+
+When `?locationSysId=<sys_id>` is in the URL, the server skips the bridge query and loads exactly that one property_location by sys_id (with a guard verifying it shares the same `property_detail` as the submission). This is the canonical "single location" entry point — the top summary table renders one row.
 
 If `submission.property_detail` is empty, the widget returns an empty PL list (and the client shows the empty state). This is by design — no bridge ⇒ no locations.
 

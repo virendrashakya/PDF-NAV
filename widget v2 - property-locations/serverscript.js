@@ -37,7 +37,7 @@
       required: 'required',
       locationType: 'location_type',
       address: 'address',
-      propertyDocument: 'property_document',
+      auditDocument: 'audit_document',
       sourceInDocument: 'source_in_document',
       // Reference to x_gegis_uwm_dashbo_property_lob_detail — the bridge to submission.
       propertyDetail: 'property_detail'
@@ -74,28 +74,48 @@
   }
 
   function _getAttachmentData(sysId) {
-    if (!sysId) return null;
+    gs.info('PL-NAV: _getAttachmentData called with sysId="' + sysId + '"');
+    if (!sysId) {
+      gs.info('PL-NAV: _getAttachmentData early-return — sysId is empty');
+      return null;
+    }
     try {
+      // Strict query: sys_id + content_type filter (v2 pattern).
       var gr = new GlideRecord(CONFIG.tables.attachment);
       gr.addQuery('sys_id', sysId);
       gr.addQuery('content_type', 'IN', CONFIG.attachment.supportedContentTypes.join(','));
       gr.setLimit(1);
       gr.query();
       if (gr.next()) {
-        var sizeBytes = parseInt(_getValue(gr, 'size_bytes'), 10) || 0;
-        return {
-          sys_id: gr.getUniqueValue(),
-          file_name: _getValue(gr, 'file_name'),
-          content_type: _getValue(gr, 'content_type'),
-          size_bytes: sizeBytes,
-          size_formatted: _formatFileSize(sizeBytes),
-          file_url: '/sys_attachment.do?sys_id=' + sysId
-        };
+        gs.info('PL-NAV: strict query matched. content_type="' + _getValue(gr, 'content_type') + '"');
+        return _buildAttachmentResult(gr, sysId);
       }
+      gs.info('PL-NAV: strict query found NO row for sys_id=' + sysId + '. Trying sys_id-only fallback.');
+
+      // Fallback: maybe the content_type filter dropped a valid row.
+      var grAny = new GlideRecord(CONFIG.tables.attachment);
+      if (grAny.get(sysId)) {
+        gs.info('PL-NAV: sys_attachment ' + sysId + ' exists, but content_type "' +
+          _getValue(grAny, 'content_type') + '" was filtered out. Returning anyway.');
+        return _buildAttachmentResult(grAny, sysId);
+      }
+      gs.info('PL-NAV: sys_attachment row not found at all for sys_id=' + sysId);
     } catch (e) {
       gs.error('PL-NAV: attachment fetch failed: ' + e.message);
     }
     return null;
+  }
+
+  function _buildAttachmentResult(gr, sysId) {
+    var sizeBytes = parseInt(_getValue(gr, 'size_bytes'), 10) || 0;
+    return {
+      sys_id: gr.getUniqueValue(),
+      file_name: _getValue(gr, 'file_name'),
+      content_type: _getValue(gr, 'content_type'),
+      size_bytes: sizeBytes,
+      size_formatted: _formatFileSize(sizeBytes),
+      file_url: '/sys_attachment.do?sys_id=' + sysId
+    };
   }
 
   function _getAddress(addressSysId) {
@@ -127,13 +147,18 @@
   data.success = false;
   data.error = '';
 
-  // Resolve submission sys_id from the URL on every load so the client controller
-  // can pick it up via $scope.data.submissionSysId without a round trip.
-  // Accepts ?submissionSysId=<sys_id> (preferred) or ?sys_id=<sys_id> (ServiceNow standard).
+  // Resolve sys_ids from the URL on every load so the client controller picks them up via
+  // $scope.data without a round trip.
+  // submissionSysId — ?submissionSysId=<sys_id> (preferred) or ?sys_id=<sys_id>
+  // locationSysId   — ?locationSysId=<sys_id>  (when set, only that one property_location loads)
   data.submissionSysId =
     (input && input.submissionSysId) ||
     $sp.getParameter('submissionSysId') ||
     $sp.getParameter('sys_id') ||
+    '';
+  data.locationSysId =
+    (input && input.locationSysId) ||
+    $sp.getParameter('locationSysId') ||
     '';
 
   if (input && input.action) {
@@ -159,6 +184,7 @@
 
   function fetchPropertyLocations() {
     var submissionSysId = input.submissionSysId;
+    var locationSysId = input.locationSysId || '';
     if (!submissionSysId) {
       data.error = 'Submission ID is required';
       return;
@@ -182,29 +208,68 @@
       property_detail: propertyDetailSysId
     };
 
-    // Submission and property_location are linked via a shared property_detail reference
-    // (x_gegis_uwm_dashbo_property_lob_detail). No property_detail on submission ⇒ no locations.
-    if (!propertyDetailSysId) {
-      data.propertyLocations = [];
-      data.fieldSectionsByLocation = {};
-      data.versions = [];
-      data.success = true;
-      return;
-    }
-
     var plGr = new GlideRecord(CONFIG.tables.propertyLocation);
-    plGr.addQuery(CONFIG.propertyLocationColumns.propertyDetail, propertyDetailSysId);
-    plGr.orderByDesc(CONFIG.propertyLocationColumns.version);
-    plGr.orderBy(CONFIG.propertyLocationColumns.locationName);
-    plGr.setLimit(CONFIG.limits.maxPropertyLocations);
-    plGr.query();
+
+    if (locationSysId) {
+      // Single-location mode: client passed ?locationSysId=<sys_id>, load just that PL.
+      // Pre-flight: verify the record exists and belongs to this submission via the shared
+      // property_detail bridge. We use a separate GlideRecord for the check because the main
+      // plGr is iterated by the while loop below — calling .get() on it would position the
+      // cursor at the record, but .next() afterwards would skip past it and the loop wouldn't
+      // execute. addQuery + query keeps the cursor behavior consistent.
+      var checkGr = new GlideRecord(CONFIG.tables.propertyLocation);
+      if (!checkGr.get(locationSysId)) {
+        data.error = 'Property location not found for the provided locationSysId';
+        data.propertyLocations = [];
+        data.fieldSectionsByLocation = {};
+        return;
+      }
+      var plPropertyDetail = _getValue(checkGr, CONFIG.propertyLocationColumns.propertyDetail);
+      if (propertyDetailSysId && plPropertyDetail && plPropertyDetail !== propertyDetailSysId) {
+        data.error = 'Property location does not belong to the provided submission';
+        data.propertyLocations = [];
+        data.fieldSectionsByLocation = {};
+        return;
+      }
+      plGr.addQuery('sys_id', locationSysId);
+      plGr.query();
+    } else {
+      // List mode: derive from the submission ⇄ property_lob_detail bridge.
+      if (!propertyDetailSysId) {
+        data.propertyLocations = [];
+        data.fieldSectionsByLocation = {};
+        data.versions = [];
+        data.success = true;
+        return;
+      }
+      plGr.addQuery(CONFIG.propertyLocationColumns.propertyDetail, propertyDetailSysId);
+      plGr.orderByDesc(CONFIG.propertyLocationColumns.version);
+      plGr.orderBy(CONFIG.propertyLocationColumns.locationName);
+      plGr.setLimit(CONFIG.limits.maxPropertyLocations);
+      plGr.query();
+    }
 
     var locations = [];
     while (plGr.next()) {
       var plSysId = plGr.getUniqueValue();
       var addressSysId = _getValue(plGr, CONFIG.propertyLocationColumns.address);
       var address = _getAddress(addressSysId);
-      var docSysId = _getValue(plGr, CONFIG.propertyLocationColumns.propertyDocument);
+      var docSysId = _getValue(plGr, CONFIG.propertyLocationColumns.auditDocument);
+      // Diagnostic: getValue may return a truncated/derived value depending on column type.
+      // Compare against getDisplayValue and the underlying element to figure out what's stored.
+      var docDisplay = '';
+      var docElementType = '';
+      try {
+        docDisplay = plGr.getDisplayValue(CONFIG.propertyLocationColumns.auditDocument) || '';
+        var el = plGr.getElement(CONFIG.propertyLocationColumns.auditDocument);
+        docElementType = el ? el.getED().getInternalType() : 'no-element';
+      } catch (e) {
+        docElementType = 'error:' + e.message;
+      }
+      gs.info('PL-NAV: property_location ' + plSysId +
+        ' audit_document.getValue="' + docSysId + '" (len=' + docSysId.length + ')' +
+        ' .getDisplayValue="' + docDisplay + '"' +
+        ' columnType=' + docElementType);
       var insuredValue = _getFirstTopRiskTotal(plSysId);
 
       var geocodes = '';
@@ -226,7 +291,7 @@
         geocodes: geocodes,
         line_of_business: lineOfBusiness,
         insured_value: insuredValue,
-        property_document_sys_id: docSysId,
+        audit_document_sys_id: docSysId,
         attachmentData: docSysId ? _getAttachmentData(docSysId) : null
       });
     }
