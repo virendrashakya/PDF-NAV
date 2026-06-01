@@ -39,6 +39,10 @@ export interface MappingData {
       dataVerificationEditStatuses?: string[]
       qaOverrideEditStatuses?: string[]
     }
+    selectedDataExtract?: {
+      sys_id: string
+      active: boolean
+    }
     [key: string]: unknown
   }
   groupedFields?: { [key: string]: Field[] }

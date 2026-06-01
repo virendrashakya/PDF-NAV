@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min?url'
 import { useToast } from '../context/ToastContext'
@@ -45,6 +45,8 @@ interface OverlayCoordinate extends Coordinate {
   isFocused: boolean
 }
 
+const EMPTY_OVERLAYS: PDFSourceOverlay[] = []
+
 export const PDFViewer: React.FC<PDFViewerProps> = ({
   attachmentId,
   documentName = 'Document',
@@ -52,7 +54,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   token,
   navigateSource,
   navigateKey,
-  sourceOverlays = [],
+  sourceOverlays = EMPTY_OVERLAYS,
   onOverlaySelect
 }) => {
   const [scale, setScale] = useState(1)
@@ -65,7 +67,6 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null)
   const [error, setError] = useState('')
   const [pageSize, setPageSize] = useState<{ width: number; height: number } | null>(null)
-  const [highlightCoords, setHighlightCoords] = useState<OverlayCoordinate[]>([])
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const annotationCanvasRef = useRef<HTMLCanvasElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -141,7 +142,6 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
         setPdfDoc(null)
         setTotalPages(0)
         setError('')
-        setHighlightCoords([])
         return
       }
 
@@ -222,21 +222,17 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     void updateFitWidth()
   }, [pdfDoc, currentPage, zoomMode])
 
-  useEffect(() => {
-    if (sourceOverlays.length > 0) {
-      setHighlightCoords(buildOverlayCoordinates(sourceOverlays))
-      return
+  const highlightCoords = useMemo<OverlayCoordinate[]>(() => {
+    if (sourceOverlays && sourceOverlays.length > 0) {
+      return buildOverlayCoordinates(sourceOverlays)
     }
-
-    const parsed = parseMultipleCoordinateStrings(navigateSource).map((coordinate) => ({
+    return parseMultipleCoordinateStrings(navigateSource).map((coordinate) => ({
       ...coordinate,
       overlayId: 'focused',
       label: 'Focused field',
       tone: 'review' as const,
       isFocused: true
     }))
-
-    setHighlightCoords(parsed)
   }, [navigateSource, sourceOverlays])
 
   useEffect(() => {

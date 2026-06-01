@@ -119,6 +119,42 @@
 .header-actions {
   display: flex;
   align-items: center;
+  gap: 10px;
+}
+
+.fields-panel-autosave {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: rgba(148, 163, 184, 0.12);
+  color: #64748b;
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+  max-width: 220px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.fields-panel-autosave-saving {
+  background: rgba(59, 130, 246, 0.10);
+  color: #2563eb;
+  border-color: rgba(59, 130, 246, 0.25);
+}
+
+.fields-panel-autosave-saved {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+  border-color: rgba(22, 163, 74, 0.25);
+}
+
+.fields-panel-autosave-error {
+  background: rgba(225, 29, 72, 0.12);
+  color: #be123c;
+  border-color: rgba(225, 29, 72, 0.3);
 }
 
 .btn-complete {

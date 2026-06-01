@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import apiService, { Field, Config } from '../services/apiService'
 import authService from '../services/authService'
 import { useToast } from '../context/ToastContext'
@@ -37,6 +37,18 @@ export const AuditPage: React.FC<AuditPageProps> = ({
   const [filterDocumentOnly, setFilterDocumentOnly] = useState(false)
   const [navigateSource, setNavigateSource] = useState<string>('')
   const [navigateSeq, setNavigateSeq] = useState(0)
+  const [dirtyFieldIds, setDirtyFieldIds] = useState<Set<string>>(new Set())
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [autoSaveMessage, setAutoSaveMessage] = useState('')
+  const fieldsRef = useRef<Field[]>([])
+  const submissionNumberRef = useRef('')
+  const dirtyFieldIdsRef = useRef<Set<string>>(new Set())
+  const isReadOnlyVersionRef = useRef(false)
+  const dataVerificationEditStatusesRef = useRef<string[]>([])
+  const qaOverrideEditStatusesRef = useRef<string[]>([])
+  const submissionStatusRef = useRef('')
+  const autoSaveResetTimerRef = useRef<number | null>(null)
+  const autoSaveDebounceTimersRef = useRef<Map<string, number>>(new Map())
   const { showToast } = useToast()
 
   // Load initial data
@@ -50,15 +62,10 @@ export const AuditPage: React.FC<AuditPageProps> = ({
           return
         }
 
-        const [configData, mappingResponse] = await Promise.all([
-          apiService.getConfig(),
-          apiService.fetchMapping(submissionSysId)
-        ])
+        const mappingResponse = await apiService.fetchMapping(submissionSysId)
 
-        setConfig(configData)
         setFields(mappingResponse.fields || [])
 
-        // Extract submission info from response if available
         const apiResponse = (mappingResponse as any).result
         if (apiResponse) {
           if (apiResponse.submissionNumber) {
@@ -67,11 +74,24 @@ export const AuditPage: React.FC<AuditPageProps> = ({
           if (apiResponse.submissionStatusChoice) {
             setSubmissionStatus(apiResponse.submissionStatusChoice)
           }
-          // Set versions list if available
+
+          const responseConfig = apiResponse.config
+          if (responseConfig) {
+            setConfig({
+              dataVerificationEditStatuses: responseConfig.dataVerificationEditStatuses || [],
+              qaOverrideEditStatuses: responseConfig.qaOverrideEditStatuses || []
+            })
+          }
+
           if (apiResponse.versions && Array.isArray(apiResponse.versions)) {
             console.log('📦 Versions found:', apiResponse.versions.length)
             setVersions(apiResponse.versions)
-            // Set selected version (prefer URL versionId if valid)
+          }
+
+          if (apiResponse.selectedDataExtract) {
+            setSelectedVersionSysId(apiResponse.selectedDataExtract.sys_id)
+            setIsReadOnlyVersion(!apiResponse.selectedDataExtract.active)
+          } else if (apiResponse.versions && Array.isArray(apiResponse.versions) && apiResponse.versions.length) {
             const fromUrl = versionId
               ? apiResponse.versions.find((v: any) => v.sys_id === versionId)
               : null
@@ -81,8 +101,17 @@ export const AuditPage: React.FC<AuditPageProps> = ({
               setIsReadOnlyVersion(!selectedVersion.active)
             }
           } else {
-            console.log('⚠️ No versions in API response. Full response:', apiResponse)
+            setIsReadOnlyVersion(false)
+            console.log('⚠️ No versions/selectedDataExtract in API response. Full response:', apiResponse)
           }
+
+          console.log('[AuditV1] gating inputs:', {
+            submissionStatusChoice: apiResponse.submissionStatusChoice,
+            dataVerificationEditStatuses: responseConfig?.dataVerificationEditStatuses,
+            qaOverrideEditStatuses: responseConfig?.qaOverrideEditStatuses,
+            selectedDataExtract: apiResponse.selectedDataExtract,
+            versionCount: apiResponse.versions?.length || 0
+          })
         }
 
         // Set first document as selected
@@ -120,6 +149,125 @@ export const AuditPage: React.FC<AuditPageProps> = ({
     loadData()
   }, [submissionSysId, versionId, showToast])
 
+  useEffect(() => { fieldsRef.current = fields }, [fields])
+  useEffect(() => { submissionNumberRef.current = submissionNumber }, [submissionNumber])
+  useEffect(() => { dirtyFieldIdsRef.current = dirtyFieldIds }, [dirtyFieldIds])
+  useEffect(() => { isReadOnlyVersionRef.current = isReadOnlyVersion }, [isReadOnlyVersion])
+  useEffect(() => { submissionStatusRef.current = submissionStatus }, [submissionStatus])
+  useEffect(() => {
+    dataVerificationEditStatusesRef.current = config?.dataVerificationEditStatuses || []
+    qaOverrideEditStatusesRef.current = config?.qaOverrideEditStatuses || []
+  }, [config])
+  useEffect(() => () => {
+    if (autoSaveResetTimerRef.current !== null) {
+      window.clearTimeout(autoSaveResetTimerRef.current)
+    }
+    autoSaveDebounceTimersRef.current.forEach((handle) => window.clearTimeout(handle))
+    autoSaveDebounceTimersRef.current.clear()
+  }, [])
+
+  const flashAutoSaveStatus = (status: 'saved' | 'error', message: string) => {
+    setAutoSaveStatus(status)
+    setAutoSaveMessage(message)
+    if (autoSaveResetTimerRef.current !== null) {
+      window.clearTimeout(autoSaveResetTimerRef.current)
+    }
+    autoSaveResetTimerRef.current = window.setTimeout(() => {
+      setAutoSaveStatus('idle')
+      setAutoSaveMessage('')
+      autoSaveResetTimerRef.current = null
+    }, status === 'error' ? 4000 : 1800)
+  }
+
+  const autoSaveField = async (fieldId: string) => {
+    const field = fieldsRef.current.find((item) => item.sys_id === fieldId)
+    if (!field) {
+      console.warn('[autoSaveField v1] no field for sys_id', fieldId)
+      return
+    }
+    if (isReadOnlyVersionRef.current) {
+      console.warn('[autoSaveField v1] skipped — read-only version', fieldId)
+      return
+    }
+    const statusValue = submissionStatusRef.current
+    const canEditDv = dataVerificationEditStatusesRef.current.includes(statusValue)
+    const canEditQa = qaOverrideEditStatusesRef.current.includes(statusValue)
+    if (!canEditDv && !canEditQa) {
+      console.warn('[autoSaveField v1] skipped — status not in any edit list', {
+        fieldId,
+        statusValue,
+        canEditDv,
+        canEditQa
+      })
+      return
+    }
+    if (!dirtyFieldIdsRef.current.has(fieldId)) {
+      console.info('[autoSaveField v1] skipped — field not dirty', fieldId)
+      return
+    }
+    const submissionNumberValue = submissionNumberRef.current
+    if (!submissionNumberValue) {
+      console.warn('[autoSaveField v1] skipped — submissionNumber not loaded yet')
+      return
+    }
+    const overrideValue = (field.qa_override_value || '').trim()
+    const commentaryValue = (field.commentary || '').trim()
+    if (overrideValue && !commentaryValue) {
+      console.info('[autoSaveField v1] blocked — QA Override set without Commentary', fieldId)
+      showToast(`Commentary required when QA Override is set for "${field.field_name || 'this field'}"`, 'warning', 4500)
+      return
+    }
+    try {
+      console.info('[autoSaveField v1] POST saveMapping', { fieldId, fieldName: field.field_name })
+      setAutoSaveStatus('saving')
+      setAutoSaveMessage(`Saving ${field.field_name || 'field'}…`)
+      await apiService.saveMapping({
+        submissionNumber: submissionNumberValue,
+        dataExtractSysId: submissionSysId,
+        updates: [{
+          sys_id: field.sys_id,
+          qa_override_value: field.qa_override_value || '',
+          data_verification: field.data_verification || '',
+          commentary: field.commentary || ''
+        }]
+      })
+      setDirtyFieldIds((previous) => {
+        if (!previous.has(fieldId)) return previous
+        const next = new Set(previous)
+        next.delete(fieldId)
+        if (next.size === 0) setHasChanges(false)
+        return next
+      })
+      flashAutoSaveStatus('saved', `Saved ${field.field_name || 'field'}`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Save failed'
+      console.error('[autoSaveField v1] save failed', error)
+      flashAutoSaveStatus('error', message)
+      showToast(`Save failed for "${field.field_name || 'field'}": ${message}`, 'error', 5000)
+    }
+  }
+
+  const scheduleAutoSave = (fieldId: string, delay = 600) => {
+    const existing = autoSaveDebounceTimersRef.current.get(fieldId)
+    if (existing) {
+      window.clearTimeout(existing)
+    }
+    const handle = window.setTimeout(() => {
+      autoSaveDebounceTimersRef.current.delete(fieldId)
+      void autoSaveField(fieldId)
+    }, delay)
+    autoSaveDebounceTimersRef.current.set(fieldId, handle)
+  }
+
+  const handleAutoSaveBlur = (fieldId: string) => {
+    const handle = autoSaveDebounceTimersRef.current.get(fieldId)
+    if (handle) {
+      window.clearTimeout(handle)
+      autoSaveDebounceTimersRef.current.delete(fieldId)
+    }
+    void autoSaveField(fieldId)
+  }
+
   const handleFieldChange = (fieldId: string, updates: Partial<Field>) => {
     setFields((prev) =>
       prev.map((field) =>
@@ -127,6 +275,13 @@ export const AuditPage: React.FC<AuditPageProps> = ({
       )
     )
     setHasChanges(true)
+    setDirtyFieldIds((previous) => {
+      const next = new Set(previous)
+      next.add(fieldId)
+      dirtyFieldIdsRef.current = next
+      return next
+    })
+    scheduleAutoSave(fieldId)
   }
 
   const handleSelectDocument = (docName: string) => {
@@ -239,6 +394,9 @@ export const AuditPage: React.FC<AuditPageProps> = ({
           onVersionChange={handleVersionChange}
           onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
           onFieldChange={handleFieldChange}
+          onFieldBlur={handleAutoSaveBlur}
+          autoSaveStatus={autoSaveStatus}
+          autoSaveMessage={autoSaveMessage}
           onNavigateToField={handleNavigateToField}
           selectedDocument={selectedDocument}
           onSelectDocument={handleSelectDocument}

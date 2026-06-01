@@ -21,6 +21,9 @@ interface FieldsPanelProps {
   onVersionChange?: (versionId: string) => void
   onToggleSidebar: () => void
   onFieldChange: (fieldId: string, updates: Partial<Field>) => void
+  onFieldBlur?: (fieldId: string) => void
+  autoSaveStatus?: 'idle' | 'saving' | 'saved' | 'error'
+  autoSaveMessage?: string
   onNavigateToField?: (field: Field) => void
   selectedDocument: string
   onSelectDocument: (doc: string) => void
@@ -76,6 +79,9 @@ export const FieldsPanel: React.FC<FieldsPanelProps> = ({
   onVersionChange,
   onToggleSidebar,
   onFieldChange,
+  onFieldBlur,
+  autoSaveStatus = 'idle',
+  autoSaveMessage = '',
   onNavigateToField,
   selectedDocument,
   onSelectDocument,
@@ -186,6 +192,14 @@ export const FieldsPanel: React.FC<FieldsPanelProps> = ({
 
           {!collapsed && (
             <div className="header-actions">
+              {autoSaveStatus !== 'idle' && (
+                <span className={`fields-panel-autosave fields-panel-autosave-${autoSaveStatus}`}>
+                  {autoSaveStatus === 'saving' && <i className="fas fa-spinner fa-spin" />}
+                  {autoSaveStatus === 'saved' && <i className="fas fa-check" />}
+                  {autoSaveStatus === 'error' && <i className="fas fa-triangle-exclamation" />}
+                  <span>{autoSaveMessage}</span>
+                </span>
+              )}
               <button
                 className={completeButtonClass}
                 onClick={onComplete}
@@ -345,6 +359,7 @@ export const FieldsPanel: React.FC<FieldsPanelProps> = ({
                                     className="verification-input"
                                     value={field.data_verification || ''}
                                     onChange={(event) => onFieldChange(field.sys_id, { data_verification: event.target.value })}
+                                    onBlur={() => onFieldBlur?.(field.sys_id)}
                                     disabled={isCompleting || isSaving}
                                     placeholder="Enter..."
                                   />
@@ -361,6 +376,7 @@ export const FieldsPanel: React.FC<FieldsPanelProps> = ({
                                     className="override-input"
                                     value={field.qa_override_value || ''}
                                     onChange={(event) => onFieldChange(field.sys_id, { qa_override_value: event.target.value })}
+                                    onBlur={() => onFieldBlur?.(field.sys_id)}
                                     disabled={isCompleting || isSaving}
                                     placeholder="Enter..."
                                   />
@@ -382,6 +398,7 @@ export const FieldsPanel: React.FC<FieldsPanelProps> = ({
                                     className="commentary-input"
                                     value={field.commentary || ''}
                                     onChange={(event) => onFieldChange(field.sys_id, { commentary: event.target.value })}
+                                    onBlur={() => onFieldBlur?.(field.sys_id)}
                                     disabled={isCompleting || isSaving}
                                     placeholder="Enter..."
                                   />
