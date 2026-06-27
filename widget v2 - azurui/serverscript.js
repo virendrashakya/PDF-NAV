@@ -79,7 +79,8 @@
     // ============================================
     // Statuses in which Data Verification column becomes an input field (editable).
     // If submissionStatusChoice is NOT in this list, Data Verification shows as read-only text.
-    dataVerificationEditStatuses: ['DATA_CAPTURE', 'INSURED_VERIFICATION', 'CHECK_FOR_DUPLICATES', 'DUPLICATE_CHECK', 'CHECK_FOR_SANCTIONS', 'CONFIRM_DATA_REVIEW'],
+		dataVerificationEditStatuses: ['CHECK_FOR_DUPLICATES', 'CONFIRM_DATA_REVIEW', 'INSURED_VERIFICATION', 'DUPLICATE_CHECK', 'SANCTIONS_CHECK', 'DATA_EXTRACT_REVIEW'],
+		
 
     // Statuses in which QA Override Value column becomes an input field (editable).
     // If submissionStatusChoice is NOT in this list, QA Override shows as read-only text.
@@ -351,7 +352,7 @@
     // Build versions list (newest version first), excluding discarded
     var deGr = new GlideRecord(deTable);
     deGr.addQuery(deCols.submission, submissionSysId);
-    deGr.addQuery(deCols.discarded, '!=', true);
+    //deGr.addQuery(deCols.discarded, '!=', true);
     deGr.orderByDesc(deCols.version);
     deGr.orderByDesc(deCols.sysCreatedOn);
     deGr.query();

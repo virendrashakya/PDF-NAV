@@ -1049,8 +1049,12 @@
   background: #fffde7;
 }
 
-/* Validation Error - Highlight when commentary is required */
-.commentary-input.validation-error {
+/* Validation Error - red border on the offending input so the Complete
+   button's disabled state is visually explained. Applies to any editable
+   line-item input (commentary-required or server-side validation_error). */
+.commentary-input.validation-error,
+.override-input.validation-error,
+.verification-input.validation-error {
   border-color: #d13438 !important;
   background: #fde7e9 !important;
   box-shadow: 0 0 0 2px rgba(209, 52, 56, 0.2) !important;

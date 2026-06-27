@@ -111,6 +111,7 @@ Multiple coords on one field are separated by `;`, e.g. `D(1,100,200,…);D(2,50
 
 - `c.dataVerificationEditStatuses` / `c.qaOverrideEditStatuses` — populated from `response.data.config`
 - `c.canEditDataVerification()`, `c.canEditQaOverride()`, `c.canEditCommentary()` — all return false when `isReadOnlyVersion`. Commentary is editable iff at least one of the other two is.
+- `c.isAnyFieldEditable()` — true when at least one column renders an editable `<input>` (any `canEdit*` is true) rather than a read-only `<span>`. Used to gate validation-based disabling of Complete: validation only blocks Complete when fields are actually editable/fixable.
 
 ### Save tracking
 
@@ -158,8 +159,8 @@ If `qa_override_value` is non-empty, `commentary` must be non-empty.
 Three layers enforce this:
 
 1. **Per-field on blur** — `autoSaveField` checks the rule at the top, sets `field.commentaryRequired = true`, shows the save-status error, and **returns without saving**. The QA Override change is dropped.
-2. **Complete button disable** — `c.hasValidationErrors()` is a pure (non-mutating, digest-cycle-safe) getter wired into `ng-disabled`. Returns true if any field has `validationError` OR any field has populated `qa_override_value` with empty `commentary`. Tooltip: "Fix validation errors before completing".
-3. **Click-time gate in `markAsComplete`** — `c.findFieldsMissingCommentary()` scans all fields, sets `commentaryRequired = true` on offenders, aborts with a toast listing the first 3 offending field names, and `navigateToField` jumps to the first one. Defense-in-depth in case the button gets clicked anyway.
+2. **Complete button disable** — `c.hasValidationErrors()` is a pure (non-mutating, digest-cycle-safe) getter wired into `ng-disabled`. **Only blocks while fields are in editable mode** — it short-circuits to `false` when `c.isAnyFieldEditable()` is false (table is rendering read-only spans, not inputs), since a stale validation flag isn't fixable there and must not keep Complete disabled. When editable, returns true if any field has `validationError` OR any field has populated `qa_override_value` with empty `commentary`. Tooltip: "Fix validation errors before completing". The offending input(s) get a red `.validation-error` border so the disabled state is visually explained.
+3. **Click-time gate in `markAsComplete`** — `c.findFieldsMissingCommentary()` scans all fields, sets `commentaryRequired = true` on offenders, aborts with a toast listing the first 3 offending field names, and `navigateToField` jumps to the first one. Defense-in-depth in case the button gets clicked anyway. **Skipped entirely when `c.isAnyFieldEditable()` is false** (inputs hidden / read-only spans) — no validation runs on Complete when the user can't edit.
 
 Both scans cover ALL fields (not just ones touched this session), so pre-existing dirty data is surfaced.
 
@@ -205,6 +206,7 @@ If `c.completeBtn.state === 'progress'`, warns before reload/close — AUDIT2MOD
 Inline `<style>` block defines validation visuals:
 - `.has-validation-error` — red left-border + tint on the row
 - `.validation-error-row` + `.field-validation-error` — full-width red sub-row beneath the field row with icon + message
+- `.validation-error` (in [css](css)) — red border + tint + shake on the editable input itself. Applied to `verification-input` / `override-input` / `commentary-input` via `ng-class` when `field.validationError` is set (and commentary also when `field.commentaryRequired`), so the Complete disabled state points at the exact input to fix.
 
 ---
 
@@ -222,6 +224,7 @@ Inline `<style>` block defines validation visuals:
 
 ## Recent changes
 
+- **2026-06-04** — Complete disable scoped to editable mode + per-input red border: `c.hasValidationErrors()` now short-circuits to `false` when `c.isAnyFieldEditable()` is false (read-only spans rendered), so validation only blocks Complete when fields are actually fixable. The click-time gate in `markAsComplete` (`findFieldsMissingCommentary`) is likewise skipped when no field is editable — **no validation runs on Complete when inputs are hidden**. When a line item has a `validationError` (or commentary-required), the offending editable input gets a red `.validation-error` border (generalized from commentary-only to all three inputs) to explain the disabled state.
 - **2026-05-15** — QA Override → Commentary gate at Complete: added `c.findFieldsMissingCommentary()` (click-time scan, sets `commentaryRequired`) and `c.hasValidationErrors()` (pure getter for `ng-disabled`). Fixes bug where users could change QA Override without commentary, click Complete, and the AUDIT2MODEL ran successfully against stale data (QA Override never saved) while the UI reported success.
 - **2026-04-30** — Validation error scope fix: `applyValidationErrors(map, savedSysIds)` only updates fields whose sys_ids are in `savedSysIds`. Previously saving field A would silently clear field B's validation error.
 - **Earlier** — Versioning + read-only mode added: `_resolveDataExtraction`, `_isDataExtractionActive` guard, `c.isReadOnlyVersion` short-circuit. Version dropdown in sidebar header.

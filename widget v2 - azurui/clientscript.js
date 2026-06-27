@@ -214,6 +214,17 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   };
 
   /**
+   * Whether any field is currently in editable mode — i.e. at least one column
+   * renders an editable <input> rather than a read-only <span>. This is the only
+   * situation where a validation error is fixable, so validation-based gating of
+   * the Complete button only applies when this is true.
+   * @returns {boolean}
+   */
+  c.isAnyFieldEditable = function () {
+    return c.canEditDataVerification() || c.canEditQaOverride() || c.canEditCommentary();
+  };
+
+  /**
    * Check if a confidence indicator value is present and valid
    * @param {*} confidence - The confidence_indicator value
    * @returns {boolean}
@@ -489,6 +500,10 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
    */
   c.hasValidationErrors = function () {
     if (!c.groupedFields) return false;
+    // Only block Complete on validation while fields are editable. When the
+    // table is read-only (spans, not inputs), the user can't fix anything, so a
+    // stale validation flag must not keep Complete disabled.
+    if (!c.isAnyFieldEditable()) return false;
     var allFields = c.flatten(c.groupedFields);
     for (var i = 0; i < allFields.length; i++) {
       var f = allFields[i];
@@ -680,7 +695,10 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     // Validation gate: every QA Override value must have a commentary.
     // autoSaveField rejects saves that violate this, so without the gate the
     // QA Override change is silently dropped while AUDIT2MODEL proceeds anyway.
-    var missingCommentary = c.findFieldsMissingCommentary();
+    // Skip entirely when no field is editable (inputs hidden / read-only spans):
+    // there is nothing the user could have changed or could fix, so validation
+    // must not block Complete.
+    var missingCommentary = c.isAnyFieldEditable() ? c.findFieldsMissingCommentary() : [];
     if (missingCommentary.length > 0) {
       var preview = missingCommentary.slice(0, 3).map(function (f) {
         return f.field_name || '(unnamed)';
