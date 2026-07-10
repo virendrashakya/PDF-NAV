@@ -70,9 +70,10 @@
     },
 
     // Query limits
-    limits: {
-      maxLineItems: 500
-    },
+    // maxLineItems removed: line items are no longer capped (see fetchMapping line-item query).
+    // An unordered setLimit truncated results before sorting and dropped fields; extractions
+    // can exceed 500 (observed 874). Re-add a limit here only alongside the orderBy on that query.
+    limits: {},
 
     // ============================================
     // EDITABLE STATUS CONFIGURATION
@@ -504,9 +505,15 @@
       }
 
       // Query line items
+      // No setLimit: an extraction can legitimately have >500 line items (observed 874).
+      // A capped, unordered query silently truncated the DB result BEFORE the JS sort below,
+      // dropping an unpredictable subset of fields scattered across sections.
+      // orderBy here makes the DB return rows in the intended order (deterministic even if a
+      // cap is ever reintroduced) and matches the post-fetch sort at lineItems.sort().
       var lineItemGr = new GlideRecord(CONFIG.tables.lineItem);
       lineItemGr.addQuery(CONFIG.lineItemColumns.parent, dataExtractSysId);
-      lineItemGr.setLimit(CONFIG.limits.maxLineItems);
+      lineItemGr.orderBy(CONFIG.lineItemColumns.sequenceFinal);
+      lineItemGr.orderBy(CONFIG.lineItemColumns.fieldNameFinal);
       lineItemGr.query();
 
       // Collect all line items
