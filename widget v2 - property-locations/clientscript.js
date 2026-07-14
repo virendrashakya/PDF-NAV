@@ -1,4 +1,4 @@
-api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout) {
+api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout, $q) {
   /* ============================================
    * Property Locations Widget Client Script
    * ============================================
@@ -36,6 +36,27 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   c.groupedFields = [];
   c.collapsedSections = {};
 
+  // Audit Data sections — same shape as fieldSectionsByLocation, but sourced from
+  // data_extraction_lineitem (scoped per PL by model_object_sys_id). Rendered as a second,
+  // independently-collapsible top-level area below Model Data.
+  c.auditSectionsByLocation = {};
+  c.auditGroupedFields = [];
+  c.auditCollapsedSections = {};
+
+  // Top-level area collapse state (independent of the inner section collapse).
+  c.modelDataCollapsed = false;
+  c.auditDataCollapsed = false;
+  c.toggleModelData = function () { c.modelDataCollapsed = !c.modelDataCollapsed; };
+  c.toggleAuditData = function () { c.auditDataCollapsed = !c.auditDataCollapsed; };
+
+  // Audit fields carry meta.table = the line item table. Save routing keys off this:
+  // audit → saveAuditField(s) (persists field_value + data_verification + commentary),
+  // model → saveField(s) (persists field_value only). Keep in sync with serverscript CONFIG.tables.lineItem.
+  var AUDIT_TABLE = 'x_gegis_uwm_dashbo_data_extraction_lineitem';
+  c.isAuditField = function (field) {
+    return !!(field && field.meta && field.meta.table === AUDIT_TABLE);
+  };
+
   // Search
   c.fieldSearch = '';
   c.searchExpanded = false;
@@ -56,6 +77,38 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   c.saveStatus = '';
   c.saveStatusMessage = '';
   c.lastSavedTime = null;
+
+  // Complete button — single source of truth (mirrors widget v2 - azurui).
+  // Mutate ONLY via setCompleteState('idle'|'progress'|'done'|'error').
+  c.completeBtn = {
+    state: 'idle',
+    label: 'Complete',
+    icon: 'fa-paper-plane',
+    css: 'btn-complete-idle',
+    disabled: false,
+    showDots: false,
+    showCheck: false
+  };
+  function setCompleteState(state) {
+    switch (state) {
+      case 'progress':
+        c.completeBtn = { state: 'progress', label: 'Sending Data to Model...', icon: '',
+          css: 'btn-complete-progress', disabled: true, showDots: true, showCheck: false };
+        break;
+      case 'done':
+        c.completeBtn = { state: 'done', label: 'Completed', icon: '',
+          css: 'btn-complete-done', disabled: true, showDots: false, showCheck: true };
+        break;
+      case 'error':
+        c.completeBtn = { state: 'error', label: 'Failed — Retry', icon: 'fa-exclamation-triangle',
+          css: 'btn-complete-error', disabled: false, showDots: false, showCheck: false };
+        break;
+      default: // idle
+        c.completeBtn = { state: 'idle', label: 'Complete', icon: 'fa-paper-plane',
+          css: 'btn-complete-idle', disabled: false, showDots: false, showCheck: false };
+        break;
+    }
+  }
 
   // Toasts
   c.toasts = [];
@@ -191,18 +244,28 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   // filter can be reintroduced here without touching the template.
   c.shouldShowField = function (field) { return true; };
 
-  c.getVisibleFieldCount = function () {
-    var all = c.flatten(c.groupedFields);
-    return all.filter(function (f) { return c.shouldShowField(f) && c.searchFilter(f); }).length;
+  // Counts span both areas (Model Data + Audit Data).
+  c.allFields = function () {
+    return c.flatten(c.groupedFields).concat(c.flatten(c.auditGroupedFields));
   };
-  c.getTotalCount = function () { return c.flatten(c.groupedFields).length; };
+  c.getVisibleFieldCount = function () {
+    return c.allFields().filter(function (f) { return c.shouldShowField(f) && c.searchFilter(f); }).length;
+  };
+  c.getTotalCount = function () { return c.allFields().length; };
 
   /* ============================================
    * SAVE (autosave on blur — dummy backend for now)
    * ============================================ */
 
-  c.canEditDataVerification = function () { return true; };
-  c.canEditCommentary = function () { return true; };
+  // Submission-status edit gate (Audit Data only — mirrors widget v2 - azurui).
+  // Server sends the current status + the editable-status list; DV editable when status ∈ list,
+  // Commentary editable when DV is (no QA Override column here). Model Data is unaffected.
+  c.submissionStatusChoice = '';
+  c.dataVerificationEditStatuses = ['CONFIRM_DATA_REVIEW']; // default, overridden by server config
+  c.canEditDataVerification = function () {
+    return c.dataVerificationEditStatuses.indexOf(c.submissionStatusChoice) !== -1;
+  };
+  c.canEditCommentary = function () { return c.canEditDataVerification(); };
 
   // The AI Value cell is editable only when a coverage value row exists for this field at
   // this location (field.meta.sysId). Without a row there is nothing to PATCH — the server
@@ -285,10 +348,19 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   };
 
   // Whether a given column is editable for this field.
-  // 'value' needs a coverage row; verification/commentary are always UI-editable.
+  //  - 'value': Model Data needs a coverage row; Audit Data AI Value is READ-ONLY (never editable).
+  //  - 'verification' / 'commentary': Audit Data is gated by submission status (canEdit*);
+  //    Model Data keeps these always-UI-editable (no backing column, no status gate).
   c.canEditColumn = function (field, column) {
-    if (column === 'value') return c.canEditValue(field);
-    return !!field; // verification / commentary — UI only, no persistence gate
+    if (!field) return false;
+    if (column === 'value') {
+      return c.isAuditField(field) ? false : c.canEditValue(field);
+    }
+    // verification / commentary
+    if (c.isAuditField(field)) {
+      return column === 'commentary' ? c.canEditCommentary() : c.canEditDataVerification();
+    }
+    return true; // Model Data — UI-only, always editable
   };
 
   c.startEditing = function (field, column, $event) {
@@ -305,12 +377,19 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     }, 0);
   };
 
-  // Blur/Enter closes the editor. 'value' autosaves to the coverage row; the other two are
-  // UI-only (no backing column) so we just mark changed and close.
+  // Blur/Enter closes the editor.
+  // Model Data: only 'value' autosaves (coverage row); verification/commentary are UI-only.
+  // Audit Data: AI Value is READ-ONLY (never edited); Data Verification + Commentary autosave.
   c.stopEditing = function (field, column) {
     if (field) {
       c.markFieldAsChanged(field);
-      if (column === 'value') c.autoSaveField(field);
+      if (c.isAuditField(field)) {
+        if (column === 'verification' || column === 'commentary') {
+          c.autoSaveField(field);
+        }
+      } else if (column === 'value') {
+        c.autoSaveField(field);
+      }
     }
     c.editingCellKey = null;
   };
@@ -327,9 +406,19 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     c.hasChanges = true;
   };
 
-  // Build the save payload for one field. Only field_value is persisted (values model);
-  // meta carries the coverage-row PATCH target the server needs.
+  // Build the save payload for one field. `meta` carries the PATCH target the server needs.
+  // Model Data: only field_value is persisted (values model).
+  // Audit Data: AI Value is read-only — persist only data_verification + commentary
+  //             (field_value is intentionally omitted so the server never touches it).
   function buildFieldUpdate(field) {
+    if (c.isAuditField(field)) {
+      return {
+        sys_id: field.sys_id,
+        data_verification: field.data_verification || '',
+        commentary: field.commentary || '',
+        meta: field.meta || null
+      };
+    }
     return {
       sys_id: field.sys_id,
       field_value: field.field_value || '',
@@ -340,8 +429,11 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   c.autoSaveField = function (field) {
     if (!field || !field.sys_id) return;
     if (!c.changedFields[field.sys_id]) return;
-    // No coverage row ⇒ nothing to save. Clear the dirty flag so it doesn't linger.
-    if (!c.canEditValue(field)) {
+
+    var isAudit = c.isAuditField(field);
+    // Model Data only: no coverage row ⇒ nothing to save. Clear the dirty flag so it doesn't linger.
+    // Audit fields always have a line item row (meta.sysId), so they are always savable.
+    if (!isAudit && !c.canEditValue(field)) {
       delete c.changedFields[field.sys_id];
       c.hasChanges = Object.keys(c.changedFields).length > 0;
       return;
@@ -351,9 +443,10 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     c.saveStatusMessage = 'Saving...';
 
     c.server.get({
-      action: 'saveField',
+      action: isAudit ? 'saveAuditField' : 'saveField',
       update: buildFieldUpdate(field),
-      propertyLocationSysId: c.selectedPropertyLocationSysId
+      propertyLocationSysId: c.selectedPropertyLocationSysId,
+      submissionSysId: submissionSysId // server-side audit edit gate keys off submission status
     }).then(function (response) {
       if (response.data.success) {
         delete c.changedFields[field.sys_id];
@@ -373,84 +466,46 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   };
 
   /* ============================================
-   * TOP-RIGHT ACTION BUTTONS — Refer / Save Changes / Re-Run Geocoding
+   * COMPLETE — Audit → Model sync for the URL's location
    * ============================================
-   * All three are currently dummy. Each method shows an info toast so the
-   * click is observable, but does nothing real.
-   * TODO: wire each to its real backend action (a server action / data
-   * resource / scripted REST endpoint) once the requirements are confirmed.
+   * Fields autosave on blur (no Save button). Complete runs AUDIT2MODEL for the
+   * locationSysId from the URL and surfaces async progress via c.completeBtn.
    * ============================================ */
 
-  c.onRefer = function () {
-    // TODO: implement Refer action — should refer the submission to the next workflow stage.
-    //       Likely server action 'referSubmission' that updates submission.submission_status_choice
-    //       and triggers any downstream notifications. Confirm target status + audit requirements.
-    c.showInfo('Refer — not yet implemented');
-  };
-
-  c.onSaveChanges = function () {
-    // Bulk-save every currently dirty field in one round trip. Fields also autosave on blur;
-    // this flushes anything still marked changed (e.g. edited but not blurred). Only fields
-    // with a coverage value row are persistable — others are dropped (nothing to PATCH).
-    var dirtySysIds = Object.keys(c.changedFields);
-    if (!dirtySysIds.length) {
-      c.showInfo('No changes to save');
+  c.markAsComplete = function () {
+    if (c.completeBtn.state === 'progress' || c.completeBtn.state === 'done') return;
+    if (!locationSysId) {
+      c.showError('No location sys_id in the URL — cannot complete.');
       return;
     }
 
-    var allFields = c.flatten(c.groupedFields);
-    var updates = [];
-    allFields.forEach(function (field) {
-      if (c.changedFields[field.sys_id] && c.canEditValue(field)) {
-        updates.push(buildFieldUpdate(field));
-      }
-    });
-
-    if (!updates.length) {
-      // Everything dirty was unsavable (no coverage row). Clear flags and inform.
-      c.changedFields = {};
-      c.hasChanges = false;
-      c.showWarning('No editable values to save for the changed fields');
-      return;
-    }
-
-    c.saveStatus = 'saving';
-    c.saveStatusMessage = 'Saving ' + updates.length + ' change(s)...';
+    setCompleteState('progress');
 
     c.server.get({
-      action: 'saveFields',
-      updates: updates,
-      propertyLocationSysId: c.selectedPropertyLocationSysId
+      action: 'completeAuditToModel',
+      locationSysId: locationSysId
     }).then(function (response) {
       var d = response.data || {};
       if (d.success) {
-        // Clear the dirty flags for the fields that were sent.
-        updates.forEach(function (u) { delete c.changedFields[u.sys_id]; });
-        c.hasChanges = Object.keys(c.changedFields).length > 0;
-        c.saveStatus = 'saved';
-        c.lastSavedTime = new Date();
-        c.saveStatusMessage = 'Saved at ' + c.formatTime(c.lastSavedTime);
-        c.showSuccess('Saved ' + (d.updatedCount != null ? d.updatedCount : updates.length) + ' change(s)');
-        $timeout(function () { if (c.saveStatus === 'saved') c.saveStatus = ''; }, 3000);
+        setCompleteState('done');
+        c.showSuccess(d.message || 'Audit to Model completed successfully');
+        $timeout(function () {
+          if (c.completeBtn.state === 'done') setCompleteState('idle');
+        }, 2000);
       } else {
-        c.saveStatus = 'error';
-        c.saveStatusMessage = 'Save failed: ' + (d.error || 'Unknown error');
-        c.showError('Save failed: ' + (d.error || 'Unknown error'));
+        setCompleteState('error');
+        c.showError('Failed to complete: ' + (d.error || 'Unknown error'));
+        $timeout(function () {
+          if (c.completeBtn.state === 'error') setCompleteState('idle');
+        }, 4000);
       }
     }).catch(function () {
-      c.saveStatus = 'error';
-      c.saveStatusMessage = 'Save failed';
-      c.showError('Save failed');
+      setCompleteState('error');
+      c.showError('Failed to complete');
+      $timeout(function () {
+        if (c.completeBtn.state === 'error') setCompleteState('idle');
+      }, 4000);
     });
-  };
-
-  c.onReRunGeocoding = function () {
-    // TODO: implement Re-Run Geocoding action — re-runs geocoding for the selected /
-    //       all property locations on the submission. Likely calls a server-side
-    //       GeocodingHelper script include that updates x_gegis_uwm_dashbo_address rows.
-    //       Confirm scope (this PL only vs all PLs on the submission) and whether a
-    //       confirm dialog is required before the call.
-    c.showInfo('Re-Run Geocoding — not yet implemented');
   };
 
   /* ============================================
@@ -467,11 +522,18 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     c.activeField = null;
     c.activeFieldCoordIndex = 0;
 
-    // Sections for this location — an ordered array [{ key, label, fields }].
+    // Model Data sections for this location — an ordered array [{ key, label, fields }].
     var sections = c.fieldSectionsByLocation[loc.sys_id] || [];
     c.groupedFields = sections;
     c.collapsedSections = {};
     sections.forEach(function (s) { c.collapsedSections[s.key] = false; });
+
+    // Audit Data sections — separate collapse map (section keys can collide with Model Data's,
+    // e.g. both may have a "PROPERTY" section; a shared map would collapse them in lockstep).
+    var auditSections = c.auditSectionsByLocation[loc.sys_id] || [];
+    c.auditGroupedFields = auditSections;
+    c.auditCollapsedSections = {};
+    auditSections.forEach(function (s) { c.auditCollapsedSections[s.key] = false; });
 
     // Load the PDF for this location, if any
     if (loc.attachmentData && loc.attachmentData.file_url) {
@@ -581,6 +643,30 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
       return;
     }
     c.isLoading = true;
+
+    // On load, sync Model → Audit for the URL's location first (so the audit line items we then
+    // fetch reflect current model data), then fetch. Sync failure is non-blocking — we still load,
+    // but warn that audit data may be stale.
+    if (locationSysId) {
+      c.loadingMessage = 'Syncing audit data...';
+      c.server.get({
+        action: 'syncModelToAudit',
+        locationSysId: locationSysId
+      }).then(function (response) {
+        var d = response.data || {};
+        if (!d.success) c.showWarning('Audit sync incomplete: ' + (d.error || 'unknown') + '. Audit data may be stale.');
+        fetchData();
+      }).catch(function () {
+        c.showWarning('Audit sync failed. Audit data may be stale.');
+        fetchData();
+      });
+    } else {
+      fetchData();
+    }
+  }
+
+  function fetchData() {
+    c.isLoading = true;
     c.loadingMessage = 'Loading property locations...';
 
     c.server.get({
@@ -597,6 +683,13 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
       c.submission = d.submission || null;
       c.propertyLocations = d.propertyLocations || [];
       c.fieldSectionsByLocation = d.fieldSectionsByLocation || {};
+      c.auditSectionsByLocation = d.auditSectionsByLocation || {};
+
+      // Audit edit gate (status-driven, mirrors azurui). Server sends the current status + list.
+      c.submissionStatusChoice = d.submissionStatusChoice || '';
+      if (d.config && d.config.dataVerificationEditStatuses) {
+        c.dataVerificationEditStatuses = d.config.dataVerificationEditStatuses;
+      }
 
       if (c.propertyLocations.length > 0) {
         c.selectPropertyLocation(c.propertyLocations[0]);

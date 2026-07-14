@@ -24,7 +24,34 @@
       coverageFieldMetadata: 'x_gegis_uwm_dashbo_coverage_field_metadata',
       // Values: one row = the value of one metadata field for one property location.
       // Joined to metadata by coverage_metadata_id, scoped by location.
-      propertyCoverage: 'x_gegis_uwm_dashbo_property_coverage'
+      propertyCoverage: 'x_gegis_uwm_dashbo_property_coverage',
+      // Audit Data source: versioned extractions per submission + their editable line items.
+      // Line items are scoped by parent (= data_extraction sys_id) AND model_object_sys_id (= PL sys_id).
+      dataExtraction: 'x_gegis_uwm_dashbo_data_extraction',
+      lineItem: 'x_gegis_uwm_dashbo_data_extraction_lineitem'
+    },
+    // Data extraction columns — used to resolve which version's line items to load.
+    dataExtractionColumns: {
+      submission: 'submission',
+      version: 'version',
+      active: 'active',
+      discarded: 'discarded',
+      sysCreatedOn: 'sys_created_on'
+    },
+    // Line item columns (Audit Data). Mirrors widget v2 - azurui lineItemColumns.
+    // `modelObject` is the join back to a property_location (model_object_sys_id).
+    lineItemColumns: {
+      parent: 'parent',                   // reference → data_extraction.sys_id
+      modelObject: 'model_object_sys_id', // reference → property_location.sys_id (audit scope)
+      source: 'source',
+      fieldValue: 'field_value',
+      dataVerification: 'data_verification',
+      commentary: 'commentary',
+      reason: 'reason',                   // surfaced to client as logic_transparency
+      confidenceIndicator: 'confidence_indicator',
+      sectionNameFinal: 'section_name_final', // grouping key
+      sequenceFinal: 'sequence_final',        // sort
+      fieldNameFinal: 'field_name_final'
     },
     // Master dictionary columns (x_gegis_uwm_dashbo_coverage_field_metadata).
     coverageMetadataColumns: {
@@ -62,10 +89,18 @@
       submissionType: 'submission_type_choice',
       lineOfBusiness: 'line_of_business_choice',
       totalInsuredValue: 'total_insured_value',
+      statusChoice: 'submission_status_choice',
       // Reference to x_gegis_uwm_dashbo_property_lob_detail — same column name is on property_location.
       // Property locations are linked to a submission through this shared reference, not directly.
       propertyDetail: 'property_detail'
     },
+    // ============================================
+    // AUDIT EDITABLE STATUS CONFIGURATION (mirrors widget v2 - azurui)
+    // Audit Data's Data Verification (and, gated off it, Commentary) become editable ONLY when
+    // submission_status_choice is in this list; otherwise they render as read-only text.
+    // No QA Override column here, so Commentary is gated purely off Data Verification.
+    // ============================================
+    dataVerificationEditStatuses: ['CHECK_FOR_DUPLICATES', 'CONFIRM_DATA_REVIEW', 'INSURED_VERIFICATION', 'DUPLICATE_CHECK', 'SANCTIONS_CHECK', 'DATA_EXTRACT_REVIEW'],
     propertyLocationColumns: {
       version: 'version',
       locationName: 'location_name',
@@ -209,6 +244,18 @@
         case 'saveFields':
           saveFields();
           break;
+        case 'saveAuditField':
+          saveAuditField();
+          break;
+        case 'saveAuditFields':
+          saveAuditFields();
+          break;
+        case 'syncModelToAudit':
+          syncModelToAudit();
+          break;
+        case 'completeAuditToModel':
+          completeAuditToModel();
+          break;
         default:
           data.error = 'Unknown action: ' + input.action;
       }
@@ -237,6 +284,10 @@
 
     var lineOfBusiness = _getValue(submissionGr, CONFIG.submissionColumns.lineOfBusiness);
     var propertyDetailSysId = _getValue(submissionGr, CONFIG.submissionColumns.propertyDetail);
+
+    // Resolve the data_extraction version once for the whole submission (Audit Data source).
+    // Line items are then scoped per-PL by model_object_sys_id inside _buildAuditSections.
+    var dataExtractSysId = _resolveDataExtraction(submissionSysId);
     data.submission = {
       sys_id: submissionSysId,
       number: _getValue(submissionGr, CONFIG.submissionColumns.number),
@@ -245,6 +296,12 @@
       line_of_business: lineOfBusiness,
       total_insured_value: _getValue(submissionGr, CONFIG.submissionColumns.totalInsuredValue),
       property_detail: propertyDetailSysId
+    };
+
+    // Audit edit gate: current submission status + the statuses in which Audit DV/Commentary edit.
+    data.submissionStatusChoice = _getValue(submissionGr, CONFIG.submissionColumns.statusChoice);
+    data.config = {
+      dataVerificationEditStatuses: CONFIG.dataVerificationEditStatuses
     };
 
     var plGr = new GlideRecord(CONFIG.tables.propertyLocation);
@@ -342,8 +399,11 @@
     // the coverage row. See CLAUDE.md "Field sections".
     var fieldDictionary = _loadFieldDictionary();
     data.fieldSectionsByLocation = {};
+    data.auditSectionsByLocation = {};
     locations.forEach(function (loc) {
       data.fieldSectionsByLocation[loc.sys_id] = _buildFieldSections(fieldDictionary, loc.sys_id);
+      // Audit Data: line items from data_extraction_lineitem where model_object_sys_id = this PL.
+      data.auditSectionsByLocation[loc.sys_id] = _buildAuditSections(dataExtractSysId, loc.sys_id);
     });
 
     // Dummy versions for the dropdown if/when it is wired in.
@@ -399,6 +459,169 @@
     data.errors = errors;
     data.success = true; // partial success is still success; per-row errors surfaced in data.errors
     data.message = 'Saved ' + updatedCount + ' record(s)' + (errors.length ? ' with ' + errors.length + ' error(s)' : '');
+  }
+
+  function saveAuditField() {
+    // Real save for Audit Data: PATCH the line item's editable columns.
+    // Routed here (rather than saveField) because meta.table = the lineitem table.
+    data.success = false;
+    if (!_isAuditEditAllowed()) {
+      data.error = 'Editing is not permitted for the current submission status.';
+      data.message = data.error;
+      return;
+    }
+    var result = _persistAuditField(input.update || {});
+    if (result.ok) {
+      data.success = true;
+      data.message = 'Saved';
+      data.updatedSysId = result.sysId;
+    } else {
+      data.error = result.error;
+      data.message = result.error;
+    }
+  }
+
+  function saveAuditFields() {
+    // Bulk version of saveAuditField — the top "Save Changes" button sends every dirty audit field.
+    data.success = false;
+    data.updatedCount = 0;
+    data.errors = [];
+
+    if (!_isAuditEditAllowed()) {
+      data.error = 'Editing is not permitted for the current submission status.';
+      data.message = data.error;
+      return;
+    }
+
+    var updates = input.updates;
+    if (!updates || !Array.isArray(updates) || updates.length === 0) {
+      data.error = 'No updates provided';
+      return;
+    }
+
+    var updatedCount = 0;
+    var errors = [];
+    for (var i = 0; i < updates.length; i++) {
+      var result = _persistAuditField(updates[i] || {});
+      if (result.ok) {
+        updatedCount++;
+      } else {
+        errors.push((updates[i] && updates[i].sys_id ? updates[i].sys_id + ': ' : '') + result.error);
+      }
+    }
+
+    data.updatedCount = updatedCount;
+    data.errors = errors;
+    data.success = true; // partial success is still success; per-row errors surfaced in data.errors
+    data.message = 'Saved ' + updatedCount + ' record(s)' + (errors.length ? ' with ' + errors.length + ' error(s)' : '');
+  }
+
+  /**
+   * Model → Audit sync for one location. Called on page load so the Audit Data line items
+   * reflect the current model data. Scoped by the location sys_id from the URL.
+   * External dependency: ExtractionHelper.dataFlowBetweenDataExtractAndModel_Location.
+   */
+  function syncModelToAudit() {
+    data.success = false;
+    var locationSysId = input.locationSysId || data.locationSysId || '';
+    if (!locationSysId) {
+      data.error = 'Location sys_id is required for Model→Audit sync';
+      return;
+    }
+    try {
+      gs.info('PL-NAV: MODEL2AUDIT for location=' + locationSysId);
+      ExtractionHelper.dataFlowBetweenDataExtractAndModel_Location(locationSysId, ExtractionHelper.MODEL2AUDIT);
+      gs.info('PL-NAV: MODEL2AUDIT completed for location=' + locationSysId);
+      data.success = true;
+      data.message = 'Model to Audit sync completed';
+    } catch (e) {
+      gs.error('PL-NAV: MODEL2AUDIT failed for ' + locationSysId + ': ' + e.message);
+      data.error = 'Model to Audit sync failed: ' + e.message;
+    }
+  }
+
+  /**
+   * Audit → Model sync for one location. Called by the Complete button. Scoped by the
+   * location sys_id from the URL.
+   * External dependency: ExtractionHelper.dataFlowBetweenDataExtractAndModel_Location.
+   */
+  function completeAuditToModel() {
+    data.success = false;
+    var locationSysId = input.locationSysId || data.locationSysId || '';
+    if (!locationSysId) {
+      data.error = 'Location sys_id is required to complete';
+      return;
+    }
+    try {
+      gs.info('PL-NAV: AUDIT2MODEL for location=' + locationSysId);
+      ExtractionHelper.dataFlowBetweenDataExtractAndModel_Location(locationSysId, ExtractionHelper.AUDIT2MODEL);
+      gs.info('PL-NAV: AUDIT2MODEL completed for location=' + locationSysId);
+      data.success = true;
+      data.message = 'Audit to Model completed successfully';
+    } catch (e) {
+      gs.error('PL-NAV: AUDIT2MODEL failed for ' + locationSysId + ': ' + e.message);
+      data.error = 'Failed to complete: ' + e.message;
+    }
+  }
+
+  /**
+   * Persist one audit line item's editable columns. Shared by saveAuditField / saveAuditFields.
+   * Unlike _persistFieldValue (property_coverage), data_verification and commentary DO have
+   * backing columns on the line item table, so all three are written when present on the update.
+   * Updates existing rows only.
+   * @returns {{ ok: boolean, sysId: string, error: string }}
+   */
+  function _persistAuditField(update) {
+    var meta = update.meta || {};
+
+    if (!meta.sysId) {
+      return { ok: false, sysId: '', error: 'No line item exists for this field; cannot save.' };
+    }
+    if (meta.table !== CONFIG.tables.lineItem) {
+      return { ok: false, sysId: '', error: 'Refusing to save: unexpected target table "' + meta.table + '".' };
+    }
+
+    try {
+      var cols = CONFIG.lineItemColumns;
+      var gr = new GlideRecord(CONFIG.tables.lineItem);
+      if (!gr.get(meta.sysId)) {
+        return { ok: false, sysId: meta.sysId, error: 'Line item record not found: ' + meta.sysId };
+      }
+      // Only write the columns present on the update object.
+      if (update.hasOwnProperty('field_value')) {
+        gr.setValue(cols.fieldValue, _coerceValue(update.field_value));
+      }
+      if (update.hasOwnProperty('data_verification')) {
+        gr.setValue(cols.dataVerification, _coerceValue(update.data_verification));
+      }
+      if (update.hasOwnProperty('commentary')) {
+        gr.setValue(cols.commentary, _coerceValue(update.commentary));
+      }
+      gr.update();
+      return { ok: true, sysId: meta.sysId, error: '' };
+    } catch (e) {
+      gs.error('PL-NAV: _persistAuditField failed for ' + meta.sysId + ': ' + e.message);
+      return { ok: false, sysId: meta.sysId, error: 'Error saving audit field: ' + e.message };
+    }
+  }
+
+  function _coerceValue(v) {
+    return (v === null || v === undefined) ? '' : v;
+  }
+
+  /**
+   * Server-side enforcement of the Audit edit gate (defense-in-depth; the client also hides the
+   * editors). Reads the submission status fresh and checks it against dataVerificationEditStatuses.
+   * Resolves the submission from input.submissionSysId (sent by the client with every audit save).
+   * Fails safe: if the submission can't be resolved, editing is DENIED.
+   */
+  function _isAuditEditAllowed() {
+    var submissionSysId = input.submissionSysId || '';
+    if (!submissionSysId) return false;
+    var gr = new GlideRecord(CONFIG.tables.submission);
+    if (!gr.get(submissionSysId)) return false;
+    var status = _getValue(gr, CONFIG.submissionColumns.statusChoice);
+    return CONFIG.dataVerificationEditStatuses.indexOf(status) !== -1;
   }
 
   /**
@@ -473,6 +696,126 @@
       case 'STRING':
       default: return c.valueString;
     }
+  }
+
+  /**
+   * Resolve which data_extraction version's line items to load for a submission.
+   * Minimal port of widget v2 - azurui _resolveDataExtraction: prefer the most recent
+   * active extraction, else the most recent non-discarded one. Returns the sys_id, or ''
+   * if none found (⇒ Audit Data renders empty).
+   */
+  function _resolveDataExtraction(submissionSysId) {
+    if (!submissionSysId) return '';
+    var deCols = CONFIG.dataExtractionColumns;
+    var gr = new GlideRecord(CONFIG.tables.dataExtraction);
+    gr.addQuery(deCols.submission, submissionSysId);
+    gr.orderByDesc(deCols.version);
+    gr.orderByDesc(deCols.sysCreatedOn);
+    gr.query();
+
+    var activeSysId = '';
+    var firstSysId = '';
+    while (gr.next()) {
+      var sysId = gr.getUniqueValue();
+      if (!firstSysId) firstSysId = sysId;
+      var activeRaw = gr.getValue(deCols.active);
+      if (!activeSysId && (activeRaw === 'true' || activeRaw === '1')) {
+        activeSysId = sysId;
+      }
+    }
+    return activeSysId || firstSysId || '';
+  }
+
+  /**
+   * Normalize a raw confidence value to a 0–1 float (divides by 100 if > 1), or '' if blank/NaN.
+   * Ported from widget v2 - azurui.
+   */
+  function _parseConfidence(confidenceValue) {
+    try {
+      if (confidenceValue === null || confidenceValue === undefined || confidenceValue === '') {
+        return '';
+      }
+      var confidence = parseFloat(confidenceValue);
+      if (isNaN(confidence)) return '';
+      if (confidence > 1) confidence = confidence / 100;
+      return confidence;
+    } catch (e) {
+      return '';
+    }
+  }
+
+  /** Parse a possibly comma-formatted sequence value to a number (0 default). */
+  function _parseOrder(orderStr) {
+    if (!orderStr) return 0;
+    return parseFloat(('' + orderStr).replace(/,/g, '')) || 0;
+  }
+
+  /**
+   * Build Audit Data sections for one property location.
+   * Queries data_extraction_lineitem where parent = <resolved data_extraction> AND
+   * model_object_sys_id = <this PL>. Groups by section_name_final into the SAME ordered-array
+   * section shape as _buildFieldSections so the client template renders both areas identically.
+   *
+   * Field nodes carry meta.table = the lineitem table so client save routing targets
+   * saveAuditField/saveAuditFields (not the property_coverage saveField path).
+   */
+  function _buildAuditSections(dataExtractSysId, locationSysId) {
+    if (!locationSysId) return [];
+    var cols = CONFIG.lineItemColumns;
+
+    var gr = new GlideRecord(CONFIG.tables.lineItem);
+    // TODO: re-enable the data_extraction scope once the active extraction reliably resolves
+    // and its line items carry model_object_sys_id. Until then, scope by PL alone (see CLAUDE.md).
+    // Caveat: without this, line items from ALL extraction versions for the PL match.
+    // gr.addQuery(cols.parent, dataExtractSysId);
+    gr.addQuery(cols.modelObject, locationSysId);
+    gr.orderBy(cols.sequenceFinal);
+    gr.orderBy(cols.fieldNameFinal);
+    gr.query();
+
+    var byKey = {};   // section key → section object
+    var order = [];   // section keys in first-seen order (sequence order)
+    while (gr.next()) {
+      var sectionKey = _getValue(gr, cols.sectionNameFinal) || 'Uncategorized';
+      var seq = _parseOrder(_getValue(gr, cols.sequenceFinal));
+
+      if (!byKey[sectionKey]) {
+        byKey[sectionKey] = {
+          key: sectionKey,
+          label: CONFIG.sectionLabels[sectionKey] || sectionKey,
+          _minSeq: seq,
+          fields: []
+        };
+        order.push(sectionKey);
+      }
+      if (seq < byKey[sectionKey]._minSeq) byKey[sectionKey]._minSeq = seq;
+
+      var lineSysId = gr.getUniqueValue();
+      byKey[sectionKey].fields.push({
+        sys_id: lineSysId,           // line item identity (also the save target)
+        field_name: _getValue(gr, cols.fieldNameFinal) || 'Unknown',
+        field_value: _getValue(gr, cols.fieldValue),
+        data_type: 'STRING',         // line items have no typed value column — plain text editor
+        data_verification: _getValue(gr, cols.dataVerification),
+        commentary: _getValue(gr, cols.commentary),
+        logic_transparency: _getValue(gr, cols.reason),
+        confidence_indicator: _parseConfidence(_getValue(gr, cols.confidenceIndicator)),
+        source: _getValue(gr, cols.source),
+        attachmentData: null,
+        // Save target: the line item row + which columns saveAuditField writes.
+        meta: {
+          table: CONFIG.tables.lineItem,
+          sysId: lineSysId,
+          valueField: cols.fieldValue
+        }
+      });
+    }
+
+    // Order sections by their minimum field sequence, then drop the internal _minSeq.
+    var sections = order.map(function (k) { return byKey[k]; });
+    sections.sort(function (a, b) { return a._minSeq - b._minSeq; });
+    sections.forEach(function (s) { delete s._minSeq; });
+    return sections;
   }
 
   /**

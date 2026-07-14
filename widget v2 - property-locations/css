@@ -1809,3 +1809,65 @@
 .header-actions .btn-primary:active {
   background: #0d0d0d;
 }
+
+/* ============================================
+   FIELD AREAS — top-level grouping (Model Data / Audit Data)
+   Each area wraps a stack of collapsible field sections and is itself
+   independently collapsible. The area header is a heavier band that reads
+   as a level ABOVE the inner .section-header.
+   ============================================ */
+.field-area {
+  border-bottom: 2px solid #d2d0ce;
+}
+
+/* Visual break between Model Data and Audit Data. */
+.field-area--audit {
+  border-top: 2px solid #d2d0ce;
+}
+
+.area-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  background: #f0eeec;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  user-select: none;
+}
+
+.area-header:hover {
+  background: #e8e6e3;
+}
+
+.area-chevron {
+  font-size: 12px;
+  color: #323130;
+  width: 12px;
+}
+
+.area-title {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #201f1e;
+}
+
+/* The Audit area header gets a subtle accent so the two groups are unmistakable. */
+.field-area--audit .area-header {
+  background: #eef4fb;
+}
+
+.field-area--audit .area-header:hover {
+  background: #e3edf8;
+}
+
+.field-area--audit .area-title {
+  color: #1b4d7a;
+}
+
+/* Inner sections inside an area sit slightly inset so the hierarchy is legible. */
+.field-area-body .field-section:last-child {
+  border-bottom: none;
+}

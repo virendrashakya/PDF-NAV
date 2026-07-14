@@ -42,7 +42,9 @@ Sibling of [widget v2 - azurui/](../widget%20v2%20-%20azurui/) — visual shell 
 | `x_gegis_uwm_dashbo_address` | Geocoded address joined from `property_location.address` |
 | `x_gegis_uwm_dashbo_extract_top_risk` | `property_location` → many top risks. Current impl fetches the first one and exposes its `total` as Insured Value. |
 | `x_gegis_uwm_dashbo_coverage_field_metadata` | **Master field dictionary.** Every field that can exist: `field_name`, `data_type` (`CURRENCY`/`NUMBER`/`STRING`/`BOOLEAN`), `coverage_type` (section header, display value), `parent_field_name` (self-join for nesting), `sequence` (sort). Queried in full, location-independent. |
-| `x_gegis_uwm_dashbo_property_coverage` | **Per-location values.** One row = one metadata field's value for one location. `coverage_metadata_id` → metadata.sys_id, `location` → property_location.sys_id, typed value columns `field_value_currency`/`_number`/`_string`/`_boolean` + optional `field_value_formatted`. The row a value edit PATCHes. |
+| `x_gegis_uwm_dashbo_property_coverage` | **Per-location values (Model Data).** One row = one metadata field's value for one location. `coverage_metadata_id` → metadata.sys_id, `location` → property_location.sys_id, typed value columns `field_value_currency`/`_number`/`_string`/`_boolean` + optional `field_value_formatted`. The row a Model-Data value edit PATCHes. |
+| `x_gegis_uwm_dashbo_data_extraction` | **Audit Data version.** Versioned extractions per submission (`submission`, `version`, `active`, `discarded`, `sys_created_on`). `_resolveDataExtraction` picks the most-recent `active` row (else most-recent) to scope the audit line items. |
+| `x_gegis_uwm_dashbo_data_extraction_lineitem` | **Audit Data source.** Editable line items. `parent` → data_extraction.sys_id; **`model_object_sys_id` → property_location.sys_id** (the per-PL audit scope). Columns surfaced: `field_name_final`, `field_value`, `data_verification`, `commentary`, `reason` (→ logic_transparency), `confidence_indicator`, `section_name_final` (grouping), `sequence_final` (sort), `source`. |
 | `sys_attachment` | PDF attachments (filtered by `content_type ∈ application/pdf, application/octet-stream`) |
 
 ### Data flow
@@ -63,9 +65,13 @@ If `submission.property_detail` is empty, the widget returns an empty PL list (a
 
 | Action | Inputs | Behavior |
 |---|---|---|
-| `fetchPropertyLocations` | `submissionSysId` | Loads submission header, all property locations (ordered by version desc, then name), joined address + first top_risk per location, attachment data. Also returns `fieldSectionsByLocation` (**real**, keyed by PL sys_id — see below) and `versions` (still dummy). |
-| `saveField` | `update: {sys_id, field_value, meta}`, `propertyLocationSysId` | **Real.** PATCHes one field's typed value column on its `property_coverage` row (`_persistFieldValue`). Updates existing rows only — if `meta.sysId` is null (no coverage row), it errors rather than inserting. |
-| `saveFields` | `updates: [{sys_id, field_value, meta}]`, `propertyLocationSysId` | **Real, bulk.** The top "Save Changes" button. Runs `_persistFieldValue` per row; returns `updatedCount` + per-row `errors[]`. `success = true` even on partial failure (errors surfaced in `data.errors`). |
+| `fetchPropertyLocations` | `submissionSysId` | Loads submission header, all property locations (ordered by version desc, then name), joined address + first top_risk per location, attachment data. Also returns `fieldSectionsByLocation` (Model Data — **real**, keyed by PL sys_id), `auditSectionsByLocation` (Audit Data — **real**, keyed by PL sys_id — see below), and `versions` (still dummy). |
+| `saveField` | `update: {sys_id, field_value, meta}`, `propertyLocationSysId` | **Real (Model Data).** PATCHes one field's typed value column on its `property_coverage` row (`_persistFieldValue`). Updates existing rows only — if `meta.sysId` is null (no coverage row), it errors rather than inserting. |
+| `saveFields` | `updates: [{sys_id, field_value, meta}]`, `propertyLocationSysId` | **Real, bulk (Model Data).** Runs `_persistFieldValue` per row; returns `updatedCount` + per-row `errors[]`. `success = true` even on partial failure (errors surfaced in `data.errors`). |
+| `saveAuditField` | `update: {sys_id, data_verification, commentary, meta}`, `submissionSysId` | **Real (Audit Data).** PATCHes `data_verification` + `commentary` on the line item row (`_persistAuditField`). **AI Value (`field_value`) is read-only — never sent/written.** **Rejected by `_isAuditEditAllowed()` when `submission_status_choice` ∉ `dataVerificationEditStatuses`.** Only keys present on the update are written. `meta.table` must be the line item table. |
+| `saveAuditFields` | `updates: [{…}]`, `submissionSysId` | **Real, bulk (Audit Data).** Same `_persistAuditField` per row + same `_isAuditEditAllowed()` gate; same partial-success contract as `saveFields`. |
+| `syncModelToAudit` | `locationSysId` | **Model → Audit.** Calls `ExtractionHelper.dataFlowBetweenDataExtractAndModel_Location(locationSysId, MODEL2AUDIT)`. Run once on page load before the fetch. |
+| `completeAuditToModel` | `locationSysId` | **Audit → Model (Complete button).** Calls `ExtractionHelper.dataFlowBetweenDataExtractAndModel_Location(locationSysId, AUDIT2MODEL)`. |
 
 ### Field sections (real — coverage metadata + values)
 
@@ -80,6 +86,33 @@ Built from the artifact's association model: **master → values, joined by a re
 
 `field.sys_id` is the **metadata field's** sys_id (stable field identity), NOT the coverage row's. The coverage row sys_id lives in `field.meta.sysId`.
 
+### Two areas: Model Data + Audit Data
+
+The sidebar renders **two independently-collapsible top-level areas** (`.field-area`):
+
+1. **Model Data** — the field sections above (coverage metadata + `property_coverage`).
+2. **Audit Data** — line items from `x_gegis_uwm_dashbo_data_extraction_lineitem`.
+
+Audit build (`_buildAuditSections(dataExtractSysId, locationSysId)`):
+- `_resolveDataExtraction(submissionSysId)` runs **once per fetch** (most-recent `active` extraction, else most-recent) → the `parent` scope.
+- Query line items where `model_object_sys_id = <PL sys_id>`, `orderBy(sequence_final, field_name_final)`.
+- **The `parent = <data_extraction>` filter is currently COMMENTED OUT** ([serverscript.js](serverscript.js), `_buildAuditSections`). With it on, the audit area came up empty (the active-extraction resolution didn't line up with the line items that carry `model_object_sys_id`). Scoping by PL alone surfaces the rows. **Re-enable it once real active-extraction data is present** — caveat: while off, line items from *all* extraction versions for the PL match (possible cross-version duplicates).
+- Group by `section_name_final` into the **same ordered-array `[{key,label,fields}]` shape** as `_buildFieldSections`, so the client renders both areas with identical section/table markup.
+- Each field node's `meta.table` = the line item table (`CONFIG.tables.lineItem`). This is the **save-routing key** on the client.
+
+**Persistence asymmetry (important):**
+- **Model Data**: only `field_value` persists (to `property_coverage`). `data_verification` / `commentary` are UI-only (no backing column) and always UI-editable.
+- **Audit Data**: **AI Value (`field_value`) is READ-ONLY** — never editable, never sent in a save payload. `data_verification` **and** `commentary` persist (real columns on the line item), **but only when the submission status permits editing** (see gate below). Logic Transparency (`reason`) is read-only in both.
+
+**Audit edit gate (submission-status-driven — mirrors widget v2 - azurui):**
+- Server sends `data.submissionStatusChoice` (from `submission_status_choice`) + `data.config.dataVerificationEditStatuses` (a `CONFIG` list). Client: `c.canEditDataVerification()` = status ∈ list; `c.canEditCommentary()` = same (no QA Override column here, so Commentary is gated purely off DV).
+- `c.canEditColumn(field, column)` applies this **only to Audit fields**: when the status doesn't permit, Audit DV/Commentary render as plain read-only text (no pen, no click-to-edit) instead of an editable cell. Model Data's DV/Commentary are unaffected (always UI-editable).
+- **Server enforces it too** (defense-in-depth): `_isAuditEditAllowed()` reads the submission status fresh and rejects `saveAuditField`/`saveAuditFields` when the status isn't in the list. The client sends `submissionSysId` with every audit save so the server can resolve status. Fails safe (denies) if the submission can't be resolved.
+
+**Dependency:** `model_object_sys_id` must exist and be populated on the line item table (holds the property_location sys_id). If it's absent/empty, the Audit Data area renders empty (the `.field-area--audit` block is `ng-if`'d on `c.auditGroupedFields.length`, so it hides entirely).
+
+Audit AI Value renders as a read-only span (same as Logic Transparency) — no click-to-edit, no editor.
+
 ---
 
 ## Client state model (clientscript.js controller `c`)
@@ -93,10 +126,14 @@ Built from the artifact's association model: **master → values, joined by a re
 
 ### Field sections
 
-- `c.fieldSectionsByLocation = { sys_id: [ { key, label, fields: [...] }, ... ] }` — full map returned by server; each value is an **ordered array** of sections
-- `c.groupedFields` — the selected location's section array (ordered). Rendered with `ng-repeat="section in c.groupedFields track by section.key"`; header shows `section.label`.
-- `c.collapsedSections = { sectionKey: bool }` — keyed by `section.key`
-- `c.flatten(sections)` — flattens the section array's `fields` into one list (tolerates the legacy object shape defensively)
+- `c.fieldSectionsByLocation = { sys_id: [ { key, label, fields: [...] }, ... ] }` — Model Data map returned by server; each value is an **ordered array** of sections
+- `c.groupedFields` — the selected location's **Model Data** section array (ordered). Rendered with `ng-repeat="section in c.groupedFields track by section.key"`; header shows `section.label`.
+- `c.collapsedSections = { sectionKey: bool }` — keyed by `section.key` (Model Data inner sections)
+- `c.auditSectionsByLocation` / `c.auditGroupedFields` / `c.auditCollapsedSections` — the **Audit Data** equivalents. Separate collapse map because section keys can collide across the two areas (e.g. both may have a "PROPERTY" section) — a shared map would collapse them in lockstep.
+- **Top-level area collapse:** `c.modelDataCollapsed` / `c.auditDataCollapsed` (booleans) toggled by `c.toggleModelData()` / `c.toggleAuditData()`. These hide the whole area body, independent of the inner section collapse.
+- `c.isAuditField(field)` — true iff `field.meta.table === 'x_gegis_uwm_dashbo_data_extraction_lineitem'`. **The save-routing key.** (`AUDIT_TABLE` const in the controller must stay in sync with `CONFIG.tables.lineItem`.)
+- `c.allFields()` — flattens **both** areas' fields; used by `getVisibleFieldCount` / `getTotalCount` and the doc-filter pill.
+- `c.flatten(sections)` — flattens one section array's `fields` into one list (tolerates the legacy object shape defensively)
 - Each field: `sys_id` (metadata field id), `field_name, field_value, data_type` (`CURRENCY`/`NUMBER`/`STRING`/`BOOLEAN` — drives display format + inline editor), `data_verification, commentary, logic_transparency, confidence_indicator, source, attachmentData`, plus `meta: { table, sysId, valueField }` (coverage-row PATCH target; `sysId` null ⇒ no row ⇒ value read-only)
 
 ### PDF state
@@ -112,16 +149,24 @@ Built from the artifact's association model: **master → values, joined by a re
 ### Save tracking (real)
 
 - `c.changedFields = { sys_id: true }` set by `markFieldAsChanged`
-- `c.canEditValue(field)` — true iff `field.meta.sysId` + `valueField` exist (a coverage row to PATCH). Gates the editable AI Value cell and short-circuits value saves.
+- `c.canEditValue(field)` — true iff `field.meta.sysId` + `valueField` exist (a coverage row to PATCH). Gates the editable **Model** AI Value cell and short-circuits value saves.
+- **Audit edit gate:** `c.submissionStatusChoice` + `c.dataVerificationEditStatuses` (server-supplied); `c.canEditDataVerification()` / `c.canEditCommentary()` return status ∈ list. `c.canEditColumn(field, column)` routes: Audit AI Value → always false (read-only); Audit DV/Commentary → the status gate; Model DV/Commentary → always true; Model value → `canEditValue`.
 - **All three editable columns (AI Value, Data Verification, Commentary) are click-to-edit** (not always-on inputs): each shows `c.displayText(field, column)` as text with a hover edit affordance (`.ai-value-display.editable` → pen icon); clicking swaps in the editor. Edit state is a single `c.editingCellKey` = `<field.sys_id>:<column>` (`column ∈ 'value' | 'verification' | 'commentary'`), so only one cell edits at a time but a field's three cells are independent.
   - Generic helpers: `c.isEditing(field, column)`, `c.startEditing(field, column, $event)`, `c.stopEditing(field, column)`, `c.canEditColumn(field, column)`, `c.columnModel(column)` (→ `field_value` / `data_verification` / `commentary`). Editor element id = `cellEditor-<sys_id>-<column>`.
   - **AI Value ('value')**: boolean → Yes/No `<select>` (`c.isBooleanField`, normalized via `c.normalizeBoolean` on open), else text input. `stopEditing` autosaves to the coverage row. Editable only when `canEditValue`.
     - **Display formatting** (via `c.displayText`, display-only — the editor binds the raw value): booleans → `Yes`/`No`; CURRENCY (`c.isCurrencyField`) → `$` + thousands-separated via `c.formatCurrency`. Editing/saving always use the raw number.
   - **Data Verification / Commentary**: text input, always UI-editable. `stopEditing` only marks the field changed (in-memory) — **no server save**, since neither has a backing column yet.
   - Back-compat shims kept for the value column: `c.isEditingValue`, `c.displayValue`, `c.startEditingValue`, `c.stopEditingValue` delegate to the generic functions with `column = 'value'`.
-- `c.autoSaveField(field)` POSTs `saveField` on blur, sending `{sys_id, field_value, meta}`. Skips + clears the dirty flag when `!canEditValue`.
-- `c.onSaveChanges()` (top "Save Changes" button) — bulk-flushes all dirty editable fields via `saveFields` in one round trip; toasts the saved count. No-op toast when nothing is dirty.
+- `c.autoSaveField(field)` POSTs on blur, **routed by `isAuditField`**: audit → `saveAuditField` (sends `data_verification` + `commentary` only — **not** `field_value`, which is read-only); model → `saveField` (sends `field_value` only, skips + clears the dirty flag when `!canEditValue`). Audit fields always have a row, so they are always savable.
+- `c.stopEditing` autosaves the `value` column for **model** fields only. For **audit** fields it autosaves `verification` + `commentary` (AI Value is read-only, never triggers a save); for **model** fields verification/commentary stay UI-only.
+- **No bulk "Save Changes" button** — fields autosave on blur only. (The old Refer / Save Changes / Re-Run Geocoding buttons were removed.)
 - `c.saveStatus ∈ '' | 'saving' | 'saved' | 'error'` with `c.saveStatusMessage` — surfaces at the bottom of the sidebar
+
+### Complete button (Audit → Model)
+
+- `c.completeBtn` (single source of truth) + `setCompleteState('idle'|'progress'|'done'|'error')` — mirrors widget v2 - azurui. The only way to mutate the button. States: idle "Complete" (paper-plane), progress "Sending Data to Model..." (bouncing dots), done "Completed" (animated check, auto-resets to idle after 2s), error "Failed — Retry" (auto-resets after 4s).
+- `c.markAsComplete()` — POSTs `completeAuditToModel` with the URL's `locationSysId`. On success shows the done state + success toast; on failure shows the error state + toast. Async — the button reflects live progress.
+- **Load-time Model → Audit sync:** `loadData()` first POSTs `syncModelToAudit` (with the URL's `locationSysId`), then `fetchData()`. Sync failure is non-blocking (warns "audit data may be stale") but still fetches. This is why audit line items reflect current model data on open.
 
 ### Toasts
 
@@ -134,8 +179,8 @@ Built from the artifact's association model: **master → values, joined by a re
 ### Initial load
 
 1. `loadPdfJs()` injects PDF.js from cdnjs
-2. `loadData()` calls `fetchPropertyLocations` with `submissionSysId` from URL
-3. On success, `selectPropertyLocation(propertyLocations[0])` is called — populates `groupedFields`, loads PDF
+2. `loadData()` first POSTs `syncModelToAudit` (Model → Audit for the URL's `locationSysId`), then calls `fetchData()` → `fetchPropertyLocations`. Sync failure is non-blocking (warns, still fetches).
+3. On success, `selectPropertyLocation(propertyLocations[0])` is called — populates `groupedFields` + `auditGroupedFields`, loads PDF
 
 ### Selecting a property location
 
@@ -166,17 +211,20 @@ The QA Override → Commentary gate from widget v2 azurui is intentionally absen
   - **Sidebar header:** collapse toggle + `Submission ID: <number>` title
   - **Fields toolbar:** "Fields" label, orange `X of Y (filename)` doc-filter pill, expandable inline search
   - **Property locations summary table:** 8 columns (Location Name | Address | Location Type | Geocodes | Line of Business | State | Country | Insured Value). Clicking a row selects the PL.
-  - **Collapsible field sections:** 5-column `<table class="fields-table">` (Field Name | AI Value | Data Verification | Logic Transparency | Commentary) per section, with accuracy % header pill. **AI Value, Data Verification, and Commentary are all click-to-edit**: formatted text + hover pen affordance (`.ai-value-display`) → click reveals the editor → blur/Enter closes. AI Value saves to the coverage row (or is a read-only span when no row exists); Data Verification & Commentary are UI-only (no backing column). Logic Transparency stays read-only.
+  - **Two collapsible areas** (`.field-area` + `.area-header` with its own chevron): **Model Data** then **Audit Data** (`.field-area--audit`, only rendered when `c.auditGroupedFields.length`). Each area toggles via `c.toggleModelData()` / `c.toggleAuditData()`.
+  - **Collapsible field sections** (inside each area): 5-column `<table class="fields-table">` (Field Name | AI Value | Data Verification | Logic Transparency | Commentary) per section, with accuracy % header pill. **AI Value, Data Verification, and Commentary are all click-to-edit**: formatted text + hover pen affordance (`.ai-value-display`) → click reveals the editor → blur/Enter closes. In **Model Data**, AI Value saves to the coverage row (or is a read-only span when no row exists) and Data Verification & Commentary are UI-only. In **Audit Data**, AI Value is a **read-only span** (never editable); Data Verification & Commentary persist to the line item row. Logic Transparency stays read-only in both.
   - **Save status bar** at sidebar bottom
 - **PDF panel:** header (filename, fit-width / actual-size, prev / next page) + canvas + footer
 
-### Top action buttons
+### Top action button
 
-`Refer`, `Save Changes`, `Re-Run Geocoding` live in `.header-actions` to the right of the submission title.
-- **`Save Changes` (`c.onSaveChanges`) is real** — bulk-flushes all dirty editable fields via the `saveFields` server action.
-- **`Refer` (`c.onRefer`) and `Re-Run Geocoding` (`c.onReRunGeocoding`) are still dummy** — each shows an info toast and carries a TODO with intended backend behavior. Wire these up when the corresponding server actions land.
+A single **`Complete`** button lives in `.header-actions` to the right of the submission title (the old `Refer` / `Save Changes` / `Re-Run Geocoding` buttons were removed — fields autosave, so no Save button is needed). It runs Audit → Model for the URL's location via `c.markAsComplete()` → `completeAuditToModel`, with the `c.completeBtn` async state machine (see "Complete button" above). Its CSS (`.btn-complete*`, dots, circle-check, shake) is inherited from the v2 azurui fork and already present in [css](css).
 
 The page-level `⋯` menu from the screenshot is still omitted.
+
+### External ServiceNow dependency
+
+`ExtractionHelper.dataFlowBetweenDataExtractAndModel_Location(locationSysId, mode)` where `mode ∈ MODEL2AUDIT | AUDIT2MODEL`. This is the **`_Location` variant** (per-location), distinct from azurui's per-submission `dataFlowBetweenDataExtractAndModel(submissionNumber, mode)`. Called by `syncModelToAudit` (load) and `completeAuditToModel` (Complete). Source lives in the ServiceNow instance, not this repo.
 
 ---
 
@@ -184,6 +232,8 @@ The page-level `⋯` menu from the screenshot is still omitted.
 
 - **Always work in `widget v2 - property-locations/`** for property-location features. Do not edit `widget v2 - azurui/` to make property-location changes.
 - **Field sections are real** — from `coverage_field_metadata` (master) joined to `property_coverage` (per-location values), grouped by `coverage_type`. See "Field sections" under Backend. Only `field_value` is persisted; the other per-field columns are blank until backing columns exist.
-- **Value saves PATCH the coverage row via `field.meta`.** `saveField` / `saveFields` update existing rows only — no insert when `meta.sysId` is null (row creation is controlled elsewhere). Never save any column other than the typed `field_value_*` unless the data model gains it.
+- **Two areas: Model Data + Audit Data.** Model Data = `property_coverage`; Audit Data = `data_extraction_lineitem` scoped by `model_object_sys_id = PL.sys_id`. Save routing is by `field.meta.table` (`c.isAuditField`) — keep `AUDIT_TABLE` in clientscript in sync with `CONFIG.tables.lineItem`.
+- **Model-Data value saves PATCH the coverage row via `field.meta`.** `saveField` / `saveFields` update existing rows only — no insert when `meta.sysId` is null. Never save any column other than the typed `field_value_*` for Model Data unless the data model gains it. **Audit-Data** saves (`saveAuditField` / `saveAuditFields`) persist `data_verification` + `commentary` only — **AI Value (`field_value`) is read-only in Audit** and is intentionally never sent. This asymmetry is deliberate.
 - **CSS is forked from v2 azurui.** Property-locations-specific styles live at the bottom of [css](css) under the "PROPERTY LOCATIONS WIDGET — additions" section. The shared base (loading, toasts, sidebar shell, fields-table, PDF panel) is kept in sync visually with v2 by deliberate inheritance — if v2 changes its base styles, copy the relevant blocks over rather than diverging silently.
 - **No QA Override column.** This widget only has Data Verification + Commentary as editable fields. Don't add `qa_override_value` logic from v2 unless the data model gains the column.
+- **Audit edit gating is submission-status-driven (Audit only).** DV/Commentary in Audit are editable only when `submission_status_choice ∈ CONFIG.dataVerificationEditStatuses`; otherwise read-only text. Enforced client-side (`canEditColumn`) AND server-side (`_isAuditEditAllowed`). Keep the two status lists (server `CONFIG` vs client default) consistent — the server list is authoritative and shipped to the client in `data.config`. Model Data's DV/Commentary are NOT status-gated (always UI-editable).
