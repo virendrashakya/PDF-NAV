@@ -99,13 +99,6 @@
             ng-show="!c.searchExpanded" title="Search fields">
             <i class="fas fa-search"></i>
           </button>
-
-          <!-- Show only exceptions toggle -->
-          <label class="exceptions-toggle" title="Show only fields with exceptions / low confidence">
-            <input type="checkbox" ng-model="c.showOnlyExceptions">
-            <span class="toggle-track"><span class="toggle-thumb"></span></span>
-            <span class="toggle-label">Show only exceptions</span>
-          </label>
         </div>
       </div>
 
@@ -148,21 +141,21 @@
           </table>
         </div>
 
-        <!-- Collapsible field sections (dummy for now) -->
-        <div ng-repeat="(sectionName, fields) in c.groupedFields" class="field-section">
+        <!-- Collapsible field sections — c.groupedFields is an ordered array [{key,label,fields}] -->
+        <div ng-repeat="section in c.groupedFields track by section.key" class="field-section">
 
-          <div class="section-header" ng-click="c.collapsedSections[sectionName] = !c.collapsedSections[sectionName]">
+          <div class="section-header" ng-click="c.collapsedSections[section.key] = !c.collapsedSections[section.key]">
             <div class="section-title-wrapper">
-              <i class="fas" ng-class="c.collapsedSections[sectionName] ? 'fa-chevron-right' : 'fa-chevron-down'"></i>
-              <span class="section-title">{{sectionName}} ({{fields.length}})</span>
+              <i class="fas" ng-class="c.collapsedSections[section.key] ? 'fa-chevron-right' : 'fa-chevron-down'"></i>
+              <span class="section-title">{{section.label}} ({{section.fields.length}})</span>
             </div>
-            <div class="section-accuracy" ng-if="fields.length > 0 && c.sectionHasConfidence(fields)"
-              ng-class="c.getSectionAccuracyClass(fields)">
-              {{c.calculateSectionAccuracy(fields) | number:2}}%
+            <div class="section-accuracy" ng-if="section.fields.length > 0 && c.sectionHasConfidence(section.fields)"
+              ng-class="c.getSectionAccuracyClass(section.fields)">
+              {{c.calculateSectionAccuracy(section.fields) | number:2}}%
             </div>
           </div>
 
-          <div class="section-table-wrapper" ng-show="!c.collapsedSections[sectionName]">
+          <div class="section-table-wrapper" ng-show="!c.collapsedSections[section.key]">
             <table class="fields-table">
               <thead>
                 <tr>
@@ -174,7 +167,7 @@
                 </tr>
               </thead>
               <tbody>
-                <tr ng-repeat="field in fields | filter:c.searchFilter" ng-if="c.shouldShowField(field)"
+                <tr ng-repeat="field in section.fields | filter:c.searchFilter" ng-if="c.shouldShowField(field)"
                   ng-click="c.canNavigate(field) && c.navigateToField(field)"
                   ng-class="{'no-navigate': !c.canNavigate(field), 'has-validation-error': field.validationError}">
 
@@ -188,16 +181,60 @@
                     </div>
                   </td>
 
-                  <td class="col-ai-value">
-                    <span class="cell-text" ng-class="{'has-value': field.field_value}" title="{{field.field_value}}">
-                      {{c.truncateText(field.field_value, 18) || '-'}}
+                  <!-- AI Value — click-to-edit. Boolean → Yes/No select, else text input.
+                       Editable only when a coverage value row exists (field.meta.sysId). -->
+                  <td class="col-ai-value" ng-click="$event.stopPropagation()">
+                    <select ng-if="c.isEditing(field, 'value') && c.isBooleanField(field)"
+                      id="cellEditor-{{field.sys_id}}-value" class="ai-value-input"
+                      ng-model="field.field_value"
+                      ng-change="c.markFieldAsChanged(field)"
+                      ng-blur="c.stopEditing(field, 'value')">
+                      <option value="">-</option>
+                      <option value="true">Yes</option>
+                      <option value="false">No</option>
+                    </select>
+                    <input ng-if="c.isEditing(field, 'value') && !c.isBooleanField(field)" type="text"
+                      id="cellEditor-{{field.sys_id}}-value" class="ai-value-input"
+                      ng-model="field.field_value"
+                      ng-change="c.markFieldAsChanged(field)"
+                      ng-blur="c.stopEditing(field, 'value')"
+                      ng-keydown="$event.keyCode === 13 && c.stopEditing(field, 'value')"
+                      title="{{field.field_value}}" placeholder="-">
+
+                    <div ng-if="!c.isEditing(field, 'value') && c.canEditColumn(field, 'value')"
+                      class="ai-value-display editable"
+                      ng-click="c.startEditing(field, 'value', $event)" title="Click to edit">
+                      <span class="cell-text" ng-class="{'has-value': field.field_value}">
+                        {{c.truncateText(c.displayText(field, 'value'), 18) || '-'}}
+                      </span>
+                      <i class="fas fa-pen ai-value-edit-icon"></i>
+                    </div>
+
+                    <span ng-if="!c.isEditing(field, 'value') && !c.canEditColumn(field, 'value')"
+                      class="cell-text" ng-class="{'has-value': field.field_value}"
+                      title="{{c.displayText(field, 'value')}}">
+                      {{c.truncateText(c.displayText(field, 'value'), 18) || '-'}}
                     </span>
                   </td>
 
+                  <!-- Data Verification — click-to-edit (UI only; no backing column yet). -->
                   <td class="col-data-verification" ng-click="$event.stopPropagation()">
-                    <input type="text" class="verification-input" ng-model="field.data_verification"
+                    <input ng-if="c.isEditing(field, 'verification')" type="text"
+                      id="cellEditor-{{field.sys_id}}-verification" class="verification-input"
+                      ng-model="field.data_verification"
                       ng-change="c.markFieldAsChanged(field)"
-                      ng-blur="c.autoSaveField(field)" placeholder="Override value">
+                      ng-blur="c.stopEditing(field, 'verification')"
+                      ng-keydown="$event.keyCode === 13 && c.stopEditing(field, 'verification')"
+                      title="{{field.data_verification}}" placeholder="Override value">
+
+                    <div ng-if="!c.isEditing(field, 'verification')"
+                      class="ai-value-display editable"
+                      ng-click="c.startEditing(field, 'verification', $event)" title="Click to edit">
+                      <span class="cell-text" ng-class="{'has-value': field.data_verification}">
+                        {{c.truncateText(c.displayText(field, 'verification'), 18) || '-'}}
+                      </span>
+                      <i class="fas fa-pen ai-value-edit-icon"></i>
+                    </div>
                   </td>
 
                   <td class="col-logic">
@@ -207,10 +244,24 @@
                     </span>
                   </td>
 
+                  <!-- Commentary — click-to-edit (UI only; no backing column yet). -->
                   <td class="col-commentary" ng-click="$event.stopPropagation()">
-                    <input type="text" class="commentary-input" ng-model="field.commentary"
+                    <input ng-if="c.isEditing(field, 'commentary')" type="text"
+                      id="cellEditor-{{field.sys_id}}-commentary" class="commentary-input"
+                      ng-model="field.commentary"
                       ng-change="c.markFieldAsChanged(field)"
-                      ng-blur="c.autoSaveField(field)" placeholder="Override value">
+                      ng-blur="c.stopEditing(field, 'commentary')"
+                      ng-keydown="$event.keyCode === 13 && c.stopEditing(field, 'commentary')"
+                      title="{{field.commentary}}" placeholder="Override value">
+
+                    <div ng-if="!c.isEditing(field, 'commentary')"
+                      class="ai-value-display editable"
+                      ng-click="c.startEditing(field, 'commentary', $event)" title="Click to edit">
+                      <span class="cell-text" ng-class="{'has-value': field.commentary}">
+                        {{c.truncateText(c.displayText(field, 'commentary'), 18) || '-'}}
+                      </span>
+                      <i class="fas fa-pen ai-value-edit-icon"></i>
+                    </div>
                   </td>
                 </tr>
               </tbody>

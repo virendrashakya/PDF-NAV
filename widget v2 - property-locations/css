@@ -1013,7 +1013,8 @@
 /* Input Fields */
 .override-input,
 .verification-input,
-.commentary-input {
+.commentary-input,
+.ai-value-input {
   width: 100%;
   height: 26px;
   padding: 4px 8px;
@@ -1026,9 +1027,53 @@
   box-sizing: border-box;
 }
 
+/* Editable AI Value carries the accent color that the read-only value span used. */
+.ai-value-input {
+  color: #0078d4;
+  font-weight: 500;
+}
+
+/* ---- Click-to-edit AI Value ----
+ * Default state is formatted text; hovering reveals a focus area + pen icon. */
+.ai-value-display {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: text;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.ai-value-display.editable:hover {
+  background: #f3f9fd;
+  border-color: #cfe4f7;
+}
+
+.ai-value-display .cell-text {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Pen icon is hidden until hover to keep the cell clean. */
+.ai-value-edit-icon {
+  flex: none;
+  font-size: 10px;
+  color: #0078d4;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.ai-value-display.editable:hover .ai-value-edit-icon {
+  opacity: 0.85;
+}
+
 .override-input:focus,
 .verification-input:focus,
-.commentary-input:focus {
+.commentary-input:focus,
+.ai-value-input:focus {
   outline: none;
   border-color: #0078d4;
   box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.1);
@@ -1636,58 +1681,6 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-/* Show only exceptions — iOS-style toggle */
-.exceptions-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-left: auto;
-  cursor: pointer;
-  user-select: none;
-  font-size: 12px;
-  color: #605e5c;
-}
-
-.exceptions-toggle input[type="checkbox"] {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.exceptions-toggle .toggle-track {
-  position: relative;
-  display: inline-block;
-  width: 32px;
-  height: 18px;
-  background: #c8c6c4;
-  border-radius: 9px;
-  transition: background-color 0.2s ease;
-}
-
-.exceptions-toggle .toggle-thumb {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 14px;
-  height: 14px;
-  background: #ffffff;
-  border-radius: 50%;
-  transition: transform 0.2s ease;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-}
-
-.exceptions-toggle input[type="checkbox"]:checked + .toggle-track {
-  background: #0078d4;
-}
-
-.exceptions-toggle input[type="checkbox"]:checked + .toggle-track .toggle-thumb {
-  transform: translateX(14px);
-}
-
-.exceptions-toggle .toggle-label {
-  font-weight: 500;
 }
 
 /* ============================================

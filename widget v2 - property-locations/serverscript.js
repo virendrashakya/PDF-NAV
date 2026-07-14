@@ -18,7 +18,43 @@
       propertyLobDetail: 'x_gegis_uwm_dashbo_property_lob_detail',
       address: 'x_gegis_uwm_dashbo_address',
       topRisk: 'x_gegis_uwm_dashbo_extract_top_risk',
-      attachment: 'sys_attachment'
+      attachment: 'sys_attachment',
+      // Master dictionary: every field that can exist (label, type, section, order, nesting).
+      // Queried in full, independent of any location.
+      coverageFieldMetadata: 'x_gegis_uwm_dashbo_coverage_field_metadata',
+      // Values: one row = the value of one metadata field for one property location.
+      // Joined to metadata by coverage_metadata_id, scoped by location.
+      propertyCoverage: 'x_gegis_uwm_dashbo_property_coverage'
+    },
+    // Master dictionary columns (x_gegis_uwm_dashbo_coverage_field_metadata).
+    coverageMetadataColumns: {
+      fieldName: 'field_name',
+      dataType: 'data_type',              // CURRENCY | STRING | BOOLEAN | NUMBER → picks value column
+      coverageType: 'coverage_type',      // section grouping; display value is the header
+      parentFieldName: 'parent_field_name',
+      sequence: 'sequence'
+    },
+    // Friendly section display names, keyed by the raw coverage_type value.
+    // If a coverage_type isn't listed here, the section falls back to its raw
+    // coverage_type display value. Edit this JSON to rename sections in the UI.
+    sectionLabels: {
+      		'PROPERTY': 'Property Coverage',
+		      'Property': 'Property Coverage',
+		      'BUSINESS_INTERRUPTION': 'Business Interruption Coverage',
+		      'Business Interruption': 'Business Interruption Coverage',
+      // 'FLOOD': 'Flood Coverage',
+      // 'PP': 'Property & Personal',
+      // 'CRIME': 'Crime Coverage'
+    },
+    // Per-location value columns (x_gegis_uwm_dashbo_property_coverage).
+    propertyCoverageColumns: {
+      metadataId: 'coverage_metadata_id', // reference → coverage_field_metadata.sys_id
+      location: 'location',               // reference → property_location.sys_id
+      valueCurrency: 'field_value_currency',
+      valueNumber: 'field_value_number',
+      valueString: 'field_value_string',
+      valueBoolean: 'field_value_boolean',
+      valueFormatted: 'field_value_formatted' // optional pre-formatted display string
     },
     submissionColumns: {
       number: 'number',
@@ -170,6 +206,9 @@
         case 'saveField':
           saveField();
           break;
+        case 'saveFields':
+          saveFields();
+          break;
         default:
           data.error = 'Unknown action: ' + input.action;
       }
@@ -298,11 +337,13 @@
 
     data.propertyLocations = locations;
 
-    // Dummy field sections — same shape for every property location for now.
-    // Replace with a real backend call once the line-items table exists.
+    // Field sections from the coverage_field_metadata master (queried once), joined per location
+    // to its property_coverage value rows. Sections + fields come from metadata; values come from
+    // the coverage row. See CLAUDE.md "Field sections".
+    var fieldDictionary = _loadFieldDictionary();
     data.fieldSectionsByLocation = {};
     locations.forEach(function (loc) {
-      data.fieldSectionsByLocation[loc.sys_id] = _buildDummyFieldSections(loc);
+      data.fieldSectionsByLocation[loc.sys_id] = _buildFieldSections(fieldDictionary, loc.sys_id);
     });
 
     // Dummy versions for the dropdown if/when it is wired in.
@@ -315,49 +356,222 @@
   }
 
   function saveField() {
-    // Dummy save — echoes back success. Wire to a real table once it exists.
-    data.success = true;
-    data.message = 'Saved (dummy)';
-    data.updatedSysId = input.update && input.update.sys_id ? input.update.sys_id : null;
+    // Real save: PATCH the typed value column on the field's coverage row.
+    // The client sends the row target back verbatim in update.meta, stamped onto the field
+    // by _buildFieldSections. Only field_value is persisted (per the values model); other
+    // per-field columns (data_verification, commentary) have no backing column yet.
+    data.success = false;
+    var result = _persistFieldValue(input.update || {});
+    if (result.ok) {
+      data.success = true;
+      data.message = 'Saved';
+      data.updatedSysId = result.sysId;
+    } else {
+      data.error = result.error;
+      data.message = result.error;
+    }
   }
 
-  function _buildDummyFieldSections(location) {
-    var name = location.location_name || 'Unnamed Location';
-    var address = location.address_text || '';
-    var state = location.state || '';
-    var country = location.country || '';
+  function saveFields() {
+    // Bulk version of saveField — the top "Save Changes" button sends every dirty field.
+    data.success = false;
+    data.updatedCount = 0;
+    data.errors = [];
 
-    return {
-      'Location Address': [
-        _f('la-' + location.sys_id + '-name', 'Name', name, 'Extracted from policy document', 0.955),
-        _f('la-' + location.sys_id + '-addr', 'Address', address, 'Identifies from policy schedule', 0.955),
-        _f('la-' + location.sys_id + '-state', 'State', state || 'New York', 'Identifies from address line', 0.955),
-        _f('la-' + location.sys_id + '-country', 'Country', country || 'USA', 'Identifies from address line', 0.955),
-        _f('la-' + location.sys_id + '-pin', 'Pin code', '512334', 'Identifies from postal code', 0.955),
-        _f('la-' + location.sys_id + '-class', 'Class Code', '8810', 'Identifies Code from occupancy', 0.955),
-        _f('la-' + location.sys_id + '-sqft', 'Sq Footage', '25,000', 'Identifies from declarations', 0.955),
-        _f('la-' + location.sys_id + '-occ', 'Occupancy Type', 'Office Building', 'Identifies from occupancy section', 0.955)
-      ],
-      'Property Coverage': [
-        _f('pc-' + location.sys_id + '-bldg', 'Building', '$2,500,000', 'Extracted from coverage schedule', 0.35),
-        _f('pc-' + location.sys_id + '-mach', 'Machinery / Equipment', '$1,200,000', 'Identifies from coverage table', 0.955),
-        _f('pc-' + location.sys_id + '-haz', 'Hazardous Substance Limit', '$1,200,000', 'Identifies from coverage table', 0.955)
-      ]
-    };
+    var updates = input.updates;
+    if (!updates || !Array.isArray(updates) || updates.length === 0) {
+      data.error = 'No updates provided';
+      return;
+    }
+
+    var updatedCount = 0;
+    var errors = [];
+    for (var i = 0; i < updates.length; i++) {
+      var result = _persistFieldValue(updates[i] || {});
+      if (result.ok) {
+        updatedCount++;
+      } else {
+        errors.push((updates[i] && updates[i].sys_id ? updates[i].sys_id + ': ' : '') + result.error);
+      }
+    }
+
+    data.updatedCount = updatedCount;
+    data.errors = errors;
+    data.success = true; // partial success is still success; per-row errors surfaced in data.errors
+    data.message = 'Saved ' + updatedCount + ' record(s)' + (errors.length ? ' with ' + errors.length + ' error(s)' : '');
   }
 
-  function _f(sysId, fieldName, aiValue, logicTransparency, confidence) {
-    return {
-      sys_id: sysId,
-      field_name: fieldName,
-      field_value: aiValue,
-      data_verification: '',
-      commentary: '',
-      logic_transparency: logicTransparency,
-      confidence_indicator: confidence,
-      source: '',
-      attachmentData: null
-    };
+  /**
+   * Persist one field's value onto its coverage row. Shared by saveField / saveFields.
+   * Only updates existing rows — if there is no coverage row (meta.sysId null), it errors
+   * rather than inserting (row creation is controlled elsewhere).
+   * @returns {{ ok: boolean, sysId: string, error: string }}
+   */
+  function _persistFieldValue(update) {
+    var meta = update.meta || {};
+
+    if (!meta.sysId || !meta.valueField) {
+      return { ok: false, sysId: '', error: 'No value record exists for this field at this location; cannot save.' };
+    }
+    if (meta.table !== CONFIG.tables.propertyCoverage) {
+      return { ok: false, sysId: '', error: 'Refusing to save: unexpected target table "' + meta.table + '".' };
+    }
+
+    try {
+      var gr = new GlideRecord(CONFIG.tables.propertyCoverage);
+      if (!gr.get(meta.sysId)) {
+        return { ok: false, sysId: meta.sysId, error: 'Coverage value record not found: ' + meta.sysId };
+      }
+      if (update.hasOwnProperty('field_value')) {
+        var v = (update.field_value === null || update.field_value === undefined) ? '' : update.field_value;
+        gr.setValue(meta.valueField, v);
+      }
+      gr.update();
+      return { ok: true, sysId: meta.sysId, error: '' };
+    } catch (e) {
+      gs.error('PL-NAV: _persistFieldValue failed for ' + meta.sysId + ': ' + e.message);
+      return { ok: false, sysId: meta.sysId, error: 'Error saving field: ' + e.message };
+    }
+  }
+
+  /**
+   * Load the master field dictionary once (all rows, no location filter), ordered by sequence.
+   * Returns an ordered array of field definitions used to build every location's sections.
+   */
+  function _loadFieldDictionary() {
+    var cols = CONFIG.coverageMetadataColumns;
+    var fields = [];
+    var gr = new GlideRecord(CONFIG.tables.coverageFieldMetadata);
+    gr.orderBy(cols.sequence);
+    gr.query();
+    while (gr.next()) {
+      // Raw coverage_type value = stable grouping key; display value = human header.
+      var rawType = _getValue(gr, cols.coverageType);
+      var displayType = gr.getDisplayValue(cols.coverageType) || rawType || 'Uncategorized';
+      fields.push({
+        sys_id: gr.getUniqueValue(),
+        field_name: _getValue(gr, cols.fieldName),
+        data_type: (_getValue(gr, cols.dataType) || '').toUpperCase(),
+        coverage_type_key: rawType || displayType,   // group by this (stable)
+        coverage_type_display: displayType,           // fallback header if no label mapping
+        parent_field_name: _getValue(gr, cols.parentFieldName),
+        sequence: parseInt(_getValue(gr, cols.sequence), 10) || 0
+      });
+    }
+    return fields;
+  }
+
+  /**
+   * Map data_type → the property_coverage column that stores that type's value.
+   */
+  function _valueFieldForType(dataType) {
+    var c = CONFIG.propertyCoverageColumns;
+    switch ((dataType || '').toUpperCase()) {
+      case 'CURRENCY': return c.valueCurrency;
+      case 'NUMBER': return c.valueNumber;
+      case 'BOOLEAN': return c.valueBoolean;
+      case 'STRING':
+      default: return c.valueString;
+    }
+  }
+
+  /**
+   * For one location: query its coverage value rows (indexed by coverage_metadata_id), then
+   * join each metadata field to its value and group into sections.
+   *
+   * Returns an ORDERED ARRAY of sections — [{ key, label, fields: [...] }] — NOT a plain object.
+   * AngularJS ng-repeat over an object sorts keys, so section order would be lost; an array
+   * preserves it. Sections are ordered by the lowest field `sequence` within each (so the
+   * section whose first metadata field comes earliest appears first). `label` is the friendly
+   * name from CONFIG.sectionLabels (falling back to the raw coverage_type display value).
+   */
+  function _buildFieldSections(fieldDictionary, locationSysId) {
+    var cols = CONFIG.propertyCoverageColumns;
+
+    // Values: coverage rows for this location, indexed by the metadata field they belong to.
+    var rowsByMetaId = {};
+    var cvGr = new GlideRecord(CONFIG.tables.propertyCoverage);
+    cvGr.addQuery(cols.location, locationSysId);
+    cvGr.query();
+    while (cvGr.next()) {
+      var metaId = _getValue(cvGr, cols.metadataId);
+      if (!metaId) continue;
+      rowsByMetaId[metaId] = {
+        sys_id: cvGr.getUniqueValue(),
+        currency: _getValue(cvGr, cols.valueCurrency),
+        number: _getValue(cvGr, cols.valueNumber),
+        string: _getValue(cvGr, cols.valueString),
+        boolean: _getValue(cvGr, cols.valueBoolean),
+        formatted: _getValue(cvGr, cols.valueFormatted)
+      };
+    }
+
+    // Join: one node per metadata field, grouped by coverage_type_key. Dictionary is already
+    // sequence-ordered, so pushing in order preserves within-section field ordering. Track each
+    // section's minimum sequence to order the sections themselves.
+    var byKey = {};      // key → section object
+    var order = [];      // section keys in first-seen order (which is sequence order)
+    fieldDictionary.forEach(function (def) {
+      var row = rowsByMetaId[def.sys_id];
+      var valueField = _valueFieldForType(def.data_type);
+
+      var fieldValue = '';
+      if (row) {
+        // Pre-formatted display string wins if present; otherwise the typed column.
+        fieldValue = row.formatted || row[_valueKeyForType(def.data_type)] || '';
+      }
+
+      var key = def.coverage_type_key || 'Uncategorized';
+      if (!byKey[key]) {
+        byKey[key] = {
+          key: key,
+          label: CONFIG.sectionLabels[key] || def.coverage_type_display || key,
+          _minSeq: def.sequence,
+          fields: []
+        };
+        order.push(key);
+      }
+      if (def.sequence < byKey[key]._minSeq) byKey[key]._minSeq = def.sequence;
+
+      byKey[key].fields.push({
+        sys_id: def.sys_id,           // metadata field identity (stable per field)
+        field_name: def.field_name,
+        field_value: fieldValue,
+        data_type: def.data_type,     // CURRENCY | NUMBER | STRING | BOOLEAN — client picks the inline editor + display format
+        data_verification: '',        // no backing column yet — blank
+        commentary: '',               // no backing column yet — blank
+        logic_transparency: '',
+        confidence_indicator: '',
+        source: '',
+        attachmentData: null,
+        // Save target: which coverage row + typed column a value edit PATCHes.
+        // Null sysId ⇒ no value row for this field at this location ⇒ saveField no-ops.
+        meta: {
+          table: CONFIG.tables.propertyCoverage,
+          sysId: row ? row.sys_id : null,
+          valueField: valueField
+        }
+      });
+    });
+
+    // Order sections by their minimum field sequence, then drop the internal _minSeq.
+    var sections = order.map(function (k) { return byKey[k]; });
+    sections.sort(function (a, b) { return a._minSeq - b._minSeq; });
+    sections.forEach(function (s) { delete s._minSeq; });
+    return sections;
+  }
+
+  /**
+   * data_type → the key on the indexed coverage row object built in _buildFieldSections.
+   */
+  function _valueKeyForType(dataType) {
+    switch ((dataType || '').toUpperCase()) {
+      case 'CURRENCY': return 'currency';
+      case 'NUMBER': return 'number';
+      case 'BOOLEAN': return 'boolean';
+      case 'STRING':
+      default: return 'string';
+    }
   }
 
   data.serverTime = new Date().getTime();

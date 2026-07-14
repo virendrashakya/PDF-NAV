@@ -30,15 +30,15 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   c.propertyLocations = [];
   c.selectedPropertyLocationSysId = null;
 
-  // Field sections — keyed by property_location.sys_id, picked from server-returned map
+  // Field sections — keyed by property_location.sys_id. Each value is an ordered ARRAY of
+  // sections [{ key, label, fields: [...] }] (order preserved; ng-repeat over an object would sort).
   c.fieldSectionsByLocation = {};
-  c.groupedFields = {};
+  c.groupedFields = [];
   c.collapsedSections = {};
 
-  // Search + filters
+  // Search
   c.fieldSearch = '';
   c.searchExpanded = false;
-  c.showOnlyExceptions = false; // toggle in toolbar — shows only fields with validationError or low confidence
 
   // PDF
   c.pdfLoaded = false;
@@ -107,10 +107,19 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     return h + ':' + m + ':' + s + ' ' + ampm;
   };
 
-  c.flatten = function (obj) {
+  // Flatten all fields across sections into one array.
+  // c.groupedFields is now an ORDERED ARRAY of sections [{ key, label, fields: [...] }]
+  // (was a { sectionName: [...] } object). Also tolerates the old object shape defensively.
+  c.flatten = function (sections) {
     var out = [];
-    for (var k in obj) {
-      if (obj.hasOwnProperty(k) && Array.isArray(obj[k])) out = out.concat(obj[k]);
+    if (Array.isArray(sections)) {
+      sections.forEach(function (s) {
+        if (s && Array.isArray(s.fields)) out = out.concat(s.fields);
+      });
+    } else if (sections && typeof sections === 'object') {
+      for (var k in sections) {
+        if (sections.hasOwnProperty(k) && Array.isArray(sections[k])) out = out.concat(sections[k]);
+      }
     }
     return out;
   };
@@ -165,8 +174,6 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     c.searchExpanded = false;
   };
 
-  c.toggleExceptionsOnly = function () { c.showOnlyExceptions = !c.showOnlyExceptions; };
-
   c.searchFilter = function (field) {
     if (!c.fieldSearch) return true;
     var s = c.fieldSearch.toLowerCase();
@@ -179,15 +186,10 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     );
   };
 
-  // "Show only exceptions" = fields with low confidence (< 0.75) or a validationError
-  c.shouldShowField = function (field) {
-    if (!c.showOnlyExceptions) return true;
-    if (field.validationError) return true;
-    if (c.hasConfidenceValue(field.confidence_indicator)) {
-      return parseFloat(field.confidence_indicator) < 0.75;
-    }
-    return false;
-  };
+  // No field-level visibility filter (the "Show only exceptions" toggle was removed).
+  // Kept as an always-true hook so the template ng-if binding stays valid and a future
+  // filter can be reintroduced here without touching the template.
+  c.shouldShowField = function (field) { return true; };
 
   c.getVisibleFieldCount = function () {
     var all = c.flatten(c.groupedFields);
@@ -202,28 +204,155 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   c.canEditDataVerification = function () { return true; };
   c.canEditCommentary = function () { return true; };
 
+  // The AI Value cell is editable only when a coverage value row exists for this field at
+  // this location (field.meta.sysId). Without a row there is nothing to PATCH — the server
+  // saveField no-ops — so we render a read-only span instead. Mirrors serverscript saveField.
+  c.canEditValue = function (field) {
+    return !!(field && field.meta && field.meta.sysId && field.meta.valueField);
+  };
+
+  /* ---- Inline click-to-edit (all editable columns) ----
+   * Each editable cell (AI Value, Data Verification, Commentary) shows text by default with a
+   * hover edit affordance. Clicking swaps the display for an editor (input, or Yes/No <select>
+   * for a boolean value). Blur/Enter closes the editor. Only one cell edits at a time, keyed by
+   * `<field.sys_id>:<column>` so the same field's three cells are independent.
+   *
+   * Save behavior differs by column:
+   *   - 'value'        → autosaves to the coverage row (field_value has a backing column)
+   *   - 'verification' → UI-only; no backing column yet, so blur just closes + marks changed
+   *   - 'commentary'   → UI-only; same as verification */
+
+  c.editingCellKey = null;
+
+  function cellKey(field, column) {
+    return field ? field.sys_id + ':' + column : null;
+  }
+
+  c.isEditing = function (field, column) {
+    return !!field && c.editingCellKey === cellKey(field, column);
+  };
+
+  c.isBooleanField = function (field) {
+    return field && (field.data_type || '').toUpperCase() === 'BOOLEAN';
+  };
+
+  // Normalize a stored boolean value to the canonical 'true'/'false' the <select> binds to.
+  c.normalizeBoolean = function (v) {
+    var s = ('' + (v == null ? '' : v)).toLowerCase().trim();
+    if (s === 'true' || s === '1' || s === 'yes') return 'true';
+    if (s === 'false' || s === '0' || s === 'no') return 'false';
+    return ''; // unset / unknown
+  };
+
+  c.isCurrencyField = function (field) {
+    return field && (field.data_type || '').toUpperCase() === 'CURRENCY';
+  };
+
+  // Format a currency value for DISPLAY only: prepend '$' and add thousands separators.
+  // The editor still binds the raw number, so this never touches what's stored/saved.
+  c.formatCurrency = function (v) {
+    var raw = ('' + v).replace(/[$,\s]/g, '');
+    if (raw === '' || isNaN(raw)) return '' + v; // not numeric — show as-is
+    var n = parseFloat(raw);
+    var parts = n.toFixed(n % 1 === 0 ? 0 : 2).split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return '$' + parts.join('.');
+  };
+
+  // Text shown when a cell is NOT being edited.
+  // The AI Value column ('value') formats booleans as Yes/No and currency with a $ sign;
+  // other columns show raw text.
+  c.displayText = function (field, column) {
+    if (!field) return '';
+    var v = field[c.columnModel(column)];
+    if (v === '' || v === null || v === undefined) return '';
+    if (column === 'value') {
+      if (c.isBooleanField(field)) {
+        var b = c.normalizeBoolean(v);
+        return b === 'true' ? 'Yes' : (b === 'false' ? 'No' : '');
+      }
+      if (c.isCurrencyField(field)) return c.formatCurrency(v);
+    }
+    return '' + v;
+  };
+
+  // The field-object property backing each column.
+  c.columnModel = function (column) {
+    if (column === 'value') return 'field_value';
+    if (column === 'verification') return 'data_verification';
+    if (column === 'commentary') return 'commentary';
+    return column;
+  };
+
+  // Whether a given column is editable for this field.
+  // 'value' needs a coverage row; verification/commentary are always UI-editable.
+  c.canEditColumn = function (field, column) {
+    if (column === 'value') return c.canEditValue(field);
+    return !!field; // verification / commentary — UI only, no persistence gate
+  };
+
+  c.startEditing = function (field, column, $event) {
+    if ($event) $event.stopPropagation();
+    if (!c.canEditColumn(field, column)) return;
+    // Normalize boolean value into the select's bound form on open.
+    if (column === 'value' && c.isBooleanField(field)) {
+      field.field_value = c.normalizeBoolean(field.field_value);
+    }
+    c.editingCellKey = cellKey(field, column);
+    $timeout(function () {
+      var el = document.getElementById('cellEditor-' + field.sys_id + '-' + column);
+      if (el) { el.focus(); if (el.select) el.select(); }
+    }, 0);
+  };
+
+  // Blur/Enter closes the editor. 'value' autosaves to the coverage row; the other two are
+  // UI-only (no backing column) so we just mark changed and close.
+  c.stopEditing = function (field, column) {
+    if (field) {
+      c.markFieldAsChanged(field);
+      if (column === 'value') c.autoSaveField(field);
+    }
+    c.editingCellKey = null;
+  };
+
+  /* Back-compat shims for the AI Value column (kept so existing template bindings work). */
+  c.isEditingValue = function (field) { return c.isEditing(field, 'value'); };
+  c.displayValue = function (field) { return c.displayText(field, 'value'); };
+  c.startEditingValue = function (field, $event) { return c.startEditing(field, 'value', $event); };
+  c.stopEditingValue = function (field) { return c.stopEditing(field, 'value'); };
+
   c.markFieldAsChanged = function (field) {
     if (!field || !field.sys_id) return;
     c.changedFields[field.sys_id] = true;
     c.hasChanges = true;
   };
 
+  // Build the save payload for one field. Only field_value is persisted (values model);
+  // meta carries the coverage-row PATCH target the server needs.
+  function buildFieldUpdate(field) {
+    return {
+      sys_id: field.sys_id,
+      field_value: field.field_value || '',
+      meta: field.meta || null
+    };
+  }
+
   c.autoSaveField = function (field) {
     if (!field || !field.sys_id) return;
     if (!c.changedFields[field.sys_id]) return;
-
-    var update = {
-      sys_id: field.sys_id,
-      data_verification: field.data_verification || '',
-      commentary: field.commentary || ''
-    };
+    // No coverage row ⇒ nothing to save. Clear the dirty flag so it doesn't linger.
+    if (!c.canEditValue(field)) {
+      delete c.changedFields[field.sys_id];
+      c.hasChanges = Object.keys(c.changedFields).length > 0;
+      return;
+    }
 
     c.saveStatus = 'saving';
     c.saveStatusMessage = 'Saving...';
 
     c.server.get({
       action: 'saveField',
-      update: update,
+      update: buildFieldUpdate(field),
       propertyLocationSysId: c.selectedPropertyLocationSysId
     }).then(function (response) {
       if (response.data.success) {
@@ -260,12 +389,59 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   };
 
   c.onSaveChanges = function () {
-    // TODO: implement Save Changes action — bulk-save all currently dirty fields.
-    //       Today each field already autosaves on blur (c.autoSaveField), so this button
-    //       might be redundant in this widget. Confirm with product whether this should:
-    //       (a) flush any in-flight autosaves, (b) save fields edited in the top PL summary
-    //       table, or (c) be removed entirely.
-    c.showInfo('Save Changes — not yet implemented');
+    // Bulk-save every currently dirty field in one round trip. Fields also autosave on blur;
+    // this flushes anything still marked changed (e.g. edited but not blurred). Only fields
+    // with a coverage value row are persistable — others are dropped (nothing to PATCH).
+    var dirtySysIds = Object.keys(c.changedFields);
+    if (!dirtySysIds.length) {
+      c.showInfo('No changes to save');
+      return;
+    }
+
+    var allFields = c.flatten(c.groupedFields);
+    var updates = [];
+    allFields.forEach(function (field) {
+      if (c.changedFields[field.sys_id] && c.canEditValue(field)) {
+        updates.push(buildFieldUpdate(field));
+      }
+    });
+
+    if (!updates.length) {
+      // Everything dirty was unsavable (no coverage row). Clear flags and inform.
+      c.changedFields = {};
+      c.hasChanges = false;
+      c.showWarning('No editable values to save for the changed fields');
+      return;
+    }
+
+    c.saveStatus = 'saving';
+    c.saveStatusMessage = 'Saving ' + updates.length + ' change(s)...';
+
+    c.server.get({
+      action: 'saveFields',
+      updates: updates,
+      propertyLocationSysId: c.selectedPropertyLocationSysId
+    }).then(function (response) {
+      var d = response.data || {};
+      if (d.success) {
+        // Clear the dirty flags for the fields that were sent.
+        updates.forEach(function (u) { delete c.changedFields[u.sys_id]; });
+        c.hasChanges = Object.keys(c.changedFields).length > 0;
+        c.saveStatus = 'saved';
+        c.lastSavedTime = new Date();
+        c.saveStatusMessage = 'Saved at ' + c.formatTime(c.lastSavedTime);
+        c.showSuccess('Saved ' + (d.updatedCount != null ? d.updatedCount : updates.length) + ' change(s)');
+        $timeout(function () { if (c.saveStatus === 'saved') c.saveStatus = ''; }, 3000);
+      } else {
+        c.saveStatus = 'error';
+        c.saveStatusMessage = 'Save failed: ' + (d.error || 'Unknown error');
+        c.showError('Save failed: ' + (d.error || 'Unknown error'));
+      }
+    }).catch(function () {
+      c.saveStatus = 'error';
+      c.saveStatusMessage = 'Save failed';
+      c.showError('Save failed');
+    });
   };
 
   c.onReRunGeocoding = function () {
@@ -291,11 +467,11 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     c.activeField = null;
     c.activeFieldCoordIndex = 0;
 
-    // Load the dummy sections for this location
-    var sections = c.fieldSectionsByLocation[loc.sys_id] || {};
+    // Sections for this location — an ordered array [{ key, label, fields }].
+    var sections = c.fieldSectionsByLocation[loc.sys_id] || [];
     c.groupedFields = sections;
     c.collapsedSections = {};
-    Object.keys(sections).forEach(function (k) { c.collapsedSections[k] = false; });
+    sections.forEach(function (s) { c.collapsedSections[s.key] = false; });
 
     // Load the PDF for this location, if any
     if (loc.attachmentData && loc.attachmentData.file_url) {
