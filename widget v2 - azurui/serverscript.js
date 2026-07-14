@@ -526,6 +526,15 @@
 
         // DEFAULT VALUES
         var sectionName = _getValue(lineItemGr, CONFIG.lineItemColumns.sectionNameFinal) || 'Uncategorized';
+
+        // Exclude Location line items: skip any whose section_name_final STARTS WITH 'Locations'.
+        // Strict prefix (case-sensitive) — done in JS because ServiceNow's NOT LIKE is a
+        // "does not contain" match, which would over-exclude sections containing 'Locations'
+        // mid-string. indexOf(...) === 0 is exact starts-with.
+        if (sectionName.indexOf('Locations') === 0) {
+          continue;
+        }
+
         var fieldName = _getValue(lineItemGr, CONFIG.lineItemColumns.fieldNameFinal) || 'Unknown';
         var orderNumeric = _parseOrder(_getValue(lineItemGr, CONFIG.lineItemColumns.sequenceFinal));
 
