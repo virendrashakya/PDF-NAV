@@ -69,7 +69,8 @@
           <div class="header-actions" ng-hide="c.sidebarCollapsed">
             <button class="btn-complete" ng-class="c.completeBtn.css"
               ng-click="c.markAsComplete()"
-              ng-disabled="c.isLoading || c.completeBtn.disabled">
+              ng-disabled="c.isLoading || c.completeBtn.disabled || c.hasValidationErrors()"
+              title="{{c.hasValidationErrors() ? 'Commentary is required where QA Override is set' : ''}}">
               <span class="btn-complete-content">
                 <!-- Bouncing dots for progress -->
                 <span class="btn-progress-dots" ng-if="c.completeBtn.showDots">
@@ -325,6 +326,7 @@
                       <th class="col-field-name">Field Name</th>
                       <th class="col-ai-value">AI Value</th>
                       <th class="col-data-verification">Data Verification</th>
+                      <th class="col-qa-override">QA Override</th>
                       <th class="col-logic">Logic Transparency</th>
                       <th class="col-commentary">Commentary</th>
                     </tr>
@@ -378,6 +380,33 @@
                         </span>
                       </td>
 
+                      <!-- QA Override — click-to-edit when submission status permits; else read-only text.
+                           Setting a value makes Commentary mandatory (see markAsComplete / autoSaveField). -->
+                      <td class="col-qa-override" ng-click="$event.stopPropagation()">
+                        <input ng-if="c.isEditing(field, 'qaOverride')" type="text"
+                          id="cellEditor-{{field.sys_id}}-qaOverride" class="override-input"
+                          ng-model="field.qa_override_value"
+                          ng-change="c.markFieldAsChanged(field)"
+                          ng-blur="c.stopEditing(field, 'qaOverride')"
+                          ng-keydown="$event.keyCode === 13 && c.stopEditing(field, 'qaOverride')"
+                          title="{{field.qa_override_value}}" placeholder="Override value">
+
+                        <div ng-if="!c.isEditing(field, 'qaOverride') && c.canEditColumn(field, 'qaOverride')"
+                          class="ai-value-display editable"
+                          ng-click="c.startEditing(field, 'qaOverride', $event)" title="Click to edit">
+                          <span class="cell-text" ng-class="{'has-value': field.qa_override_value}">
+                            {{c.truncateText(c.displayText(field, 'qaOverride'), 18) || '-'}}
+                          </span>
+                          <i class="fas fa-pen ai-value-edit-icon"></i>
+                        </div>
+
+                        <span ng-if="!c.isEditing(field, 'qaOverride') && !c.canEditColumn(field, 'qaOverride')"
+                          class="cell-text" ng-class="{'has-value': field.qa_override_value}"
+                          title="{{c.displayText(field, 'qaOverride')}}">
+                          {{c.truncateText(c.displayText(field, 'qaOverride'), 18) || '-'}}
+                        </span>
+                      </td>
+
                       <td class="col-logic">
                         <span class="cell-text" ng-class="{'has-value': field.logic_transparency}"
                           title="{{field.logic_transparency}}">
@@ -385,18 +414,21 @@
                         </span>
                       </td>
 
-                      <!-- Commentary — click-to-edit when submission status permits; else read-only text. -->
+                      <!-- Commentary — click-to-edit when submission status permits; else read-only text.
+                           Mandatory (red highlight) when QA Override is set: field.commentaryRequired. -->
                       <td class="col-commentary" ng-click="$event.stopPropagation()">
                         <input ng-if="c.isEditing(field, 'commentary')" type="text"
                           id="cellEditor-{{field.sys_id}}-commentary" class="commentary-input"
+                          ng-class="{'validation-error': field.commentaryRequired}"
                           ng-model="field.commentary"
-                          ng-change="c.markFieldAsChanged(field)"
+                          ng-change="c.markFieldAsChanged(field); field.commentaryRequired = false;"
                           ng-blur="c.stopEditing(field, 'commentary')"
                           ng-keydown="$event.keyCode === 13 && c.stopEditing(field, 'commentary')"
-                          title="{{field.commentary}}" placeholder="Override value">
+                          title="{{field.commentary}}" placeholder="Required for QA Override">
 
                         <div ng-if="!c.isEditing(field, 'commentary') && c.canEditColumn(field, 'commentary')"
                           class="ai-value-display editable"
+                          ng-class="{'commentary-required': field.commentaryRequired}"
                           ng-click="c.startEditing(field, 'commentary', $event)" title="Click to edit">
                           <span class="cell-text" ng-class="{'has-value': field.commentary}">
                             {{c.truncateText(c.displayText(field, 'commentary'), 18) || '-'}}

@@ -45,6 +45,7 @@
       modelObject: 'model_object_sys_id', // reference → property_location.sys_id (audit scope)
       source: 'source',
       fieldValue: 'field_value',
+      qaOverrideValue: 'qa_override_value',
       dataVerification: 'data_verification',
       commentary: 'commentary',
       reason: 'reason',                   // surfaced to client as logic_transparency
@@ -96,11 +97,14 @@
     },
     // ============================================
     // AUDIT EDITABLE STATUS CONFIGURATION (mirrors widget v2 - azurui)
-    // Audit Data's Data Verification (and, gated off it, Commentary) become editable ONLY when
-    // submission_status_choice is in this list; otherwise they render as read-only text.
-    // No QA Override column here, so Commentary is gated purely off Data Verification.
+    // Audit Data columns become editable ONLY when submission_status_choice is in the relevant
+    // list; otherwise they render as read-only text.
+    //  - Data Verification: dataVerificationEditStatuses
+    //  - QA Override Value: qaOverrideEditStatuses
+    //  - Commentary: editable when EITHER Data Verification OR QA Override is editable
     // ============================================
     dataVerificationEditStatuses: ['CHECK_FOR_DUPLICATES', 'CONFIRM_DATA_REVIEW', 'INSURED_VERIFICATION', 'DUPLICATE_CHECK', 'SANCTIONS_CHECK', 'DATA_EXTRACT_REVIEW'],
+    qaOverrideEditStatuses: ['QUALITY_ASSURANCE'],
     propertyLocationColumns: {
       version: 'version',
       locationName: 'location_name',
@@ -301,8 +305,11 @@
     // Audit edit gate: current submission status + the statuses in which Audit DV/Commentary edit.
     data.submissionStatusChoice = _getValue(submissionGr, CONFIG.submissionColumns.statusChoice);
     data.config = {
-      dataVerificationEditStatuses: CONFIG.dataVerificationEditStatuses
+      dataVerificationEditStatuses: CONFIG.dataVerificationEditStatuses,
+      qaOverrideEditStatuses: CONFIG.qaOverrideEditStatuses
     };
+    // Resolved data_extraction sys_id — exposed for the client debug links (Classic UI + lineitem filter).
+    data.dataExtractSysId = dataExtractSysId;
 
     var plGr = new GlideRecord(CONFIG.tables.propertyLocation);
 
@@ -591,6 +598,9 @@
       if (update.hasOwnProperty('field_value')) {
         gr.setValue(cols.fieldValue, _coerceValue(update.field_value));
       }
+      if (update.hasOwnProperty('qa_override_value')) {
+        gr.setValue(cols.qaOverrideValue, _coerceValue(update.qa_override_value));
+      }
       if (update.hasOwnProperty('data_verification')) {
         gr.setValue(cols.dataVerification, _coerceValue(update.data_verification));
       }
@@ -611,7 +621,10 @@
 
   /**
    * Server-side enforcement of the Audit edit gate (defense-in-depth; the client also hides the
-   * editors). Reads the submission status fresh and checks it against dataVerificationEditStatuses.
+   * editors). Reads the submission status fresh and allows the save when the status permits
+   * editing ANY audit column — i.e. status ∈ dataVerificationEditStatuses OR ∈ qaOverrideEditStatuses
+   * (Commentary is editable whenever either of those is). The per-column write in _persistAuditField
+   * still only touches the columns present on the update.
    * Resolves the submission from input.submissionSysId (sent by the client with every audit save).
    * Fails safe: if the submission can't be resolved, editing is DENIED.
    */
@@ -621,7 +634,8 @@
     var gr = new GlideRecord(CONFIG.tables.submission);
     if (!gr.get(submissionSysId)) return false;
     var status = _getValue(gr, CONFIG.submissionColumns.statusChoice);
-    return CONFIG.dataVerificationEditStatuses.indexOf(status) !== -1;
+    return CONFIG.dataVerificationEditStatuses.indexOf(status) !== -1 ||
+      CONFIG.qaOverrideEditStatuses.indexOf(status) !== -1;
   }
 
   /**
@@ -796,6 +810,7 @@
         field_name: _getValue(gr, cols.fieldNameFinal) || 'Unknown',
         field_value: _getValue(gr, cols.fieldValue),
         data_type: 'STRING',         // line items have no typed value column — plain text editor
+        qa_override_value: _getValue(gr, cols.qaOverrideValue),
         data_verification: _getValue(gr, cols.dataVerification),
         commentary: _getValue(gr, cols.commentary),
         logic_transparency: _getValue(gr, cols.reason),

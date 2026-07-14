@@ -44,7 +44,8 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   c.auditCollapsedSections = {};
 
   // Top-level area collapse state (independent of the inner section collapse).
-  c.modelDataCollapsed = false;
+  // Model Data starts collapsed by default; Audit Data starts expanded.
+  c.modelDataCollapsed = true;
   c.auditDataCollapsed = false;
   c.toggleModelData = function () { c.modelDataCollapsed = !c.modelDataCollapsed; };
   c.toggleAuditData = function () { c.auditDataCollapsed = !c.auditDataCollapsed; };
@@ -56,6 +57,34 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   c.isAuditField = function (field) {
     return !!(field && field.meta && field.meta.table === AUDIT_TABLE);
   };
+
+  /* ============================================
+   * Classic UI links (flip DEBUG to enable/disable)
+   * ============================================
+   * When DEBUG is true, selecting a property location logs a grouped block of Classic UI
+   * links (submission, data_extraction, property_location) plus a filtered line-item list
+   * link (model_object_sys_id = the selected PL). Set DEBUG = false to silence.
+   */
+  var DEBUG = true;
+  c.dataExtractSysId = ''; // resolved server-side, populated from the fetch payload
+
+  function _classicRecordLink(table, sysId) {
+    return sysId ? (table + '.do?sys_id=' + sysId) : '(none)';
+  }
+  function _classicListLink(table, query) {
+    return table + '_list.do?sysparm_query=' + query;
+  }
+  function _logDebugLinks(locationSysId) {
+    if (!DEBUG || !console || !console.log) return;
+    var grp = (console.group ? console.group : console.log).bind(console);
+    var grpEnd = (console.groupEnd || function () {}).bind(console);
+    grp('Classic UI links');
+    console.log('Submission       :', _classicRecordLink('x_gegis_uwm_dashbo_submission', c.submissionSysId));
+    console.log('Data Extraction  :', _classicRecordLink('x_gegis_uwm_dashbo_data_extraction', c.dataExtractSysId));
+    console.log('Property Location:', _classicRecordLink('x_gegis_uwm_dashbo_property_location', locationSysId));
+    console.log('Line Items (PL)  :', _classicListLink('x_gegis_uwm_dashbo_data_extraction_lineitem', 'model_object_sys_id=' + locationSysId));
+    grpEnd();
+  }
 
   // Search
   c.fieldSearch = '';
@@ -258,14 +287,19 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
    * ============================================ */
 
   // Submission-status edit gate (Audit Data only — mirrors widget v2 - azurui).
-  // Server sends the current status + the editable-status list; DV editable when status ∈ list,
-  // Commentary editable when DV is (no QA Override column here). Model Data is unaffected.
+  // Server sends the current status + the editable-status lists. DV editable when status ∈ DV list;
+  // QA Override editable when status ∈ QA list; Commentary editable when EITHER is. Model Data
+  // is unaffected (its DV/Commentary are always UI-editable; it has no QA Override column).
   c.submissionStatusChoice = '';
   c.dataVerificationEditStatuses = ['CONFIRM_DATA_REVIEW']; // default, overridden by server config
+  c.qaOverrideEditStatuses = ['QUALITY_ASSURANCE'];          // default, overridden by server config
   c.canEditDataVerification = function () {
     return c.dataVerificationEditStatuses.indexOf(c.submissionStatusChoice) !== -1;
   };
-  c.canEditCommentary = function () { return c.canEditDataVerification(); };
+  c.canEditQaOverride = function () {
+    return c.qaOverrideEditStatuses.indexOf(c.submissionStatusChoice) !== -1;
+  };
+  c.canEditCommentary = function () { return c.canEditDataVerification() || c.canEditQaOverride(); };
 
   // The AI Value cell is editable only when a coverage value row exists for this field at
   // this location (field.meta.sysId). Without a row there is nothing to PATCH — the server
@@ -342,6 +376,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   // The field-object property backing each column.
   c.columnModel = function (column) {
     if (column === 'value') return 'field_value';
+    if (column === 'qaOverride') return 'qa_override_value';
     if (column === 'verification') return 'data_verification';
     if (column === 'commentary') return 'commentary';
     return column;
@@ -349,18 +384,20 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
 
   // Whether a given column is editable for this field.
   //  - 'value': Model Data needs a coverage row; Audit Data AI Value is READ-ONLY (never editable).
-  //  - 'verification' / 'commentary': Audit Data is gated by submission status (canEdit*);
-  //    Model Data keeps these always-UI-editable (no backing column, no status gate).
+  //  - 'qaOverride' / 'verification' / 'commentary': Audit Data is gated by submission status
+  //    (canEdit*); Model Data keeps verification/commentary always-UI-editable (Model has no
+  //    QA Override column, so 'qaOverride' only ever applies to Audit fields).
   c.canEditColumn = function (field, column) {
     if (!field) return false;
     if (column === 'value') {
       return c.isAuditField(field) ? false : c.canEditValue(field);
     }
-    // verification / commentary
     if (c.isAuditField(field)) {
-      return column === 'commentary' ? c.canEditCommentary() : c.canEditDataVerification();
+      if (column === 'qaOverride') return c.canEditQaOverride();
+      if (column === 'commentary') return c.canEditCommentary();
+      return c.canEditDataVerification(); // 'verification'
     }
-    return true; // Model Data — UI-only, always editable
+    return true; // Model Data — verification/commentary UI-only, always editable
   };
 
   c.startEditing = function (field, column, $event) {
@@ -379,12 +416,12 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
 
   // Blur/Enter closes the editor.
   // Model Data: only 'value' autosaves (coverage row); verification/commentary are UI-only.
-  // Audit Data: AI Value is READ-ONLY (never edited); Data Verification + Commentary autosave.
+  // Audit Data: AI Value is READ-ONLY (never edited); QA Override + Data Verification + Commentary autosave.
   c.stopEditing = function (field, column) {
     if (field) {
       c.markFieldAsChanged(field);
       if (c.isAuditField(field)) {
-        if (column === 'verification' || column === 'commentary') {
+        if (column === 'qaOverride' || column === 'verification' || column === 'commentary') {
           c.autoSaveField(field);
         }
       } else if (column === 'value') {
@@ -408,12 +445,13 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
 
   // Build the save payload for one field. `meta` carries the PATCH target the server needs.
   // Model Data: only field_value is persisted (values model).
-  // Audit Data: AI Value is read-only — persist only data_verification + commentary
+  // Audit Data: AI Value is read-only — persist qa_override_value + data_verification + commentary
   //             (field_value is intentionally omitted so the server never touches it).
   function buildFieldUpdate(field) {
     if (c.isAuditField(field)) {
       return {
         sys_id: field.sys_id,
+        qa_override_value: field.qa_override_value || '',
         data_verification: field.data_verification || '',
         commentary: field.commentary || '',
         meta: field.meta || null
@@ -426,11 +464,38 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     };
   }
 
+  /**
+   * QA Override → Commentary rule (Audit only, mirrors widget v2 - azurui):
+   * if qa_override_value is set, commentary is mandatory. Sets field.commentaryRequired for the
+   * red highlight and returns false when the rule is violated.
+   */
+  c.validateCommentary = function (field) {
+    if (!field) return true;
+    var hasQa = field.qa_override_value && ('' + field.qa_override_value).trim() !== '';
+    var hasComment = field.commentary && ('' + field.commentary).trim() !== '';
+    if (hasQa && !hasComment) {
+      field.commentaryRequired = true;
+      return false;
+    }
+    field.commentaryRequired = false;
+    return true;
+  };
+
   c.autoSaveField = function (field) {
     if (!field || !field.sys_id) return;
     if (!c.changedFields[field.sys_id]) return;
 
     var isAudit = c.isAuditField(field);
+
+    // Audit QA Override → Commentary gate: block the save (and drop the change) when QA Override
+    // has a value but Commentary is empty. Mirrors widget v2 - azurui.
+    if (isAudit && !c.validateCommentary(field)) {
+      c.saveStatus = 'error';
+      c.saveStatusMessage = 'Commentary is required when filling QA Override Value';
+      $timeout(function () { if (c.saveStatus === 'error') c.saveStatus = ''; }, 4000);
+      return;
+    }
+
     // Model Data only: no coverage row ⇒ nothing to save. Clear the dirty flag so it doesn't linger.
     // Audit fields always have a line item row (meta.sysId), so they are always savable.
     if (!isAudit && !c.canEditValue(field)) {
@@ -472,10 +537,48 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
    * locationSysId from the URL and surfaces async progress via c.completeBtn.
    * ============================================ */
 
+  // Pure getter (no mutation — safe for ng-disabled) — true when any Audit field has QA Override
+  // populated with empty Commentary. Wired into the Complete button so it can't finalize invalid data.
+  c.hasValidationErrors = function () {
+    var audit = c.flatten(c.auditGroupedFields);
+    for (var i = 0; i < audit.length; i++) {
+      var f = audit[i];
+      var hasQa = f.qa_override_value && ('' + f.qa_override_value).trim() !== '';
+      var hasComment = f.commentary && ('' + f.commentary).trim() !== '';
+      if (hasQa && !hasComment) return true;
+    }
+    return false;
+  };
+
+  // Click-time scan: flags Audit fields with QA Override but no Commentary (sets commentaryRequired
+  // for the red highlight). Returns the offenders so markAsComplete can abort + point the user at them.
+  c.findFieldsMissingCommentary = function () {
+    var invalid = [];
+    c.flatten(c.auditGroupedFields).forEach(function (field) {
+      var hasQa = field.qa_override_value && ('' + field.qa_override_value).trim() !== '';
+      var hasComment = field.commentary && ('' + field.commentary).trim() !== '';
+      if (hasQa && !hasComment) {
+        field.commentaryRequired = true;
+        invalid.push(field);
+      }
+    });
+    return invalid;
+  };
+
   c.markAsComplete = function () {
     if (c.completeBtn.state === 'progress' || c.completeBtn.state === 'done') return;
     if (!locationSysId) {
       c.showError('No location sys_id in the URL — cannot complete.');
+      return;
+    }
+
+    // QA Override → Commentary gate (defense-in-depth alongside ng-disabled): abort if any
+    // Audit field has QA Override without Commentary, and point the user at the first offender.
+    var missing = c.findFieldsMissingCommentary();
+    if (missing.length > 0) {
+      var preview = missing.slice(0, 3).map(function (f) { return f.field_name || '(unnamed)'; }).join(', ');
+      var more = missing.length > 3 ? ', +' + (missing.length - 3) + ' more' : '';
+      c.showError('Commentary is required when filling QA Override Value. Missing on: ' + preview + more);
       return;
     }
 
@@ -534,6 +637,9 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     c.auditGroupedFields = auditSections;
     c.auditCollapsedSections = {};
     auditSections.forEach(function (s) { c.auditCollapsedSections[s.key] = false; });
+
+    // Log Classic UI links for this PL's records (no-op when DEBUG is false).
+    _logDebugLinks(loc.sys_id);
 
     // Load the PDF for this location, if any
     if (loc.attachmentData && loc.attachmentData.file_url) {
@@ -690,6 +796,10 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
       if (d.config && d.config.dataVerificationEditStatuses) {
         c.dataVerificationEditStatuses = d.config.dataVerificationEditStatuses;
       }
+      if (d.config && d.config.qaOverrideEditStatuses) {
+        c.qaOverrideEditStatuses = d.config.qaOverrideEditStatuses;
+      }
+      c.dataExtractSysId = d.dataExtractSysId || ''; // for the Classic UI links log
 
       if (c.propertyLocations.length > 0) {
         c.selectPropertyLocation(c.propertyLocations[0]);
