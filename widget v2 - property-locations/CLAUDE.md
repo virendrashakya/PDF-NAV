@@ -110,6 +110,7 @@ Audit build (`_buildAuditSections(dataExtractSysId, locationSysId)`):
 - **Server enforces it too** (defense-in-depth): `_isAuditEditAllowed()` reads the submission status fresh and rejects `saveAuditField`/`saveAuditFields` unless the status ∈ (DV list ∪ QA list). The client sends `submissionSysId` with every audit save so the server can resolve status. Fails safe (denies) if the submission can't be resolved.
 
 **QA Override → Commentary rule (Audit only):** setting `qa_override_value` makes `commentary` mandatory. `autoSaveField` blocks the save (drops the change, flags `commentaryRequired`) via `validateCommentary`; `c.hasValidationErrors()` disables Complete; `markAsComplete` aborts via `findFieldsMissingCommentary()`.
+  - **Required-Commentary is auto-surfaced** (cells are click-to-edit, so a flagged-but-unopened Commentary would otherwise be invisible). `c.openCellForEdit(field, column)` un-collapses the Audit area + the field's section, then opens/focuses/scrolls the cell. It fires (a) in `autoSaveField` when the gate blocks (hand-off from QA Override → Commentary on that row), and (b) in `markAsComplete` on the first offender. **`stopEditing` nulls `editingCellKey` BEFORE calling `autoSaveField`** so the hand-off's re-open isn't wiped.
 
 **Dependency:** `model_object_sys_id` must exist and be populated on the line item table (holds the property_location sys_id). If it's absent/empty, the Audit Data area renders empty (the `.field-area--audit` block is `ng-if`'d on `c.auditGroupedFields.length`, so it hides entirely).
 

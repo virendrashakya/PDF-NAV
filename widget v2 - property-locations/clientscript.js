@@ -414,10 +414,39 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     }, 0);
   };
 
+  // Programmatically open a cell for editing and bring it fully into view. Unlike startEditing
+  // (a click handler), this first un-collapses the Audit area + the field's section so the cell
+  // isn't hidden, then opens/focuses/scrolls it. Used to surface a required Commentary cell that
+  // the user hasn't clicked into (QA Override → Commentary gate). Audit fields only.
+  c.openCellForEdit = function (field, column) {
+    if (!field || !c.canEditColumn(field, column)) return;
+    // Reveal: expand the Audit area and the section containing this field.
+    c.auditDataCollapsed = false;
+    for (var i = 0; i < c.auditGroupedFields.length; i++) {
+      var section = c.auditGroupedFields[i];
+      if (section && section.fields && section.fields.indexOf(field) !== -1) {
+        c.auditCollapsedSections[section.key] = false;
+        break;
+      }
+    }
+    c.editingCellKey = cellKey(field, column);
+    $timeout(function () {
+      var el = document.getElementById('cellEditor-' + field.sys_id + '-' + column);
+      if (el) {
+        if (el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        el.focus();
+        if (el.select) el.select();
+      }
+    }, 0);
+  };
+
   // Blur/Enter closes the editor.
   // Model Data: only 'value' autosaves (coverage row); verification/commentary are UI-only.
   // Audit Data: AI Value is READ-ONLY (never edited); QA Override + Data Verification + Commentary autosave.
   c.stopEditing = function (field, column) {
+    // Close the current editor FIRST, then autosave. autoSaveField may re-open a different cell
+    // (the QA Override → Commentary hand-off via openCellForEdit); nulling after that would wipe it.
+    c.editingCellKey = null;
     if (field) {
       c.markFieldAsChanged(field);
       if (c.isAuditField(field)) {
@@ -428,7 +457,6 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
         c.autoSaveField(field);
       }
     }
-    c.editingCellKey = null;
   };
 
   /* Back-compat shims for the AI Value column (kept so existing template bindings work). */
@@ -488,11 +516,13 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     var isAudit = c.isAuditField(field);
 
     // Audit QA Override → Commentary gate: block the save (and drop the change) when QA Override
-    // has a value but Commentary is empty. Mirrors widget v2 - azurui.
+    // has a value but Commentary is empty. Mirrors widget v2 - azurui. Surface the required
+    // Commentary cell (open + focus it) so the user isn't left staring at a red click-to-edit cell.
     if (isAudit && !c.validateCommentary(field)) {
       c.saveStatus = 'error';
       c.saveStatusMessage = 'Commentary is required when filling QA Override Value';
       $timeout(function () { if (c.saveStatus === 'error') c.saveStatus = ''; }, 4000);
+      c.openCellForEdit(field, 'commentary');
       return;
     }
 
@@ -579,6 +609,8 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
       var preview = missing.slice(0, 3).map(function (f) { return f.field_name || '(unnamed)'; }).join(', ');
       var more = missing.length > 3 ? ', +' + (missing.length - 3) + ' more' : '';
       c.showError('Commentary is required when filling QA Override Value. Missing on: ' + preview + more);
+      // Open + focus + scroll the first offender's Commentary cell so the user can fix it directly.
+      c.openCellForEdit(missing[0], 'commentary');
       return;
     }
 
