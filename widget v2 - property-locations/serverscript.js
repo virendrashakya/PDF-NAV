@@ -52,7 +52,8 @@
       confidenceIndicator: 'confidence_indicator',
       sectionNameFinal: 'section_name_final', // grouping key
       sequenceFinal: 'sequence_final',        // sort
-      fieldNameFinal: 'field_name_final'
+      fieldNameFinal: 'field_name_final',
+      documentAttachment: 'documentname_attachment_sysid' // per-line-item source doc (e.g. Excel) attachment sys_id
     },
     // Master dictionary columns (x_gegis_uwm_dashbo_coverage_field_metadata).
     coverageMetadataColumns: {
@@ -129,7 +130,13 @@
       total: 'total'
     },
     attachment: {
-      supportedContentTypes: ['application/pdf', 'application/octet-stream']
+      supportedContentTypes: [
+        'application/pdf',
+        'application/octet-stream',
+        // Excel — per-line-item source documents rendered via SheetJS on the client.
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+        'application/vnd.ms-excel'                                           // .xls (legacy)
+      ]
     },
     limits: {
       maxPropertyLocations: 200
@@ -805,6 +812,12 @@
       if (seq < byKey[sectionKey]._minSeq) byKey[sectionKey]._minSeq = seq;
 
       var lineSysId = gr.getUniqueValue();
+
+      // Per-line-item source document (e.g. an Excel workbook). When present, the client renders
+      // this attachment in the right panel instead of the PL's PDF, and treats `source` as an
+      // A1 cell reference. Resolved to attachmentData here so the client gets content_type + URL.
+      var lineDocSysId = _getValue(gr, cols.documentAttachment);
+      var lineAttachmentData = lineDocSysId ? _getAttachmentData(lineDocSysId) : null;
       byKey[sectionKey].fields.push({
         sys_id: lineSysId,           // line item identity (also the save target)
         field_name: _getValue(gr, cols.fieldNameFinal) || 'Unknown',
@@ -816,7 +829,7 @@
         logic_transparency: _getValue(gr, cols.reason),
         confidence_indicator: _parseConfidence(_getValue(gr, cols.confidenceIndicator)),
         source: _getValue(gr, cols.source),
-        attachmentData: null,
+        attachmentData: lineAttachmentData, // per-line-item source doc (Excel/PDF) or null
         // Save target: the line item row + which columns saveAuditField writes.
         meta: {
           table: CONFIG.tables.lineItem,

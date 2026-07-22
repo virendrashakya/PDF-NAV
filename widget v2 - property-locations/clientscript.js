@@ -100,6 +100,20 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   c.activeField = null;
   c.activeFieldCoordIndex = 0;
 
+  // Excel (ExcelJS) — the right panel renders EITHER a PDF or an Excel workbook, chosen by the
+  // active document's content type. Excel documents are resolved per line-item (field.attachmentData),
+  // so clicking an Excel-backed field can swap the panel to a different workbook.
+  c.excelLoaded = false;
+  c.excelSheetNames = [];   // sheet tab names for the active workbook
+  c.excelActiveSheet = '';  // currently rendered sheet name
+  c.excelSheetIndex = 0;    // 1-based index of the active sheet (for "Sheet i / n")
+  c.excelFileName = '';     // for the panel header
+  c.excelScale = 1.0;       // zoom factor for the grid (Fit / 100% / 200% / ± )
+  c.excelFit = false;       // true when scale is auto-fit to panel width
+  c.activeDocType = 'pdf';  // 'pdf' | 'excel' — which surface the panel is showing
+  c.activeDownloadUrl = ''; // /sys_attachment.do URL of the currently shown doc (Download button)
+  c.activeDownloadName = ''; // original filename for the Download button
+
   // Save tracking
   c.changedFields = {};
   c.hasChanges = false;
@@ -673,11 +687,19 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     // Log Classic UI links for this PL's records (no-op when DEBUG is false).
     _logDebugLinks(loc.sys_id);
 
-    // Load the PDF for this location, if any
+    // Load the PDF for this location, if any. (Excel documents are per line-item and load on
+    // field click via navigateToField, not here.)
     if (loc.attachmentData && loc.attachmentData.file_url) {
+      c.activeDownloadUrl = loc.attachmentData.file_url;
+      c.activeDownloadName = loc.attachmentData.file_name || '';
       loadPdfFromUrl(loc.attachmentData.file_url);
     } else {
       c.pdfLoaded = false;
+      c.excelLoaded = false;
+      c.activeDocType = 'pdf';
+      activeDocUrl = '';
+      c.activeDownloadUrl = '';
+      c.activeDownloadName = '';
       clearAnnotations();
     }
   };
@@ -714,6 +736,12 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   var renderTask = null;
   var currentPageInstance = null;
 
+  // Excel workbook state (module-scoped, parallel to pdfDoc). `activeDocUrl` tracks whichever
+  // document (PDF or Excel) is currently loaded, so navigateToField can avoid reloading the
+  // same workbook on every click.
+  var workbook = null;      // ExcelJS Workbook object
+  var activeDocUrl = '';    // URL of the document currently rendered in the panel
+
   // Resolve URL identifiers, in priority order:
   //   submissionSysId — ?submissionSysId=<sys_id>, then ?sys_id=<sys_id>, then $scope.data
   //   locationSysId   — ?locationSysId=<sys_id>, then $scope.data
@@ -749,7 +777,7 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
       script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js';
       script.onload = function () {
         $window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
-        initializeWidget();
+        loadExcelJs();
       };
       script.onerror = function () {
         c.isLoading = false;
@@ -757,8 +785,25 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
       };
       document.head.appendChild(script);
     } else {
-      initializeWidget();
+      loadExcelJs();
     }
+  }
+
+  // Inject ExcelJS the same way as PDF.js. Unlike the free SheetJS build, ExcelJS reads cell
+  // STYLES (fills, font color/weight/italic), merged ranges, and column widths — needed to render
+  // a faithful Excel-like grid. .xlsx only (not legacy .xls). Non-fatal: if it fails, PDF still
+  // works and Excel-backed fields show a load error when clicked.
+  function loadExcelJs() {
+    if ($window.ExcelJS) { initializeWidget(); return; }
+    var script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
+    script.onload = function () { initializeWidget(); };
+    script.onerror = function () {
+      // Non-blocking — the widget still loads; Excel rendering is unavailable.
+      c.showWarning('Failed to load spreadsheet library — Excel documents will not render.');
+      initializeWidget();
+    };
+    document.head.appendChild(script);
   }
 
   function initializeWidget() {
@@ -851,6 +896,11 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     c.isPdfLoading = true;
     c.loadingMessage = 'Loading PDF document...';
 
+    // Switching to a PDF — tear down any Excel view so the panel shows the PDF surface.
+    c.excelLoaded = false;
+    c.activeDocType = 'pdf';
+    activeDocUrl = url;
+
     if (renderTask) { renderTask.cancel(); renderTask = null; }
 
     var loadingTask = $window.pdfjsLib.getDocument({
@@ -883,6 +933,401 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     });
   }
 
+  /* ============================================
+   * Excel (SheetJS) — parallel to the PDF pipeline above.
+   * The right panel renders EITHER a PDF or an Excel workbook; the Excel document is resolved
+   * per line-item (field.attachmentData). `field.source` is an A1 cell reference for Excel
+   * fields (e.g. "Sheet1!B12" or "B12"), the same column that holds PDF quad coords otherwise.
+   * ============================================ */
+
+  // True when an attachment should be rendered as a spreadsheet. Prefers content_type, but falls
+  // back to the file extension because ServiceNow often stores .xlsx as application/octet-stream.
+  function isExcelDoc(attachmentData) {
+    if (!attachmentData) return false;
+    var ct = (attachmentData.content_type || '').toLowerCase();
+    if (ct.indexOf('spreadsheetml') !== -1 || ct.indexOf('ms-excel') !== -1) return true;
+    var name = (attachmentData.file_name || '').toLowerCase();
+    return /\.xlsx?$/.test(name);
+  }
+
+  // Load a workbook from a sys_attachment URL via ExcelJS. `onLoaded` fires after the first sheet
+  // renders (used to run the cell highlight once the grid exists).
+  function loadExcelFromUrl(url, onLoaded) {
+    if (!$window.ExcelJS) { c.showError('Spreadsheet library not available'); return; }
+    c.isPdfLoading = true;
+    c.loadingMessage = 'Loading spreadsheet...';
+
+    // Switching to an Excel view — tear down the PDF surface.
+    c.pdfLoaded = false;
+    c.activeDocType = 'excel';
+    activeDocUrl = url;
+
+    fetch(url)
+      .then(function (resp) {
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        return resp.arrayBuffer();
+      })
+      .then(function (buf) {
+        var wb = new $window.ExcelJS.Workbook();
+        return wb.xlsx.load(buf);
+      })
+      .then(function (wb) {
+        workbook = wb;
+        var names = [];
+        wb.eachSheet(function (ws) { names.push(ws.name); });
+        $scope.$apply(function () {
+          c.excelSheetNames = names;
+          c.excelActiveSheet = names[0] || '';
+          c.excelSheetIndex = names.length ? 1 : 0;
+          c.excelLoaded = true;
+          c.isLoading = false;
+          c.isPdfLoading = false;
+        });
+        $timeout(function () {
+          renderSheet(c.excelActiveSheet);
+          if (typeof onLoaded === 'function') onLoaded();
+        }, 100);
+      })
+      .catch(function (error) {
+        console.error('Error loading Excel:', error);
+        $scope.$apply(function () {
+          c.isLoading = false;
+          c.isPdfLoading = false;
+          c.excelLoaded = false;
+        });
+        c.showError('Failed to load spreadsheet: ' + error.message);
+      });
+  }
+
+  // ---- ExcelJS style helpers -------------------------------------------------
+  // ExcelJS colors are { argb: 'FFRRGGBB' } (theme/indexed colors are best-effort — we only map
+  // explicit argb). Return a CSS #rrggbb or '' when not resolvable.
+  function _argbToCss(color) {
+    if (!color || !color.argb || color.argb.length < 8) return '';
+    return '#' + color.argb.substring(2); // drop the alpha byte
+  }
+
+  // Convert Excel column width (in "characters") to pixels. Excel's rule ≈ width*7 + 5.
+  function _colWidthToPx(w) {
+    if (!w) return 64;
+    return Math.round(w * 7 + 5);
+  }
+
+  // Render one sheet as a styled HTML table into #excelContainer, with a header row (A/B/C…) and a
+  // header column (1/2/3…), merged cells, per-cell fills/fonts, and column widths. Each data <td>
+  // carries data-cell="<A1>" so highlightCells can locate it (the top-left anchor of a merge keeps
+  // the address; merged-away cells are skipped).
+  function renderSheet(sheetName) {
+    var container = document.getElementById('excelContainer');
+    if (!container || !workbook) return;
+    var ws = workbook.getWorksheet(sheetName);
+    if (!ws) { container.innerHTML = ''; return; }
+    c.excelActiveSheet = sheetName;
+    c.excelSheetIndex = Math.max(0, c.excelSheetNames.indexOf(sheetName)) + 1;
+
+    var dim = ws.dimensions || {};
+    var lastCol = Math.max(ws.columnCount || 0, dim.right || 0, 1);
+    var lastRow = Math.max(ws.rowCount || 0, dim.bottom || 0, 1);
+
+    // Build a lookup of merged ranges: master cell address → {colspan, rowspan}, plus a set of
+    // "covered" addresses to skip. ExcelJS exposes ws.model.merges as ["A1:C1", ...].
+    var merges = {};      // masterAddr → { rows, cols }
+    var covered = {};     // addr → true (a cell hidden under a merge)
+    var mergeList = (ws.model && ws.model.merges) || [];
+    mergeList.forEach(function (range) {
+      var parts = range.split(':');
+      if (parts.length !== 2) return;
+      var a = _decodeAddr(parts[0]), b = _decodeAddr(parts[1]);
+      if (!a || !b) return;
+      var r1 = Math.min(a.row, b.row), r2 = Math.max(a.row, b.row);
+      var c1 = Math.min(a.col, b.col), c2 = Math.max(a.col, b.col);
+      var master = _encodeAddr(r1, c1);
+      merges[master] = { rows: r2 - r1 + 1, cols: c2 - c1 + 1 };
+      for (var rr = r1; rr <= r2; rr++) {
+        for (var cc = c1; cc <= c2; cc++) {
+          if (!(rr === r1 && cc === c1)) covered[_encodeAddr(rr, cc)] = true;
+        }
+      }
+    });
+
+    var html = ['<table class="excel-grid"><thead><tr><th class="excel-corner"></th>'];
+    // Column header row (A, B, C…) with per-column widths.
+    for (var cH = 1; cH <= lastCol; cH++) {
+      var colObj = ws.getColumn(cH);
+      var wpx = _colWidthToPx(colObj && colObj.width);
+      html.push('<th class="excel-colhead" style="min-width:' + wpx + 'px;max-width:' + wpx + 'px">' + _colLetter(cH) + '</th>');
+    }
+    html.push('</tr></thead><tbody>');
+
+    for (var r = 1; r <= lastRow; r++) {
+      var rowObj = ws.getRow(r);
+      html.push('<tr><th class="excel-rowhead">' + r + '</th>');
+      for (var cIdx = 1; cIdx <= lastCol; cIdx++) {
+        var addr = _encodeAddr(r, cIdx);
+        if (covered[addr]) continue; // hidden under a merge master
+        var cell = rowObj.getCell(cIdx);
+        var span = merges[addr];
+        var attrs = ' data-cell="' + addr + '"';
+        if (span) {
+          if (span.cols > 1) attrs += ' colspan="' + span.cols + '"';
+          if (span.rows > 1) attrs += ' rowspan="' + span.rows + '"';
+        }
+        html.push('<td' + attrs + _cellStyle(cell) + '>' + _cellText(cell) + '</td>');
+      }
+      html.push('</tr>');
+    }
+    html.push('</tbody></table>');
+    // Wrap the table so absolutely-positioned image overlays anchor to it.
+    container.innerHTML = '<div class="excel-sheet-wrap">' + html.join('') + '</div>';
+    renderSheetImages(ws, container);
+    applyExcelScale();
+  }
+
+  // Draw embedded worksheet images (logos, etc.) as absolutely-positioned <img> overlays on top
+  // of the grid. ExcelJS gives each image an anchor range (tl/br in 0-based col/row); we resolve
+  // that to pixels by measuring the actual header cells in the rendered table, so column widths,
+  // row heights, and merges are all respected without EMU math. Images sit above cells but below
+  // the sticky headers (z-index), and don't intercept clicks (pointer-events:none).
+  function renderSheetImages(ws, container) {
+    var wrap = container.querySelector('.excel-sheet-wrap');
+    if (!wrap || typeof ws.getImages !== 'function') return;
+    var images;
+    try { images = ws.getImages() || []; } catch (e) { return; }
+    if (!images.length) return;
+
+    var table = wrap.querySelector('.excel-grid');
+    if (!table) return;
+
+    images.forEach(function (imgRef) {
+      var media;
+      try { media = workbook.getImage(parseInt(imgRef.imageId, 10)); } catch (e) { return; }
+      if (!media || !media.buffer) return;
+
+      var rng = imgRef.range || {};
+      var tl = rng.tl || { nativeCol: 0, nativeRow: 0, nativeColOff: 0, nativeRowOff: 0 };
+      var br = rng.br; // may be absent when the image is sized by ext instead of a br cell
+
+      // Left/top from the tl anchor's cell; width/height from br (preferred) or ext (fallback).
+      var pos = _cellPixelPos(table, tl.nativeRow, tl.nativeCol);
+      if (!pos) return;
+      var left = pos.left + _emuOffsetPx(tl.nativeColOff);
+      var top = pos.top + _emuOffsetPx(tl.nativeRowOff);
+      var width, height;
+      if (br) {
+        var posBr = _cellPixelPos(table, br.nativeRow, br.nativeCol);
+        if (posBr) {
+          width = (posBr.left + _emuOffsetPx(br.nativeColOff)) - left;
+          height = (posBr.top + _emuOffsetPx(br.nativeRowOff)) - top;
+        }
+      }
+      if ((!width || !height) && rng.ext) {          // ext is in EMU
+        width = _emuOffsetPx(rng.ext.width);
+        height = _emuOffsetPx(rng.ext.height);
+      }
+      if (!width || !height) return;
+
+      var mime = 'image/' + (media.extension === 'jpg' ? 'jpeg' : (media.extension || 'png'));
+      var img = document.createElement('img');
+      img.className = 'excel-image';
+      img.src = 'data:' + mime + ';base64,' + _bufferToBase64(media.buffer);
+      img.style.left = left + 'px';
+      img.style.top = top + 'px';
+      img.style.width = width + 'px';
+      img.style.height = height + 'px';
+      wrap.appendChild(img);
+    });
+  }
+
+  // Pixel top-left of the data cell at (row0, col0) — both 0-based, matching ExcelJS anchors.
+  // Measured from the rendered header cells (offsetLeft/offsetTop include the sticky headers).
+  function _cellPixelPos(table, row0, col0) {
+    // Column header <th> for this column is at thead cell index col0+1 (index 0 is the corner).
+    var headRow = table.tHead && table.tHead.rows[0];
+    var bodyRows = table.tBodies[0] && table.tBodies[0].rows;
+    if (!headRow || !bodyRows) return null;
+    var colTh = headRow.cells[col0 + 1];
+    var bodyRow = bodyRows[row0];
+    var rowTh = bodyRow && bodyRow.cells[0]; // the row-number <th> (sticky left)
+    if (!colTh) return null;
+    return {
+      left: colTh.offsetLeft,
+      top: rowTh ? rowTh.offsetTop : (bodyRow ? bodyRow.offsetTop : 0)
+    };
+  }
+
+  // EMU → px. Excel uses 914400 EMU per inch; at 96 DPI that's 9525 EMU per pixel.
+  function _emuOffsetPx(emu) { return (emu || 0) / 9525; }
+
+  // Uint8Array/ArrayBuffer → base64 (chunked to avoid call-stack limits on large logos).
+  function _bufferToBase64(buf) {
+    var bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+    var binary = '';
+    var chunk = 0x8000;
+    for (var i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    return $window.btoa(binary);
+  }
+
+  // Inline style string for one ExcelJS cell (fill, font color/weight/italic, alignment).
+  function _cellStyle(cell) {
+    var s = [];
+    var fill = cell.fill;
+    if (fill && fill.type === 'pattern' && fill.pattern === 'solid') {
+      var bg = _argbToCss(fill.fgColor);
+      if (bg) s.push('background-color:' + bg);
+    }
+    var font = cell.font || {};
+    var fc = _argbToCss(font.color);
+    if (fc) s.push('color:' + fc);
+    if (font.bold) s.push('font-weight:600');
+    if (font.italic) s.push('font-style:italic');
+    if (font.size) s.push('font-size:' + font.size + 'px');
+    var align = cell.alignment || {};
+    if (align.horizontal) s.push('text-align:' + align.horizontal);
+    if (align.vertical) s.push('vertical-align:' + (align.vertical === 'middle' ? 'middle' : align.vertical));
+    if (align.wrapText) s.push('white-space:normal');
+    return s.length ? ' style="' + s.join(';') + '"' : '';
+  }
+
+  // Display text for a cell, HTML-escaped. ExcelJS's `cell.text` already resolves rich text,
+  // hyperlinks, formula results and dates to a display string; fall back to manual handling of
+  // the raw value only if `text` is unavailable.
+  function _cellText(cell) {
+    var out = '';
+    if (cell.text !== undefined && cell.text !== null) {
+      out = '' + cell.text;
+    } else {
+      var v = cell.value;
+      if (v === null || v === undefined) out = '';
+      else if (typeof v === 'object') {
+        if (v.richText) out = v.richText.map(function (rt) { return rt.text; }).join('');
+        else if (v.text !== undefined) out = v.text;
+        else if (v.result !== undefined) out = '' + v.result;
+        else if (v instanceof Date) out = v.toLocaleDateString();
+        else out = '';
+      } else out = '' + v;
+    }
+    return out.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  // ---- A1 <-> {row,col} helpers (1-based), independent of any library --------
+  function _colLetter(col) {
+    var s = '';
+    while (col > 0) { var m = (col - 1) % 26; s = String.fromCharCode(65 + m) + s; col = Math.floor((col - 1) / 26); }
+    return s;
+  }
+  function _encodeAddr(row, col) { return _colLetter(col) + row; }
+  function _decodeAddr(a) {
+    var m = ('' + a).toUpperCase().match(/^([A-Z]+)([0-9]+)$/);
+    if (!m) return null;
+    var col = 0;
+    for (var i = 0; i < m[1].length; i++) col = col * 26 + (m[1].charCodeAt(i) - 64);
+    return { col: col, row: parseInt(m[2], 10) };
+  }
+
+  c.selectExcelSheet = function (sheetName) {
+    if (!sheetName || sheetName === c.excelActiveSheet) return;
+    renderSheet(sheetName);
+  };
+
+  // Prev/next sheet buttons (matches the "Sheet i / n" header control).
+  c.excelPrevSheet = function () {
+    var i = c.excelSheetNames.indexOf(c.excelActiveSheet);
+    if (i > 0) renderSheet(c.excelSheetNames[i - 1]);
+  };
+  c.excelNextSheet = function () {
+    var i = c.excelSheetNames.indexOf(c.excelActiveSheet);
+    if (i !== -1 && i < c.excelSheetNames.length - 1) renderSheet(c.excelSheetNames[i + 1]);
+  };
+
+  // ---- Excel zoom / fit ------------------------------------------------------
+  // Zoom uses the CSS `zoom` property (NOT transform:scale). transform:scale creates a new
+  // containing block that BREAKS position:sticky on the header row/column — that's why the
+  // sticky A/B/C and 1/2/3 headers drifted while scrolling. `zoom` rescales layout without
+  // establishing that containing block, so sticky keeps working. (Chromium supports `zoom`,
+  // which is what the ServiceNow embedded browser uses.)
+  function applyExcelScale() {
+    var container = document.getElementById('excelContainer');
+    if (!container) return;
+    var table = container.querySelector('.excel-grid');
+    if (!table) return;
+    table.style.transform = '';        // clear any legacy transform
+    table.style.zoom = c.excelScale;
+  }
+  c.excelZoomIn = function () { c.excelFit = false; c.excelScale = Math.min(3, c.excelScale + 0.1); applyExcelScale(); };
+  c.excelZoomOut = function () { c.excelFit = false; c.excelScale = Math.max(0.3, c.excelScale - 0.1); applyExcelScale(); };
+  c.excelZoomFit = function () {
+    var container = document.getElementById('excelContainer');
+    var table = container && container.querySelector('.excel-grid');
+    if (!container || !table) return;
+    c.excelFit = true;
+    table.style.zoom = 1; // measure at natural size first
+    var natural = table.scrollWidth || 1;
+    var avail = container.clientWidth - 4;
+    c.excelScale = Math.max(0.3, Math.min(1, avail / natural));
+    applyExcelScale();
+  };
+  c.excelScalePercent = function () { return Math.round(c.excelScale * 100); };
+
+  // ---- Download the currently shown document (Excel OR PDF) ------------------
+  c.downloadActiveDoc = function () {
+    if (!c.activeDownloadUrl) return;
+    var a = document.createElement('a');
+    a.href = c.activeDownloadUrl;
+    a.download = c.activeDownloadName || '';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  // Parse an A1 cell reference with an optional sheet prefix: "Sheet1!B12" or "B12".
+  // Returns { sheet, cell } or null. Sheet is '' when unqualified (caller uses the active sheet).
+  function parseCellReference(source) {
+    if (!source || typeof source !== 'string') return null;
+    var m = source.trim().match(/^(?:(?:'([^']+)'|([^!]+))!)?([A-Za-z]+[0-9]+)$/);
+    if (!m) return null;
+    return { sheet: (m[1] || m[2] || '').trim(), cell: m[3].toUpperCase() };
+  }
+
+  function parseMultipleCellReferences(source) {
+    if (!source || typeof source !== 'string') return [];
+    return source.split(';').map(function (s) { return parseCellReference(s.trim()); }).filter(Boolean);
+  }
+
+  // Highlight one or more cells: switch sheets if needed, mark the target <td>s, scroll the first
+  // into view. Mirrors highlightMultipleFields (the PDF equivalent), using a CSS class instead of
+  // canvas geometry. Merged cells keep their address on the master <td>, so lookups still resolve.
+  function highlightCells(refs) {
+    if (!refs || !refs.length) return;
+    var container = document.getElementById('excelContainer');
+    if (!container) return;
+
+    // If the refs name a sheet different from the active one, switch first.
+    var wanted = refs[0].sheet;
+    if (wanted && wanted !== c.excelActiveSheet && c.excelSheetNames.indexOf(wanted) !== -1) {
+      renderSheet(wanted);
+    }
+
+    // Clear prior highlights.
+    var prior = container.querySelectorAll('.xl-highlight');
+    for (var i = 0; i < prior.length; i++) prior[i].classList.remove('xl-highlight');
+
+    var firstEl = null;
+    refs.forEach(function (ref) {
+      // Only highlight refs on the sheet now showing (unqualified refs match the active sheet).
+      if (ref.sheet && ref.sheet !== c.excelActiveSheet) return;
+      var el = container.querySelector('[data-cell="' + ref.cell + '"]');
+      if (el) {
+        el.classList.add('xl-highlight');
+        if (!firstEl) firstEl = el;
+      }
+    });
+    if (firstEl && firstEl.scrollIntoView) {
+      firstEl.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
+    }
+  }
+
   function parseCoordinateString(source) {
     if (!source || typeof source !== 'string') return null;
     var m = source.match(/D\((\d+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+)\)/);
@@ -905,8 +1350,48 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     return field && field.source && field.source.length > 0;
   };
 
+  // The field currently navigated-to keeps a persistent highlight (row + aria-selected) until
+  // another is chosen. c.activeField is set inside navigateToField (both PDF and Excel paths).
+  c.isActiveField = function (field) {
+    return !!(field && c.activeField && field.sys_id === c.activeField.sys_id);
+  };
+
+  // Keyboard activation for elements that behave like buttons/rows but aren't native <button>s
+  // (field <tr>s, collapsible headers, PL rows). Returns true when the key was Enter or Space (and
+  // suppresses Space's default page-scroll), so the template can chain the action:
+  //   ng-keydown="c.isActivateKey($event) && c.navigateToField(field)"
+  // AngularJS expressions can't declare closures, so we return a boolean and let && run the action.
+  c.isActivateKey = function ($event) {
+    if (!$event) return false;
+    var key = $event.key || $event.keyCode;
+    var hit = (key === 'Enter' || key === ' ' || key === 'Spacebar' || key === 13 || key === 32);
+    if (hit) $event.preventDefault();
+    return hit;
+  };
+
   c.navigateToField = function (field) {
     if (!field) return;
+
+    // Excel path: the field's own document is a spreadsheet. Load it into the panel if it's not
+    // already the active document, then highlight the source cell(s). `field.source` is an A1 ref.
+    if (field.attachmentData && isExcelDoc(field.attachmentData)) {
+      var refs = parseMultipleCellReferences(field.source);
+      if (!refs.length) return;
+      c.activeField = field;
+      c.excelFileName = field.attachmentData.file_name || '';
+      c.activeDownloadUrl = field.attachmentData.file_url || '';
+      c.activeDownloadName = field.attachmentData.file_name || '';
+      var url = field.attachmentData.file_url;
+      if (url !== activeDocUrl || !c.excelLoaded) {
+        c.excelScale = 1.0; c.excelFit = false; // reset zoom for a freshly loaded workbook
+        loadExcelFromUrl(url, function () { highlightCells(refs); });
+      } else {
+        highlightCells(refs);
+      }
+      return;
+    }
+
+    // PDF path (default).
     field.allCoordinates = parseMultipleCoordinateStrings(field.source);
     if (!field.allCoordinates.length) return;
     var first = field.allCoordinates[0];

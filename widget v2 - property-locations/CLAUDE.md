@@ -44,8 +44,8 @@ Sibling of [widget v2 - azurui/](../widget%20v2%20-%20azurui/) — visual shell 
 | `x_gegis_uwm_dashbo_coverage_field_metadata` | **Master field dictionary.** Every field that can exist: `field_name`, `data_type` (`CURRENCY`/`NUMBER`/`STRING`/`BOOLEAN`), `coverage_type` (section header, display value), `parent_field_name` (self-join for nesting), `sequence` (sort). Queried in full, location-independent. |
 | `x_gegis_uwm_dashbo_property_coverage` | **Per-location values (Model Data).** One row = one metadata field's value for one location. `coverage_metadata_id` → metadata.sys_id, `location` → property_location.sys_id, typed value columns `field_value_currency`/`_number`/`_string`/`_boolean` + optional `field_value_formatted`. The row a Model-Data value edit PATCHes. |
 | `x_gegis_uwm_dashbo_data_extraction` | **Audit Data version.** Versioned extractions per submission (`submission`, `version`, `active`, `discarded`, `sys_created_on`). `_resolveDataExtraction` picks the most-recent `active` row (else most-recent) to scope the audit line items. |
-| `x_gegis_uwm_dashbo_data_extraction_lineitem` | **Audit Data source.** Editable line items. `parent` → data_extraction.sys_id; **`model_object_sys_id` → property_location.sys_id** (the per-PL audit scope). Columns surfaced: `field_name_final`, `field_value`, `data_verification`, `commentary`, `reason` (→ logic_transparency), `confidence_indicator`, `section_name_final` (grouping), `sequence_final` (sort), `source`. |
-| `sys_attachment` | PDF attachments (filtered by `content_type ∈ application/pdf, application/octet-stream`) |
+| `x_gegis_uwm_dashbo_data_extraction_lineitem` | **Audit Data source.** Editable line items. `parent` → data_extraction.sys_id; **`model_object_sys_id` → property_location.sys_id** (the per-PL audit scope). Columns surfaced: `field_name_final`, `field_value`, `data_verification`, `commentary`, `reason` (→ logic_transparency), `confidence_indicator`, `section_name_final` (grouping), `sequence_final` (sort), `source`, **`documentname_attachment_sysid`** (per-line-item source document, e.g. an Excel workbook — resolved to `field.attachmentData`). |
+| `sys_attachment` | Source-document attachments. `content_type` allow-list: `application/pdf`, `application/octet-stream`, **`application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` (.xlsx), `application/vnd.ms-excel` (.xls)**. |
 
 ### Data flow
 
@@ -139,9 +139,9 @@ Audit AI Value renders as a read-only span (same as Logic Transparency) — no c
 - `c.flatten(sections)` — flattens one section array's `fields` into one list (tolerates the legacy object shape defensively)
 - Each field: `sys_id` (metadata field id), `field_name, field_value, data_type` (`CURRENCY`/`NUMBER`/`STRING`/`BOOLEAN` — drives display format + inline editor), `data_verification, commentary, logic_transparency, confidence_indicator, source, attachmentData`, plus `meta: { table, sysId, valueField }` (coverage-row PATCH target; `sysId` null ⇒ no row ⇒ value read-only)
 
-### PDF state
+### PDF / Excel state
 
-`c.pdfLoaded, c.scale, c.currentPage, c.totalPages, c.zoomMode ('actual-size' | 'fit-width')`. PDF.js v2.11.338 loaded from cdnjs. PDF per-PL — switching `c.selectedPropertyLocationSysId` reloads the document.
+`c.pdfLoaded, c.scale, c.currentPage, c.totalPages, c.zoomMode ('actual-size' | 'fit-width')`. PDF.js v2.11.338 loaded from cdnjs. PDF per-PL — switching `c.selectedPropertyLocationSysId` reloads the document. The right panel can instead show an **Excel workbook** (`c.excelLoaded`, `c.activeDocType === 'excel'`) — see "Excel viewer (SheetJS)" under UX flows.
 
 ### Search + filters
 
@@ -201,9 +201,31 @@ Click a row in the top summary table → `selectPropertyLocation(loc)`:
 
 The QA Override → Commentary gate from widget v2 azurui is intentionally absent here because there is no QA Override column.
 
-### Field navigation in PDF
+### Field navigation — PDF or Excel
 
-`c.canNavigate(field)` returns true if `field.source` has coords. `c.navigateToField(field)` parses coords, jumps to the page, highlights the quads via the annotation canvas. Cross-document navigation is not needed — every field belongs to the currently selected PL's single PDF.
+`c.canNavigate(field)` returns true if `field.source` is non-empty. `c.navigateToField(field)` **branches by the field's own document type** (`isExcelDoc(field.attachmentData)`):
+
+- **PDF fields** (default): `field.source` is a quad string `D(page,x1,y1,…,x4,y4)` (`;`-separated for multiple regions). Parses coords, jumps to the page, highlights the quads via the annotation canvas overlay. The PDF is the PL's `audit_document`, loaded per-location by `selectPropertyLocation`.
+- **Excel fields**: the line item carries `documentname_attachment_sysid` → resolved server-side to `field.attachmentData` (an `.xlsx`). `field.source` is an **A1 cell reference** (`Sheet1!B12` or `B12`, `;`-separated). On click, `navigateToField` loads that workbook into the panel (via `loadExcelFromUrl`, if not already active) and calls `highlightCells` → scrolls to and orange-highlights the `<td>` (`.xl-highlight`).
+
+**Per-field documents:** unlike the PDF (one per PL), the Excel document is per line-item, so clicking different Excel fields can swap the panel to different workbooks. `activeDocUrl` tracks the loaded doc to avoid redundant reloads.
+
+### Excel viewer (ExcelJS)
+
+- **Library:** **ExcelJS** (`exceljs.min.js` v4.4.0) injected from cdnjs by `loadExcelJs()` (chained after `loadPdfJs`, mirroring the PDF.js injection). ExcelJS is used **instead of SheetJS** because the free SheetJS build cannot read cell styles — ExcelJS reads fills, font color/weight/italic, merged ranges, and column widths, needed for an MS-Excel-like grid. **`.xlsx` only** (not legacy `.xls`). **Non-fatal** if it fails to load — PDF still works, a warning toast fires, Excel fields error on click.
+- **Render:** `loadExcelFromUrl(url)` → `fetch` → `arrayBuffer` → `new ExcelJS.Workbook().xlsx.load()`. `renderSheet(name)` builds a **styled `<table class="excel-grid">`** into `#excelContainer` with:
+  - a **column header row** (A/B/C…, sticky top) + **row header column** (1/2/3…, sticky left) + a sticky top-left corner;
+  - **merged cells** from `ws.model.merges` (master cell gets `colspan`/`rowspan`; covered cells skipped);
+  - **per-cell styling** via `_cellStyle` (solid fills → `background-color`, font argb → `color`, bold/italic/size, alignment);
+  - **column widths** via `_colWidthToPx`;
+  - each data `<td>` tagged `data-cell="<A1>"` (via local `_encodeAddr`, independent of any library) for highlighting.
+  - Cell text via `_cellText` handles rich text / hyperlink / formula-result / date values and HTML-escapes.
+  - **Embedded images** (logos etc.): `renderSheetImages(ws)` reads `ws.getImages()` + `workbook.getImage(id)`, converts the image buffer to a base64 data URI, and places an absolutely-positioned `<img class="excel-image">` over the grid inside a `.excel-sheet-wrap` positioning context. Position/size come from measuring the actual header cells at the anchor's `tl`/`br` (0-based col/row) — so column widths, row heights, and merges are respected — plus EMU→px offsets (`_emuOffsetPx`, 9525 EMU/px). Images are `pointer-events:none` and `z-index:1` (below the sticky headers at z 4/5 and below a highlighted cell at z 3), so clicks/highlights still work through them.
+- **Zoom:** `c.excelScale` applied via the CSS **`zoom`** property on the table (`applyExcelScale`) — **NOT** `transform:scale`, which creates a containing block that breaks the sticky header row/column. Controls: `c.excelZoomIn/Out` (± 0.1) and `c.excelZoomFit()` (auto-fit to panel width). `c.excelScalePercent()` shows the %. Reset to 100% on each fresh workbook load. (The 100%/200% preset buttons were removed — Fit + zoom in/out only.)
+- **Sheets:** the header shows the **active sheet name** + "i / n"; multi-sheet workbooks get prev/next (`c.excelPrevSheet`/`c.excelNextSheet`; also `c.selectExcelSheet(name)`). Single-sheet shows just the name.
+- **Download:** `c.downloadActiveDoc()` downloads the currently shown document (Excel **or** PDF) from its `/sys_attachment.do` URL with the original filename. `c.activeDownloadUrl` / `c.activeDownloadName` are set in `selectPropertyLocation` (PDF) and the Excel branch of `navigateToField` (Excel).
+- **Panel switching:** the right panel shows EITHER the PDF surface (`c.pdfLoaded`) or the Excel grid (`c.excelLoaded`), driven by `c.activeDocType` (`'pdf' | 'excel'`). `loadPdfFromUrl` and `loadExcelFromUrl` each tear down the other. `#excelContainer` is populated imperatively (not via `ng-repeat`).
+- **State:** `c.excelLoaded, c.excelSheetNames, c.excelActiveSheet, c.excelSheetIndex, c.excelFileName, c.excelScale, c.excelFit, c.activeDocType, c.activeDownloadUrl, c.activeDownloadName`; module-scoped `workbook` (ExcelJS Workbook), `activeDocUrl`.
 
 ---
 
@@ -217,7 +239,7 @@ The QA Override → Commentary gate from widget v2 azurui is intentionally absen
   - **Two collapsible areas** (`.field-area` + `.area-header` with its own chevron): **Model Data** then **Audit Data** (`.field-area--audit`, only rendered when `c.auditGroupedFields.length`). Each area toggles via `c.toggleModelData()` / `c.toggleAuditData()`.
   - **Collapsible field sections** (inside each area). **Model Data** = 5-column `<table class="fields-table">` (Field Name | AI Value | Data Verification | Logic Transparency | Commentary). **Audit Data** = 6-column (adds **QA Override** between Data Verification and Logic Transparency). Each has an accuracy % header pill. In **Model Data**, AI Value is click-to-edit and saves to the coverage row (or read-only span when no row exists); Data Verification & Commentary are click-to-edit but UI-only. In **Audit Data**, AI Value is a **read-only span**; QA Override, Data Verification & Commentary are click-to-edit (status-gated) and persist to the line item row. Logic Transparency stays read-only in both.
   - **Save status bar** at sidebar bottom
-- **PDF panel:** header (filename, fit-width / actual-size, prev / next page) + canvas + footer
+- **Document panel (right):** header (filename + icon, controls) + body + footer. In **PDF mode** the header shows fit-width / actual-size / prev / next controls and the body is the two stacked canvases (`#pdfCanvas` + `#annotationCanvas`). In **Excel mode** the header shows sheet tabs (multi-sheet only) and the body is the `#excelContainer` HTML grid. Which surface shows is driven by `c.activeDocType` / `c.pdfLoaded` / `c.excelLoaded`.
 
 ### Top action button
 
@@ -228,6 +250,15 @@ The page-level `⋯` menu from the screenshot is still omitted.
 ### External ServiceNow dependency
 
 `ExtractionHelper.dataFlowBetweenDataExtractAndModel_Location(locationSysId, mode)` where `mode ∈ MODEL2AUDIT | AUDIT2MODEL`. This is the **`_Location` variant** (per-location), distinct from azurui's per-submission `dataFlowBetweenDataExtractAndModel(submissionNumber, mode)`. Called by `syncModelToAudit` (load) and `completeAuditToModel` (Complete). Source lives in the ServiceNow instance, not this repo.
+
+### Accessibility (ARIA + keyboard)
+
+The widget is operable without a mouse and exposes ARIA semantics:
+
+- **Keyboard activation** — every clickable non-`<button>` element (field `<tr>`s, PL summary `<tr>`s, the Model/Audit **area headers**, and each collapsible **section header**) has `tabindex="0"` (field rows: `0` only when `canNavigate(field)`, else `-1`) and an `ng-keydown` that fires the same action on **Enter/Space**. The shared gate is `c.isActivateKey($event)` — it returns true for Enter/Space and calls `preventDefault()` (so Space doesn't scroll), and the template chains the action with `&&` (e.g. `c.isActivateKey($event) && c.navigateToField(field)`). **AngularJS expressions can't declare closures**, so handlers must use this `&&`-chained boolean form — never pass a `function(){…}` into an `ng-keydown`/`ng-click` expression (the Angular parser rejects it).
+- **Persistent selected field** — the navigated field keeps a highlight until another is chosen: `c.isActiveField(field)` (compares `field.sys_id` to `c.activeField.sys_id`) drives both the `active-field` CSS class (amber wash + left accent bar) and `aria-selected` on the row. `c.activeField` is set in both the PDF and Excel branches of `navigateToField`.
+- **Roles / state** — area & section headers are `role="button"` with `aria-expanded`; rows are `aria-selected`; the two panels are `role="region"` (sidebar = "Submission fields", right = "Source document viewer"); toolbars are `role="toolbar"`; toggle buttons expose `aria-pressed`. Icon-only buttons carry `aria-label` and their `<i>` glyphs are `aria-hidden="true"`. Live regions: toasts (`aria-live="assertive"`), save-status bar + loading overlay + page/sheet/zoom indicators (`aria-live="polite"`).
+- **Focus visibility** — `:focus-visible` rings (blue, `#0078d4`) on all interactive elements, with a plain `:focus` fallback for rows/headers.
 
 ---
 

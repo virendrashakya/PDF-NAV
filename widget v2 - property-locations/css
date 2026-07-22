@@ -1880,3 +1880,211 @@
 .field-area-body .field-section:last-child {
   border-bottom: none;
 }
+
+/* ============================================
+   EXCEL VIEWER (ExcelJS)
+   The right panel renders EITHER a PDF or an Excel workbook. renderSheet() injects a
+   styled <table.excel-grid> into #excelContainer with a column header row (A/B/C…),
+   a row header column (1/2/3…), merged cells, per-cell fills/fonts, and column widths —
+   an MS-Excel-like grid. Clicking a field scrolls to and highlights its source cell
+   (.xl-highlight, the same orange as the PDF annotation overlay). Zoom uses the CSS
+   `zoom` property on the table (applyExcelScale) — NOT transform:scale, which would
+   create a containing block that breaks the sticky header row/column.
+   ============================================ */
+.excel-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: auto;
+  background: #ffffff;
+  padding: 0;
+}
+
+/* Positioning context for embedded-image overlays (logos etc.). The zoom applies to the table;
+   the wrap is inline-block so it shrinks to the table and images anchor to the same box. */
+.excel-sheet-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.excel-grid {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12px;
+  color: #333333;
+  font-family: 'Segoe UI', Calibri, Tahoma, sans-serif;
+  background: #ffffff;
+  table-layout: fixed;
+}
+
+/* Embedded worksheet images — absolutely placed over the grid, below sticky headers,
+   non-interactive so cell clicks/highlights still work through them. */
+.excel-image {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+  object-fit: contain;
+}
+
+.excel-grid td,
+.excel-grid th {
+  border-right: 1px solid #d4d4d4;
+  border-bottom: 1px solid #d4d4d4;
+  padding: 2px 6px;
+  height: 20px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+  line-height: 1.3;
+}
+
+/* Column header row (A, B, C…) — sticky to the top, Excel-gray.
+   z-index sits ABOVE image overlays (z-index:1) so headers are never covered by a logo. */
+.excel-grid thead th.excel-colhead {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  background: #f3f2f1;
+  color: #605e5c;
+  font-weight: 600;
+  text-align: center;
+  border-top: 1px solid #d4d4d4;
+  border-bottom: 1px solid #b3b3b3;
+}
+
+/* Row header column (1, 2, 3…) — sticky to the left. Above image overlays. */
+.excel-grid th.excel-rowhead {
+  position: sticky;
+  left: 0;
+  z-index: 4;
+  background: #f3f2f1;
+  color: #605e5c;
+  font-weight: 600;
+  text-align: center;
+  min-width: 40px;
+  max-width: 40px;
+  width: 40px;
+  border-left: 1px solid #d4d4d4;
+  border-right: 1px solid #b3b3b3;
+}
+
+/* Top-left corner cell — sticky on both axes so it sits above everything. */
+.excel-grid th.excel-corner {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  background: #e6e6e6;
+  min-width: 40px;
+  max-width: 40px;
+  width: 40px;
+  border-top: 1px solid #d4d4d4;
+  border-left: 1px solid #d4d4d4;
+  border-right: 1px solid #b3b3b3;
+  border-bottom: 1px solid #b3b3b3;
+}
+
+/* Data cells default to left-aligned first column emphasis is up to the workbook's own styles. */
+.excel-grid tbody td {
+  background: #ffffff;
+}
+
+/* Highlighted source cell — matches the PDF annotation orange. !important so it wins over the
+   workbook's own inline background/color. */
+.excel-grid td.xl-highlight {
+  background: rgba(249, 115, 22, 0.30) !important;
+  color: #7a2e00 !important;
+  outline: 2px solid rgba(249, 115, 22, 0.95);
+  outline-offset: -2px;
+  font-weight: 600;
+  /* Raise above image overlays (z-index:1) so a highlighted cell under a logo stays visible. */
+  position: relative;
+  z-index: 3;
+}
+
+/* Header sheet navigation (sheet name + "i / n") sits in the title cluster. */
+.excel-sheet-nav {
+  margin-right: 8px;
+}
+
+.excel-sheet-label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  max-width: 180px;
+}
+
+.excel-sheet-name {
+  font-weight: 600;
+  color: #217346;
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.excel-sheet-count {
+  font-size: 11px;
+  color: #605e5c;
+  white-space: nowrap;
+}
+
+/* Excel-green file icon. Scoped to .pdf-title to out-specify the `.pdf-title i { color:#d13438 }`
+   PDF-red rule that otherwise wins on the header icon. */
+.pdf-title i.excel-icon,
+.excel-icon {
+  color: #217346; /* Excel green */
+}
+
+/* ============================================
+   ACCESSIBILITY — keyboard focus + persistent selected field
+   Every clickable non-<button> element (field rows, PL rows, collapsible headers) is
+   focusable (tabindex) and operable via Enter/Space. These rules give them a clearly
+   visible focus ring and keep the navigated field highlighted (.active-field).
+   ============================================ */
+
+/* Visible focus ring for keyboard users on all interactive elements. :focus-visible only
+   shows the ring for keyboard focus (not mouse clicks), matching native behavior. */
+.fields-table tbody tr:focus-visible,
+.pl-summary-table tbody tr:focus-visible,
+.area-header:focus-visible,
+.section-header:focus-visible,
+.btn-icon:focus-visible,
+.btn-collapse-toggle:focus-visible,
+.btn-complete:focus-visible,
+.btn-search-toggle:focus-visible,
+.btn-search-clear:focus-visible,
+.toast-close:focus-visible {
+  outline: 2px solid #0078d4;
+  outline-offset: -2px;
+  box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.35);
+}
+
+/* Fallback for environments without :focus-visible — a lighter ring on plain :focus. */
+.fields-table tbody tr:focus,
+.pl-summary-table tbody tr:focus,
+.area-header:focus,
+.section-header:focus {
+  outline: 2px solid #0078d4;
+  outline-offset: -2px;
+}
+
+/* Persistent selected/navigated field — kept highlighted until another is chosen.
+   Reuses the existing .active-field amber wash and adds a left accent bar so the
+   selected row stays obvious even after focus moves elsewhere. */
+.fields-table tbody tr.active-field {
+  background: #fff4ce;
+  box-shadow: inset 3px 0 0 #f9a825;
+}
+
+.fields-table tbody tr.active-field:hover {
+  background: #ffefb3;
+}
+
+/* Field rows that can't navigate get no focus affordance (they're tabindex=-1). */
+.fields-table tbody tr.no-navigate {
+  cursor: default;
+}

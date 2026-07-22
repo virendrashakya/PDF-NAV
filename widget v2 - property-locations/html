@@ -21,11 +21,11 @@
   </div>
 
   <!-- Toast notifications -->
-  <div class="toast-container">
-    <div class="toast" ng-repeat="toast in c.toasts track by toast.id"
+  <div class="toast-container" role="region" aria-label="Notifications" aria-live="assertive">
+    <div class="toast" ng-repeat="toast in c.toasts track by toast.id" role="alert"
       ng-class="{'toast-success': toast.type === 'success', 'toast-error': toast.type === 'error', 'toast-info': toast.type === 'info', 'toast-warning': toast.type === 'warning'}">
       <div class="toast-icon">
-        <i class="fas" ng-class="{
+        <i class="fas" aria-hidden="true" ng-class="{
           'fa-check-circle': toast.type === 'success',
           'fa-exclamation-circle': toast.type === 'error',
           'fa-info-circle': toast.type === 'info',
@@ -35,8 +35,8 @@
       <div class="toast-content">
         <span class="toast-message">{{toast.message}}</span>
       </div>
-      <button class="toast-close" ng-click="c.dismissToast(toast.id)">
-        <i class="fas fa-times"></i>
+      <button class="toast-close" ng-click="c.dismissToast(toast.id)" aria-label="Dismiss notification">
+        <i class="fas fa-times" aria-hidden="true"></i>
       </button>
     </div>
   </div>
@@ -49,15 +49,18 @@
     <!-- ============================================
          LEFT SIDEBAR
          ============================================ -->
-    <div class="left-sidebar" ng-class="{'collapsed': c.sidebarCollapsed}">
+    <div class="left-sidebar" ng-class="{'collapsed': c.sidebarCollapsed}"
+      role="region" aria-label="Submission fields">
 
       <!-- Sidebar header: collapse toggle + Submission ID title -->
       <div class="fields-header">
         <div class="header-row">
           <div class="header-title-group">
             <button class="btn-collapse-toggle" ng-click="c.toggleSidebar()"
+              aria-expanded="{{!c.sidebarCollapsed}}"
+              aria-label="{{c.sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}}"
               title="{{c.sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}}">
-              <i class="fas" ng-class="c.sidebarCollapsed ? 'fa-chevron-right' : 'fa-chevron-left'"></i>
+              <i class="fas" ng-class="c.sidebarCollapsed ? 'fa-chevron-right' : 'fa-chevron-left'" aria-hidden="true"></i>
             </button>
             <h2 class="fields-title" ng-hide="c.sidebarCollapsed">
               Submission ID:
@@ -97,17 +100,17 @@
           </span>
 
           <div class="search-inline" ng-show="c.searchExpanded">
-            <i class="fas fa-search search-icon"></i>
+            <i class="fas fa-search search-icon" aria-hidden="true"></i>
             <input type="text" ng-model="c.fieldSearch" placeholder="Search fields..."
-              class="search-input" id="fieldSearchInput"
+              class="search-input" id="fieldSearchInput" aria-label="Search fields"
               ng-keydown="$event.keyCode === 27 && c.collapseSearch()">
-            <button class="btn-search-clear" ng-click="c.collapseSearch()" title="Close search">
-              <i class="fas fa-times"></i>
+            <button class="btn-search-clear" ng-click="c.collapseSearch()" aria-label="Close search" title="Close search">
+              <i class="fas fa-times" aria-hidden="true"></i>
             </button>
           </div>
           <button class="btn-search-toggle" ng-click="c.expandSearch()"
-            ng-show="!c.searchExpanded" title="Search fields">
-            <i class="fas fa-search"></i>
+            ng-show="!c.searchExpanded" aria-label="Search fields" title="Search fields">
+            <i class="fas fa-search" aria-hidden="true"></i>
           </button>
         </div>
       </div>
@@ -137,6 +140,9 @@
             <tbody>
               <tr ng-repeat="loc in c.propertyLocations track by loc.sys_id"
                 ng-click="c.selectPropertyLocation(loc)"
+                ng-keydown="c.isActivateKey($event) && c.selectPropertyLocation(loc)"
+                tabindex="0" role="row" aria-selected="{{c.isLocationSelected(loc)}}"
+                aria-label="Property location {{loc.location_name}}, press Enter to select"
                 ng-class="{'selected-pl': c.isLocationSelected(loc)}">
                 <td title="{{loc.location_name}}">{{loc.location_name || '-'}}</td>
                 <td title="{{loc.address_text}}">{{c.truncateText(loc.address_text, 35) || '-'}}</td>
@@ -156,18 +162,24 @@
              Independently collapsible via c.modelDataCollapsed.
              ============================================ -->
         <div class="field-area">
-          <div class="area-header" ng-click="c.toggleModelData()">
-            <i class="fas area-chevron" ng-class="c.modelDataCollapsed ? 'fa-chevron-right' : 'fa-chevron-down'"></i>
+          <div class="area-header" role="button" tabindex="0" aria-expanded="{{!c.modelDataCollapsed}}"
+            aria-controls="modelDataBody" ng-click="c.toggleModelData()"
+            ng-keydown="c.isActivateKey($event) && c.toggleModelData()">
+            <i class="fas area-chevron" ng-class="c.modelDataCollapsed ? 'fa-chevron-right' : 'fa-chevron-down'" aria-hidden="true"></i>
             <span class="area-title">Model Data</span>
           </div>
 
-          <div class="field-area-body" ng-show="!c.modelDataCollapsed">
+          <div class="field-area-body" id="modelDataBody" ng-show="!c.modelDataCollapsed">
         <!-- Collapsible field sections — c.groupedFields is an ordered array [{key,label,fields}] -->
         <div ng-repeat="section in c.groupedFields track by section.key" class="field-section">
 
-          <div class="section-header" ng-click="c.collapsedSections[section.key] = !c.collapsedSections[section.key]">
+          <div class="section-header" role="button" tabindex="0"
+            aria-expanded="{{!c.collapsedSections[section.key]}}"
+            aria-label="{{section.label}} section, {{section.fields.length}} fields"
+            ng-click="c.collapsedSections[section.key] = !c.collapsedSections[section.key]"
+            ng-keydown="c.isActivateKey($event) && (c.collapsedSections[section.key] = !c.collapsedSections[section.key])">
             <div class="section-title-wrapper">
-              <i class="fas" ng-class="c.collapsedSections[section.key] ? 'fa-chevron-right' : 'fa-chevron-down'"></i>
+              <i class="fas" ng-class="c.collapsedSections[section.key] ? 'fa-chevron-right' : 'fa-chevron-down'" aria-hidden="true"></i>
               <span class="section-title">{{section.label}} ({{section.fields.length}})</span>
             </div>
             <div class="section-accuracy" ng-if="section.fields.length > 0 && c.sectionHasConfidence(section.fields)"
@@ -190,7 +202,11 @@
               <tbody>
                 <tr ng-repeat="field in section.fields | filter:c.searchFilter" ng-if="c.shouldShowField(field)"
                   ng-click="c.canNavigate(field) && c.navigateToField(field)"
-                  ng-class="{'no-navigate': !c.canNavigate(field), 'has-validation-error': field.validationError}">
+                  ng-keydown="c.canNavigate(field) && c.isActivateKey($event) && c.navigateToField(field)"
+                  tabindex="{{c.canNavigate(field) ? 0 : -1}}"
+                  role="row" aria-selected="{{c.isActiveField(field)}}"
+                  aria-label="{{field.field_name}}{{c.canNavigate(field) ? ', press Enter to locate in document' : ''}}"
+                  ng-class="{'no-navigate': !c.canNavigate(field), 'has-validation-error': field.validationError, 'active-field': c.isActiveField(field)}">
 
                   <td class="col-field-name">
                     <div class="field-name-cell">
@@ -299,18 +315,23 @@
              line item row. Independently collapsible via c.auditDataCollapsed.
              ============================================ -->
         <div class="field-area field-area--audit" ng-if="c.auditGroupedFields.length">
-          <div class="area-header" ng-click="c.toggleAuditData()">
-            <i class="fas area-chevron" ng-class="c.auditDataCollapsed ? 'fa-chevron-right' : 'fa-chevron-down'"></i>
+          <div class="area-header" role="button" tabindex="0" aria-expanded="{{!c.auditDataCollapsed}}"
+            aria-controls="auditDataBody" ng-click="c.toggleAuditData()"
+            ng-keydown="c.isActivateKey($event) && c.toggleAuditData()">
+            <i class="fas area-chevron" ng-class="c.auditDataCollapsed ? 'fa-chevron-right' : 'fa-chevron-down'" aria-hidden="true"></i>
             <span class="area-title">Audit Data</span>
           </div>
 
-          <div class="field-area-body" ng-show="!c.auditDataCollapsed">
+          <div class="field-area-body" id="auditDataBody" ng-show="!c.auditDataCollapsed">
             <div ng-repeat="section in c.auditGroupedFields track by section.key" class="field-section">
 
-              <div class="section-header"
-                ng-click="c.auditCollapsedSections[section.key] = !c.auditCollapsedSections[section.key]">
+              <div class="section-header" role="button" tabindex="0"
+                aria-expanded="{{!c.auditCollapsedSections[section.key]}}"
+                aria-label="{{section.label}} section, {{section.fields.length}} fields"
+                ng-click="c.auditCollapsedSections[section.key] = !c.auditCollapsedSections[section.key]"
+                ng-keydown="c.isActivateKey($event) && (c.auditCollapsedSections[section.key] = !c.auditCollapsedSections[section.key])">
                 <div class="section-title-wrapper">
-                  <i class="fas" ng-class="c.auditCollapsedSections[section.key] ? 'fa-chevron-right' : 'fa-chevron-down'"></i>
+                  <i class="fas" ng-class="c.auditCollapsedSections[section.key] ? 'fa-chevron-right' : 'fa-chevron-down'" aria-hidden="true"></i>
                   <span class="section-title">{{section.label}} ({{section.fields.length}})</span>
                 </div>
                 <div class="section-accuracy" ng-if="section.fields.length > 0 && c.sectionHasConfidence(section.fields)"
@@ -334,7 +355,11 @@
                   <tbody>
                     <tr ng-repeat="field in section.fields | filter:c.searchFilter" ng-if="c.shouldShowField(field)"
                       ng-click="c.canNavigate(field) && c.navigateToField(field)"
-                      ng-class="{'no-navigate': !c.canNavigate(field), 'has-validation-error': field.validationError}">
+                      ng-keydown="c.canNavigate(field) && c.isActivateKey($event) && c.navigateToField(field)"
+                      tabindex="{{c.canNavigate(field) ? 0 : -1}}"
+                      role="row" aria-selected="{{c.isActiveField(field)}}"
+                      aria-label="{{field.field_name}}{{c.canNavigate(field) ? ', press Enter to locate in document' : ''}}"
+                      ng-class="{'no-navigate': !c.canNavigate(field), 'has-validation-error': field.validationError, 'active-field': c.isActiveField(field)}">
 
                       <td class="col-field-name">
                         <div class="field-name-cell">
@@ -460,12 +485,12 @@
       </div>
 
       <!-- Save status bar -->
-      <div class="save-status-bar"
+      <div class="save-status-bar" role="status" aria-live="polite"
         ng-class="{'saving': c.saveStatus === 'saving', 'saved': c.saveStatus === 'saved', 'error': c.saveStatus === 'error'}"
         ng-show="c.saveStatus">
-        <i class="fas fa-spinner fa-spin" ng-show="c.saveStatus === 'saving'"></i>
-        <i class="fas fa-check-circle" ng-show="c.saveStatus === 'saved'"></i>
-        <i class="fas fa-exclamation-circle" ng-show="c.saveStatus === 'error'"></i>
+        <i class="fas fa-spinner fa-spin" ng-show="c.saveStatus === 'saving'" aria-hidden="true"></i>
+        <i class="fas fa-check-circle" ng-show="c.saveStatus === 'saved'" aria-hidden="true"></i>
+        <i class="fas fa-exclamation-circle" ng-show="c.saveStatus === 'error'" aria-hidden="true"></i>
         <span>{{c.saveStatusMessage}}</span>
       </div>
     </div>
@@ -473,52 +498,107 @@
     <!-- ============================================
          RIGHT PANEL — PDF VIEWER
          ============================================ -->
-    <div class="pdf-panel">
+    <div class="pdf-panel" role="region" aria-label="Source document viewer">
 
       <div class="pdf-header">
+        <!-- Left cluster: in Excel mode a sheet prev/next + "Sheet i / n"; then filename. -->
         <div class="pdf-title">
-          <i class="fas fa-file-pdf"></i>
-          <span ng-if="c.currentDocumentLabel()">{{c.currentDocumentLabel()}}</span>
-          <span ng-if="!c.currentDocumentLabel()">No document selected</span>
+          <div class="control-group excel-sheet-nav" ng-if="c.activeDocType === 'excel' && c.excelSheetNames.length > 1">
+            <button ng-click="c.excelPrevSheet()" ng-disabled="c.excelSheetIndex <= 1" class="btn-icon" aria-label="Previous sheet" title="Previous Sheet">
+              <i class="fas fa-chevron-left" aria-hidden="true"></i>
+            </button>
+            <span class="page-info excel-sheet-label" title="{{c.excelActiveSheet}}" aria-live="polite">
+              <span class="excel-sheet-name">{{c.excelActiveSheet}}</span>
+              <span class="excel-sheet-count">{{c.excelSheetIndex}} / {{c.excelSheetNames.length}}</span>
+            </span>
+            <button ng-click="c.excelNextSheet()" ng-disabled="c.excelSheetIndex >= c.excelSheetNames.length" class="btn-icon" aria-label="Next sheet" title="Next Sheet">
+              <i class="fas fa-chevron-right" aria-hidden="true"></i>
+            </button>
+          </div>
+          <!-- Single-sheet workbook: still show the sheet name (no prev/next). -->
+          <div class="control-group excel-sheet-nav" ng-if="c.activeDocType === 'excel' && c.excelSheetNames.length === 1">
+            <span class="page-info excel-sheet-label" title="{{c.excelActiveSheet}}">
+              <span class="excel-sheet-name">{{c.excelActiveSheet}}</span>
+            </span>
+          </div>
+          <i class="fas" ng-class="c.activeDocType === 'excel' ? 'fa-file-excel excel-icon' : 'fa-file-pdf'" aria-hidden="true"></i>
+          <span ng-if="c.activeDocType === 'excel'">{{c.excelFileName || c.excelActiveSheet || 'Spreadsheet'}}</span>
+          <span ng-if="c.activeDocType !== 'excel' && c.currentDocumentLabel()">{{c.currentDocumentLabel()}}</span>
+          <span ng-if="c.activeDocType !== 'excel' && !c.currentDocumentLabel()">No document selected</span>
         </div>
 
-        <div class="pdf-controls">
+        <!-- PDF controls — only in PDF mode. -->
+        <div class="pdf-controls" ng-if="c.activeDocType !== 'excel'" role="toolbar" aria-label="PDF controls">
           <div class="control-group">
             <button ng-click="c.fitWidth()" ng-disabled="c.isLoading || !c.pdfLoaded" class="btn-icon"
-              ng-class="{'active': c.zoomMode === 'fit-width'}" title="Fit to Width">
-              <i class="fa-solid fa-arrows-left-right-to-line"></i>
+              ng-class="{'active': c.zoomMode === 'fit-width'}" aria-label="Fit to width"
+              aria-pressed="{{c.zoomMode === 'fit-width'}}" title="Fit to Width">
+              <i class="fa-solid fa-arrows-left-right-to-line" aria-hidden="true"></i>
             </button>
             <button ng-click="c.actual100Percent()" ng-disabled="c.isLoading || !c.pdfLoaded" class="btn-icon"
-              ng-class="{'active': c.zoomMode === 'actual-size'}" title="Actual Size (100%)">
-              <i class="fa-solid fa-text-height"></i>
+              ng-class="{'active': c.zoomMode === 'actual-size'}" aria-label="Actual size (100%)"
+              aria-pressed="{{c.zoomMode === 'actual-size'}}" title="Actual Size (100%)">
+              <i class="fa-solid fa-text-height" aria-hidden="true"></i>
             </button>
           </div>
 
           <div class="control-group">
             <button ng-click="c.previousPage()" ng-disabled="c.currentPage <= 1 || c.isLoading" class="btn-icon"
-              title="Previous Page">
-              <i class="fas fa-chevron-left"></i>
+              aria-label="Previous page" title="Previous Page">
+              <i class="fas fa-chevron-left" aria-hidden="true"></i>
             </button>
-            <div class="page-info">
+            <div class="page-info" aria-live="polite">
               <span>Page {{c.currentPage}} of {{c.totalPages}}</span>
             </div>
             <button ng-click="c.nextPage()" ng-disabled="c.currentPage >= c.totalPages || c.isLoading" class="btn-icon"
-              title="Next Page">
-              <i class="fas fa-chevron-right"></i>
+              aria-label="Next page" title="Next Page">
+              <i class="fas fa-chevron-right" aria-hidden="true"></i>
+            </button>
+          </div>
+
+          <div class="control-group">
+            <button ng-click="c.downloadActiveDoc()" ng-disabled="!c.activeDownloadUrl" class="btn-icon"
+              aria-label="Download document" title="Download document">
+              <i class="fas fa-download" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Excel zoom + download controls — only in Excel mode. -->
+        <div class="pdf-controls" ng-if="c.activeDocType === 'excel'" role="toolbar" aria-label="Spreadsheet controls">
+          <div class="control-group">
+            <button ng-click="c.excelZoomOut()" ng-disabled="!c.excelLoaded" class="btn-icon" aria-label="Zoom out" title="Zoom Out">
+              <i class="fas fa-minus" aria-hidden="true"></i>
+            </button>
+            <span class="page-info" aria-live="polite" aria-label="Zoom {{c.excelScalePercent()}} percent">{{c.excelScalePercent()}}%</span>
+            <button ng-click="c.excelZoomIn()" ng-disabled="!c.excelLoaded" class="btn-icon" aria-label="Zoom in" title="Zoom In">
+              <i class="fas fa-plus" aria-hidden="true"></i>
+            </button>
+          </div>
+
+          <div class="control-group">
+            <button ng-click="c.excelZoomFit()" ng-disabled="!c.excelLoaded" class="btn-icon"
+              ng-class="{'active': c.excelFit}" aria-label="Fit to width" aria-pressed="{{c.excelFit}}" title="Fit to Width">Fit</button>
+          </div>
+
+          <div class="control-group">
+            <button ng-click="c.downloadActiveDoc()" ng-disabled="!c.activeDownloadUrl" class="btn-icon"
+              aria-label="Download spreadsheet" title="Download spreadsheet">
+              <i class="fas fa-download" aria-hidden="true"></i>
             </button>
           </div>
         </div>
       </div>
 
       <div class="pdf-content" id="pdfContainer">
-        <div class="pdf-loading-overlay" ng-show="c.isPdfLoading">
+        <div class="pdf-loading-overlay" ng-show="c.isPdfLoading" role="status" aria-live="polite">
           <div class="pdf-loader">
-            <i class="fas fa-spinner fa-spin"></i>
-            <span>Loading PDF...</span>
+            <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+            <span>Loading {{c.activeDocType === 'excel' ? 'spreadsheet' : 'PDF'}}...</span>
           </div>
         </div>
 
-        <div class="pdf-placeholder" ng-show="!c.pdfLoaded && !c.isPdfLoading">
+        <div class="pdf-placeholder" ng-show="!c.pdfLoaded && !c.excelLoaded && !c.isPdfLoading">
           <div class="placeholder-content">
             <i class="fas fa-file-pdf placeholder-icon"></i>
             <h3 class="placeholder-title">No Document Available</h3>
@@ -530,6 +610,10 @@
           <canvas id="pdfCanvas" class="pdf-canvas"></canvas>
           <canvas id="annotationCanvas" class="annotation-canvas"></canvas>
         </div>
+
+        <!-- Excel grid — populated imperatively by renderSheet() in the controller. -->
+        <div class="excel-content" id="excelContainer" ng-show="c.excelLoaded"
+          role="table" aria-label="Spreadsheet {{c.excelFileName}} sheet {{c.excelActiveSheet}}"></div>
       </div>
 
       <div class="pdf-footer">
