@@ -491,6 +491,22 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
   };
 
   /**
+   * Pure live check (no state mutation — safe to call from ng-class / ng-disabled)
+   * for the QA Override → Commentary rule: field has a non-empty QA Override value
+   * but an empty Commentary. Drives immediate red highlighting so the user sees
+   * WHAT to fix the moment Complete goes disabled, without waiting for a blur to
+   * set `commentaryRequired`.
+   * @param {object} field
+   * @returns {boolean}
+   */
+  c.needsCommentary = function (field) {
+    if (!field) return false;
+    var hasQa = field.qa_override_value && field.qa_override_value.trim() !== '';
+    var hasComment = field.commentary && field.commentary.trim() !== '';
+    return !!hasQa && !hasComment;
+  };
+
+  /**
    * Pure check (no state mutation — safe to call from ng-disabled) that reports
    * whether any field has a blocking validation error. Used to keep the Complete
    * button disabled while the data is not valid.
@@ -508,11 +524,31 @@ api.controller = function ($scope, $location, $filter, $window, spUtil, $timeout
     for (var i = 0; i < allFields.length; i++) {
       var f = allFields[i];
       if (f.validationError) return true;
-      var hasQa = f.qa_override_value && f.qa_override_value.trim() !== '';
-      var hasComment = f.commentary && f.commentary.trim() !== '';
-      if (hasQa && !hasComment) return true;
+      if (c.needsCommentary(f)) return true;
     }
     return false;
+  };
+
+  /**
+   * Human-readable reason the Complete button is disabled, for the button tooltip.
+   * Points the user at the specific fix instead of a generic "fix validation errors".
+   * Read-only version takes precedence; then the QA-Override-needs-Commentary rule
+   * (the common case that left users stuck — UM-2534); then any server-side error.
+   * @returns {string} tooltip text ('' when nothing is blocking)
+   */
+  c.completeDisabledReason = function () {
+    if (c.isReadOnlyVersion) return 'Switch to the active version to mark complete';
+    if (!c.groupedFields || !c.isAnyFieldEditable()) return '';
+    var allFields = c.flatten(c.groupedFields);
+    var missingCommentary = false;
+    var serverError = false;
+    for (var i = 0; i < allFields.length; i++) {
+      if (c.needsCommentary(allFields[i])) missingCommentary = true;
+      if (allFields[i].validationError) serverError = true;
+    }
+    if (missingCommentary) return 'Add Commentary for each QA Override value before completing';
+    if (serverError) return 'Fix validation errors before completing';
+    return '';
   };
 
   /**

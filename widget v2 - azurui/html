@@ -113,7 +113,7 @@
             <button class="btn-complete" ng-class="c.completeBtn.css"
               ng-click="c.markAsComplete()"
               ng-disabled="c.isLoading || c.completeBtn.disabled || c.isReadOnlyVersion || c.hasValidationErrors()"
-              title="{{c.isReadOnlyVersion ? 'Switch to the active version to mark complete' : (c.hasValidationErrors() ? 'Fix validation errors before completing' : '')}}">
+              title="{{c.completeDisabledReason()}}">
               <span class="btn-complete-content">
                 <!-- Bouncing dots for progress -->
                 <span class="btn-progress-dots" ng-if="c.completeBtn.showDots">
@@ -239,7 +239,7 @@
                   <td class="col-qa-override" ng-click="$event.stopPropagation()">
                     <input type="text" class="override-input" ng-model="field.qa_override_value"
                       ng-if="c.canEditQaOverride()" ng-change="c.markFieldAsChanged(field)"
-                      ng-class="{'validation-error': field.validationError}"
+                      ng-class="{'validation-error': field.validationError || c.needsCommentary(field)}"
                       ng-blur="c.validateCommentary(field); c.autoSaveField(field)"
                       ng-disabled="c.completeBtn.state === 'progress'" placeholder="Enter...">
                     <span class="cell-text" ng-if="!c.canEditQaOverride()" title="{{field.qa_override_value}}">
@@ -258,9 +258,10 @@
                   <!-- Commentary -->
                   <td class="col-commentary" ng-click="$event.stopPropagation()">
                     <input type="text" class="commentary-input" ng-model="field.commentary"
-                      ng-if="c.canEditCommentary()" ng-class="{'validation-error': field.commentaryRequired || field.validationError}"
+                      ng-if="c.canEditCommentary()" ng-class="{'validation-error': field.commentaryRequired || field.validationError || c.needsCommentary(field)}"
+                      placeholder="{{c.needsCommentary(field) ? 'Commentary required' : 'Enter...'}}"
                       ng-change="c.markFieldAsChanged(field); field.commentaryRequired = false;"
-                      ng-blur="c.autoSaveField(field)" ng-disabled="c.completeBtn.state === 'progress'" placeholder="Enter...">
+                      ng-blur="c.autoSaveField(field)" ng-disabled="c.completeBtn.state === 'progress'">
                     <span class="cell-text" ng-if="!c.canEditCommentary()" title="{{field.commentary}}">
                       {{c.truncateText(field.commentary, 12) || '-'}}
                     </span>
